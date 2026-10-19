@@ -1,0 +1,87 @@
+name: AirSafe CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    name: Gitleaks Secret Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-services:
+    name: Services & Simulator Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 1. Simulator Tests
+      - name: Test Simulator
+        working-directory: simulator
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # 2. Poller Tests
+      - name: Test Poller Service
+        working-directory: services/poller
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # 3. REST API Tests
+      - name: Test REST API Service
+        working-directory: services/api
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # 4. MCP Server Tests
+      - name: Test MCP Server
+        working-directory: services/mcp
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+  infra-synth:
+    name: CDK Infrastructure Synth
+    needs: [test-services]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install CDK Dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Synthesize CDK Templates
+        working-directory: infra
+        run: npx cdk synth

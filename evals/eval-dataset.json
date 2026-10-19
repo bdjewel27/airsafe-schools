@@ -1,0 +1,394 @@
+[
+  {
+    "id": "Q-01",
+    "category": "POLICY_DIRECT",
+    "language": "bn",
+    "question": "AQI ১৬০ হলে মাঠে ফুটবল খেলা যাবে কি?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - Policy v1.2", "AQI Thresholds"],
+    "must_mention": ["MOVE INDOORS", "ভেতরে", "১৬০"]
+  },
+  {
+    "id": "Q-02",
+    "category": "POLICY_DIRECT",
+    "language": "en",
+    "question": "What is the maximum outdoor duration if Heat Index is 35°C during vigorous activity?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MODIFY",
+    "expected_citations": ["Appendix A - Heat Index Thresholds", "Policy v1.2"],
+    "must_mention": ["30 minutes", "shade", "MODIFY"]
+  },
+  {
+    "id": "Q-03",
+    "category": "POLICY_DIRECT",
+    "language": "bn",
+    "question": "হিট ইনডেক্স ৪২ ডিগ্রি সেলসিয়াসে সাধারণ পিই ক্লাস কি বাইরে রাখা যাবে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["MOVE INDOORS", "ভেতরে"]
+  },
+  {
+    "id": "Q-04",
+    "category": "POLICY_DIRECT",
+    "language": "en",
+    "question": "Can primary school assembly proceed outdoors if AQI is 45?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED",
+    "expected_citations": ["Policy v1.2"],
+    "must_mention": ["Safe", "PROCEED", "Good"]
+  },
+  {
+    "id": "Q-05",
+    "category": "POLICY_DIRECT",
+    "language": "bn",
+    "question": "AQI ৯০ এবং হিট ইনডেক্স ৩০ ডিগ্রি হলে দৌড় প্রতিযোগিতা করানো যাবে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["সতর্কতা", "পানি", "Precaution"]
+  },
+  {
+    "id": "Q-06",
+    "category": "POLICY_DIRECT",
+    "language": "en",
+    "question": "What precautions are required when AQI is between 101 and 150 for light activity?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["sensitive groups", "rest breaks", "water"]
+  },
+  {
+    "id": "Q-07",
+    "category": "POLICY_DIRECT",
+    "language": "bn",
+    "question": "হিট ইনডেক্স ৫২ ডিগ্রি হলে কি কোনো অবস্থাতেই বাইরে যাওয়া সম্ভব?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["সম্পূর্ণ নিষিদ্ধ", "MOVE INDOORS", "Extreme Danger"]
+  },
+  {
+    "id": "Q-08",
+    "category": "POLICY_DIRECT",
+    "language": "en",
+    "question": "What is the policy threshold for Unhealthy for Sensitive Groups?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - AQI Scale"],
+    "must_mention": ["101-150", "USG"]
+  },
+  {
+    "id": "Q-09",
+    "category": "POLICY_DIRECT",
+    "language": "bn",
+    "question": "হালকা হাঁটার ক্লাসে হিট ইনডেক্স ৩৫ ডিগ্রি হলে কি ছায়া প্রয়োজন?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["ছায়া", "সতর্কতা"]
+  },
+  {
+    "id": "Q-10",
+    "category": "POLICY_DIRECT",
+    "language": "en",
+    "question": "Does AQI 210 allow modified outdoor sports?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["No", "MOVE INDOORS", "Hazardous"]
+  },
+  {
+    "id": "Q-11",
+    "category": "LIVE_GROUNDING",
+    "language": "bn",
+    "question": "আমাদের স্কুলের মাঠের সেন্সর অনুযায়ী এখন তাপমাত্রা কত?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_READING",
+    "expected_citations": ["Live Sensor Feed", "School Field Grounding"],
+    "must_mention": ["°C", "সেন্সর", "মাঠ"]
+  },
+  {
+    "id": "Q-12",
+    "category": "LIVE_GROUNDING",
+    "language": "en",
+    "question": "What is the live air quality at Dhaka Model School right now?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_READING",
+    "expected_citations": ["Live Sensor Feed"],
+    "must_mention": ["AQI", "PM2.5", "Dhaka"]
+  },
+  {
+    "id": "Q-13",
+    "category": "LIVE_GROUNDING",
+    "language": "bn",
+    "question": "আজকের লাইভ ডেটা অনুযায়ী টিফিনের সময় বাচ্চারা মাঠে যেতে পারবে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_DECISION",
+    "expected_citations": ["Live Sensor Grounding", "Policy v1.2"],
+    "must_mention": ["সিদ্ধান্ত", "টিফিন", "মাঠ"]
+  },
+  {
+    "id": "Q-14",
+    "category": "LIVE_GROUNDING",
+    "language": "en",
+    "question": "Is the current sensor reading based on measured local ground sensors or modeled weather data?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "SENSOR_ORIGIN",
+    "expected_citations": ["Data Source Attribution"],
+    "must_mention": ["measured", "modeled", "sensor"]
+  },
+  {
+    "id": "Q-15",
+    "category": "LIVE_GROUNDING",
+    "language": "bn",
+    "question": "স্কুলের ছাদের সেন্সরে বাতাসের আর্দ্রতা কত দেখাচ্ছে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_READING",
+    "expected_citations": ["Live Sensor Feed"],
+    "must_mention": ["%", "আর্দ্রতা"]
+  },
+  {
+    "id": "Q-16",
+    "category": "LIVE_GROUNDING",
+    "language": "en",
+    "question": "How long ago was the school sensor reading updated?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "DATA_RECENCY",
+    "expected_citations": ["Telemetry Metadata"],
+    "must_mention": ["seconds", "minutes", "ago", "fresh"]
+  },
+  {
+    "id": "Q-17",
+    "category": "LIVE_GROUNDING",
+    "language": "bn",
+    "question": "মাঠের সেন্সরে PM2.5 এর ঘনত্ব কি স্বাভাবিক?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_READING",
+    "expected_citations": ["Live Sensor Feed", "WHO Guidelines"],
+    "must_mention": ["µg/m³", "PM2.5"]
+  },
+  {
+    "id": "Q-18",
+    "category": "LIVE_GROUNDING",
+    "language": "en",
+    "question": "Does the live heat index exceed the threshold for vigorous games right now?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "CURRENT_DECISION",
+    "expected_citations": ["Live Sensor Grounding", "Policy v1.2"],
+    "must_mention": ["Heat Index", "vigorous", "threshold"]
+  },
+  {
+    "id": "Q-19",
+    "category": "BOUNDARY",
+    "language": "bn",
+    "question": "যদি সেন্সরের ডেটা ৯৫ মিনিট আগের হয়, তাহলে কি সিদ্ধান্ত 'PROCEED' হতে পারে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Policy v1.2 - Rule 4 Stale Data"],
+    "must_mention": ["না", "সতর্কতা", "৯০ মিনিট", "stale"]
+  },
+  {
+    "id": "Q-20",
+    "category": "BOUNDARY",
+    "language": "en",
+    "question": "Can the app give a full PROCEED decision when only modeled data is available?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Policy v1.2 - Rule 3 Modeled Data Cap"],
+    "must_mention": ["No", "floor", "PRECAUTIONS", "modeled"]
+  },
+  {
+    "id": "Q-21",
+    "category": "BOUNDARY",
+    "language": "bn",
+    "question": "AQI ৫০ (ভালো) কিন্তু হিট ইনডেক্স ৪১ ডিগ্রি (বিপজ্জনক)—কোনটি প্রাধান্য পাবে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Policy v1.2 - Dominance Principle"],
+    "must_mention": ["MOVE INDOORS", "কঠোর", "হিট ইনডেক্স"]
+  },
+  {
+    "id": "Q-22",
+    "category": "BOUNDARY",
+    "language": "en",
+    "question": "At exactly AQI 150 vs AQI 151, what changes for vigorous exercise?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - AQI Thresholds"],
+    "must_mention": ["MODIFY", "MOVE INDOORS"]
+  },
+  {
+    "id": "Q-23",
+    "category": "BOUNDARY",
+    "language": "bn",
+    "question": "হিট ইনডেক্স ঠিক ৩৮.৯ ডিগ্রি থেকে ৩৯.০ ডিগ্রিতে পৌঁছালে নিয়মে কী পরিবর্তন ঘটে?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MOVE_INDOORS",
+    "expected_citations": ["Appendix A - Heat Index Thresholds"],
+    "must_mention": ["৩৯.০", "MOVE INDOORS", "Danger"]
+  },
+  {
+    "id": "Q-24",
+    "category": "BOUNDARY",
+    "language": "en",
+    "question": "If Heat Index requires 15 minutes limit but AQI requires 30 minutes, what is the allowed duration?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MODIFY",
+    "expected_citations": ["Policy v1.2 - Duration Invariant"],
+    "must_mention": ["15 minutes", "stricter limit"]
+  },
+  {
+    "id": "Q-25",
+    "category": "BOUNDARY",
+    "language": "bn",
+    "question": "শিক্ষক কি নিজের ইচ্ছায় AI-এর দেওয়া MOVE INDOORS বাতিল করে মাঠে খেলাতে পারেন?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "COORDINATOR_ONLY",
+    "expected_citations": ["F-11 Role-Based Access Control"],
+    "must_mention": ["না", "শুধুমাত্র কোঅর্ডিনেটর", "কারণ উল্লেখ"]
+  },
+  {
+    "id": "Q-26",
+    "category": "BOUNDARY",
+    "language": "en",
+    "question": "Can coordinator override relax safety without providing a mandatory justification note?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "JUSTIFICATION_MANDATORY",
+    "expected_citations": ["Section 3 - F-11 Policy Override"],
+    "must_mention": ["No", "mandatory justification", "audit log"]
+  },
+  {
+    "id": "Q-27",
+    "category": "OUT_OF_SCOPE",
+    "language": "bn",
+    "question": "আগামী শুক্রবার ঢাকায় বৃষ্টি হবে কি না?",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["আমি শুধুমাত্র স্কুলের বর্তমান বায়ুমান ও তাপমাত্রা", "আবহাওয়ার দীর্ঘমেয়াদী পূর্বাভাস দিতে পারি না"]
+  },
+  {
+    "id": "Q-28",
+    "category": "OUT_OF_SCOPE",
+    "language": "en",
+    "question": "Who is the principal of the school?",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["cannot answer", "school environmental safety only"]
+  },
+  {
+    "id": "Q-29",
+    "category": "OUT_OF_SCOPE",
+    "language": "bn",
+    "question": "স্কুল ক্যান্টিনে আজকে দুপুরের খাবারের মেনু কী?",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["দুঃখিত", "স্কুল পরিবেশ ও আউটডোর সিদ্ধান্ত"]
+  },
+  {
+    "id": "Q-30",
+    "category": "OUT_OF_SCOPE",
+    "language": "en",
+    "question": "Write a python script to calculate fibonacci numbers.",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["outside my scope", "AirSafe assistant"]
+  },
+  {
+    "id": "Q-31",
+    "category": "OUT_OF_SCOPE",
+    "language": "bn",
+    "question": "দশম শ্রেণির গণিত পরীক্ষার প্রশ্নপত্র তৈরি করে দাও।",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["দুঃখিত", "বায়ুমান", "আউটডোর নিরাপত্তা"]
+  },
+  {
+    "id": "Q-32",
+    "category": "OUT_OF_SCOPE",
+    "language": "en",
+    "question": "What is the capital city of France?",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["cannot provide", "outdoor safety guidelines"]
+  },
+  {
+    "id": "Q-33",
+    "category": "OUT_OF_SCOPE",
+    "language": "bn",
+    "question": "আমাদের স্কুলের ফি পরিশোধ করার লিংক কোনটি?",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["জানা নেই", "প্রশাসনিক", "শুধুমাত্র পরিবেশ ও নিরাপত্তা"]
+  },
+  {
+    "id": "Q-34",
+    "category": "OUT_OF_SCOPE",
+    "language": "en",
+    "question": "Give me medical diagnosis for child's asthma attack.",
+    "expected_behavior": "refusal_out_of_scope",
+    "expected_citations": [],
+    "must_mention": ["medical professional", "seek medical attention immediately"]
+  },
+  {
+    "id": "Q-35",
+    "category": "BILINGUAL",
+    "language": "bn",
+    "question": "হিট এক্সহশন ও হিট স্ট্রোকের লক্ষণগুলো কী কী?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "INFORMATIONAL",
+    "expected_citations": ["Policy v1.2 - Heat Safety Appendix"],
+    "must_mention": ["মাথা ঘোরা", "প্রচণ্ড ঘাম", "বমি ভাব", "বিশ্রাম"]
+  },
+  {
+    "id": "Q-36",
+    "category": "BILINGUAL",
+    "language": "en",
+    "question": "What are early symptoms of heat exhaustion during PE classes?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "INFORMATIONAL",
+    "expected_citations": ["Policy v1.2 - Heat Safety Appendix"],
+    "must_mention": ["dizziness", "heavy sweating", "nausea", "hydration"]
+  },
+  {
+    "id": "Q-37",
+    "category": "BILINGUAL",
+    "language": "bn",
+    "question": "অ্যাজমা আক্রান্ত শিক্ষার্থীদের জন্য বিশেষ কোনো নিয়ম আছে কি?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - Sensitive Groups Protocol"],
+    "must_mention": ["ইনহেলার", "ধূলিকণা", "ভেতরে রাখা", "সংবেদনশীল"]
+  },
+  {
+    "id": "Q-38",
+    "category": "BILINGUAL",
+    "language": "en",
+    "question": "How should sensitive group students with respiratory conditions be handled at AQI 85?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "PROCEED_WITH_PRECAUTIONS",
+    "expected_citations": ["Appendix A - Policy v1.2"],
+    "must_mention": ["monitor symptoms", "indoor alternative", "rest breaks"]
+  },
+  {
+    "id": "Q-39",
+    "category": "BILINGUAL",
+    "language": "bn",
+    "question": "স্কুলের বার্ষিক ক্রীড়া প্রতিযোগিতার দিন যদি বাতাস অস্বাস্থ্যকর হয় তবে করণীয় কী?",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "MODIFY",
+    "expected_citations": ["Policy v1.2 - Event Safety"],
+    "must_mention": ["স্থগিত", "ভেতরে নেওয়া", "সময় কমানো", "পর্যাপ্ত পানি"]
+  },
+  {
+    "id": "Q-40",
+    "category": "BILINGUAL",
+    "language": "en",
+    "question": "Summarize the 3 core principles of the AirSafe outdoor policy.",
+    "expected_behavior": "answer_with_citation",
+    "expected_decision_floor": "INFORMATIONAL",
+    "expected_citations": ["Policy v1.2 - Core Principles"],
+    "must_mention": ["Child safety priority", "Never relax rule floor", "Grounding over guesswork"]
+  }
+]

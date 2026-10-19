@@ -1,0 +1,95 @@
+import { processSensorBatch } from '../sqsProcessor';
+
+// Mock DynamoDB DocumentClient
+jest.mock('@aws-sdk/lib-dynamodb', () => {
+  const actual = jest.requireActual('@aws-sdk/lib-dynamodb');
+  return {
+    ...actual,
+    DynamoDBDocumentClient: {
+      from: jest.fn(() => ({
+        send: jest.fn().mockResolvedValue({}),
+      })),
+    },
+  };
+});
+
+describe('SQS Ingestion Pipeline & Dead Letter Queue (DLQ) Quarantine', () => {
+  test('successfully processes batch of valid sensor events with zero failures', async () => {
+    const validRecords = [
+      {
+        messageId: 'msg-001',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+          sensor_id: 'dhk-001-field-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-18T12:00:00Z',
+          readings: { temp_c: 32.5, rh_pct: 65, pm25_ugm3: 45 },
+          battery_pct: 88,
+          fw: '1.4.2',
+        }),
+      },
+      {
+        messageId: 'msg-002',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FAW',
+          sensor_id: 'dhk-001-courtyard-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-18T12:00:00Z',
+          readings: { temp_c: 30.1, rh_pct: 70, pm25_ugm3: 38 },
+          battery_pct: 92,
+          fw: '1.4.2',
+        }),
+      },
+    ];
+
+    const result = await processSensorBatch(validRecords);
+    expect(result.batchItemFailures).toHaveLength(0);
+  });
+
+  test('reports malformed / poisoned records in batchItemFailures for DLQ routing', async () => {
+    const poisonedRecords = [
+      {
+        messageId: 'poison-001',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FAX',
+          sensor_id: 'dhk-001-field-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-18T12:00:00Z',
+          readings: { temp_f: 90.5 }, // Missing pm25_ugm3, rh_pct, temp_c
+        }),
+      },
+      {
+        messageId: 'poison-002',
+        body: 'NOT_EVEN_JSON{{{',
+      },
+    ];
+
+    const result = await processSensorBatch(poisonedRecords);
+    expect(result.batchItemFailures).toHaveLength(2);
+    expect(result.batchItemFailures[0].itemIdentifier).toBe('poison-001');
+    expect(result.batchItemFailures[1].itemIdentifier).toBe('poison-002');
+  });
+
+  test('partial batch failures: valid records succeed while poisoned record is isolated to DLQ', async () => {
+    const mixedBatch = [
+      {
+        messageId: 'valid-001',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FAY',
+          sensor_id: 'dhk-001-field-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-18T12:00:00Z',
+          readings: { temp_c: 28.5, rh_pct: 55, pm25_ugm3: 20 },
+        }),
+      },
+      {
+        messageId: 'poison-003',
+        body: JSON.stringify({ invalid_payload: true }),
+      },
+    ];
+
+    const result = await processSensorBatch(mixedBatch);
+    expect(result.batchItemFailures).toHaveLength(1);
+    expect(result.batchItemFailures[0].itemIdentifier).toBe('poison-003');
+  });
+});

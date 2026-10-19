@@ -1,0 +1,24 @@
+{
+  "name": "airsafe-poller-service",
+  "version": "1.0.0",
+  "description": "AirSafe Schools Scheduled Poller for OpenAQ and Open-Meteo",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/client-ssm": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
+    "firebase-admin": "^13.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.14",
+    "typescript": "^5.7.2"
+  }
+}
