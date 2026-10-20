@@ -26,7 +26,7 @@ fun LoginScreen(
     val isBengali by viewModel.isBengali.collectAsState()
     val loginError by viewModel.loginError.collectAsState()
     var email by remember { mutableStateOf("fatema.teacher@dms.edu.bd") }
-    var password by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("[REDACTED_PASSWORD]") }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -147,6 +147,7 @@ fun LoginScreen(
                     selected = email.equals("fatema.teacher@dms.edu.bd", ignoreCase = true),
                     onClick = {
                         email = "fatema.teacher@dms.edu.bd"
+                        password = "[REDACTED_PASSWORD]"
                     },
                     label = {
                         Box(
@@ -169,6 +170,7 @@ fun LoginScreen(
                     selected = email.equals("rafiq.principal@dms.edu.bd", ignoreCase = true),
                     onClick = {
                         email = "rafiq.principal@dms.edu.bd"
+                        password = "[REDACTED_PASSWORD]"
                     },
                     label = {
                         Box(
