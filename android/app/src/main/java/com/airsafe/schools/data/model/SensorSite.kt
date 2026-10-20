@@ -5,10 +5,10 @@ data class SensorSite(
     val nameBn: String,
     val nameEn: String,
     val locationType: String, // "FIELD", "COURTYARD", "CLASSROOM"
-    val tempC: Double,
-    val rhPct: Double,
-    val pm25Ugm3: Double,
-    val heatIndexC: Double,
+    val tempC: Double?,
+    val rhPct: Double?,
+    val pm25Ugm3: Double?,
+    val heatIndexC: Double?,
     val isOnline: Boolean,
     val lastUpdatedBn: String,
     val lastUpdatedEn: String

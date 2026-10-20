@@ -56,7 +56,9 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .semantics {
-                contentDescription = "${site.nameBn}, তাপমাত্রা ${site.tempC} ডিগ্রি, PM2.5 ${site.pm25Ugm3}"
+                val tempStr = if (site.tempC != null) "${site.tempC} ডিগ্রি" else "তথ্য নেই"
+                val pmStr = if (site.pm25Ugm3 != null) "${site.pm25Ugm3}" else "তথ্য নেই"
+                contentDescription = "${site.nameBn}, তাপমাত্রা $tempStr, PM2.5 $pmStr"
             }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -112,19 +114,19 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
             ) {
                 MetricSmallItem(
                     label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
-                    value = "${site.heatIndexC}°C"
+                    value = if (site.heatIndexC != null) "${site.heatIndexC}°C" else "--"
                 )
                 MetricSmallItem(
                     label = if (isBengali) "তাপমাত্রা" else "Temp",
-                    value = "${site.tempC}°C"
+                    value = if (site.tempC != null) "${site.tempC}°C" else "--"
                 )
                 MetricSmallItem(
                     label = if (isBengali) "আর্দ্রতা" else "Humidity",
-                    value = "${site.rhPct}%"
+                    value = if (site.rhPct != null) "${site.rhPct}%" else "--"
                 )
                 MetricSmallItem(
                     label = "PM2.5",
-                    value = "${site.pm25Ugm3}"
+                    value = if (site.pm25Ugm3 != null) "${site.pm25Ugm3}" else "--"
                 )
             }
         }
