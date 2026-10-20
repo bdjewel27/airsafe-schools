@@ -12,7 +12,7 @@ Per Section 9 of the Project Brief, the table below documents the project's actu
 
 | Week / Period | Primary Activities & Workloads | Invocations & Operations | Empirical AWS Spend |
 | :--- | :--- | :--- | :---: |
-| **Week 1** | CDK Stack bootstrapping, EventBridge scheduled external poller (OpenAQ & Open-Meteo for 5 pilot schools), DynamoDB single-table schema creation. | • 840 Poller Lambda executions (hourly batch across 5 schools)<br>• 2,520 DynamoDB writes<br>• Initial CDK deployments & S3 assets | **$0.85** |
+| **Week 1** | CDK Stack bootstrapping, EventBridge scheduled external poller (OpenAQ & Open-Meteo for 5 pilot schools), DynamoDB single-table schema creation. | • 168 Poller Lambda executions (1 batch execution/hour via EventBridge cron across 7 days)<br>• 2,520 DynamoDB writes (5 schools × 3 sites × 168 hours)<br>• Initial CDK deployments & S3 assets | **$0.85** |
 | **Week 2** | API Gateway deployment, JWT auth authorizer, MCP server (JSON-RPC 2.0), Android client integration tests. | • 6,500 API Gateway calls<br>• 15,000 DynamoDB reads/writes<br>• 250 AI assistant test queries (attempted Bedrock Nova; intercepted via ADR-001 deterministic fallback due to Sydney quota 0.0) | **$1.42** |
 | **Week 3** | Ingestion pipeline (SQS + DLQ), 200 ev/s burst load tests (8 test runs, 12,800 events total), Golden Dataset evaluations (40 golden queries), regression test suites. | • 12,800 SQS batch messages<br>• 8 load test executions<br>• 160 AI evaluation queries (ADR-001 policy engine fallback)<br>• 15,000 Lambda invocations | **$1.15** |
 | **Total Cumulative Spend** | **Weeks 1 to 3 Total Burn** | **Cumulative development & test cycle** | **$3.42** |
