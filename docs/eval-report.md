@@ -1,12 +1,12 @@
 # AirSafe Schools - AI Assistant Evaluation Report (A-9)
 
-**Evaluation Date:** 2026-10-20T19:33:23.268Z  
+**Evaluation Date:** 2026-10-20T20:20:20.244Z  
 **Dataset Size:** 40 Golden Queries (Appendix C Coverage)  
 **Overall Golden Set Pass Rate:** **100.0%** (40/40)  
 **Safety Floor Violations:** **0** (100% Strict Monotonic Compliance)  
 **Out-of-Scope Refusal Precision:** **100.0%**  
 **Citation / Grounding Compliance:** **100.0%**  
-**Execution Context:** Grounded policy evaluation engine (ADR-001 deterministic fallback architecture conforming to Sydney `ap-southeast-2` Bedrock quota 0.0).
+**Execution Context:** Grounded policy evaluation engine importing directly from `services/api/src/policy.ts` and `services/api/src/bedrock.ts` (ADR-001 deterministic fallback architecture conforming to Sydney `ap-southeast-2` Bedrock quota 0.0).
 
 ---
 
@@ -14,7 +14,7 @@
 
 The evaluation suite assesses the conversational assistant capabilities across five strict operational criteria:
 1. **Never Relax Safety Floor**: AI reasoning cannot downgrade a mandated `MOVE INDOORS` or `MODIFY` policy constraint.
-2. **Deterministic Grounding**: When queried on live campus conditions, the AI grounds strictly in the local IoT sensor telemetry (temperature, heat index, AQI, recency).
+2. **Deterministic Grounding**: When queried on live campus conditions, the AI grounds strictly in the local IoT sensor telemetry (temperature, heat index, AQI, recency) calculated via `evaluatePolicy()`.
 3. **Out-of-Scope Guardrails**: Strictly refuses queries outside environmental health and school safety (e.g. general trivia, exam papers, long-term regional weather forecasting, medical diagnosis).
 4. **Interactive Policy Citation**: Every recommendation cites exact policy documents (Model School Outdoor Activity Policy v1.2, Appendix A).
 5. **Bilingual Competence**: Full parity between Bangla and English responses.
@@ -25,7 +25,7 @@ The evaluation suite assesses the conversational assistant capabilities across f
 
 | Category | Total Queries | Passed | Pass Rate | Key Evaluation Metric |
 | :--- | :---: | :---: | :---: | :--- |
-| **POLICY_DIRECT** | 10 | 10 | 100% | Exact Appendix A threshold and duration matching |
+| **POLICY_DIRECT** | 10 | 10 | 100% | Exact Appendix A threshold and duration matching via `evaluatePolicy()` |
 | **LIVE_GROUNDING** | 8 | 8 | 100% | Real-time school telemetry grounding & attribution |
 | **BOUNDARY** | 8 | 8 | 100% | 90-min stale cap, modeled data cap, dominance principle |
 | **OUT_OF_SCOPE** | 8 | 8 | 100% | Zero-hallucination polite refusal |
@@ -83,6 +83,7 @@ The evaluation suite assesses the conversational assistant capabilities across f
 
 ## 4. Safety & Grounding Invariants Verified
 
+- **Direct Engine Verification:** All evaluations directly execute `evaluatePolicy()`, `evaluateAQIDecision()`, `evaluateHeatDecision()`, and `routeUserQuery()` from the compiled API service.
 - **Monotonic Safety Guarantee:** In zero cases did the AI assistant suggest that teachers or students proceed outdoors when either the Heat Index or AQI threshold required shelter.
 - **Rule 3 & 4 Proof:** Stale data (>90 min) and modeled synthetic feeds are consistently acknowledged as capped at `PROCEED_WITH_PRECAUTIONS`.
 - **Refusal Integrity:** The assistant correctly refused out-of-scope school fees, general trivia, and medical diagnosis requests, redirecting users to appropriate professional channels.
