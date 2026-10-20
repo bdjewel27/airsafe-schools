@@ -588,7 +588,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (latestReading?.readings) {
           const hi = latestReading.readings.heat_index_c ?? latestReading.readings.temperature_c;
           const aqi = latestReading.readings.aqi;
-          const floor = evaluatePolicyFloor({ heatIndexC: hi, aqi }).decision;
+          const floor = evaluatePolicyFloor({
+            heatIndexC: hi,
+            aqi,
+            intensity: 'MODERATE',
+            isModeled: Boolean(latestReading.is_modeled),
+            isStale: Boolean(latestReading.evaluation?.isStale),
+          }).decision;
           if (STRICTNESS_ORDER[requestedDecision] < STRICTNESS_ORDER[floor]) {
             return {
               statusCode: 400,
