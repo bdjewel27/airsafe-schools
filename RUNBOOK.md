@@ -123,3 +123,16 @@ Per **Hard Gate 5** and **ADR 012**, AirSafe Schools maintains metric-grounded p
 4. **100 Schools Projected Monthly Cost:** **$5.28/month** (well below the $100 budget cap; actual spend to date: $3.42).
 5. **Zero Provisioned Waste:** DynamoDB configured in `PAY_PER_REQUEST` on-demand mode with 30-day TTL; zero provisioned EC2/RDS instances.
 6. **Automated Guardrails:** AWS Budgets circuit-breaker alerts configured at $50, $80, and $100 thresholds.
+
+---
+
+## 7. AI Usage & Engineering Log (Section 11, 14, 16)
+
+Per Sections 11, 14, and 16 of Project Brief v2.0, all AI assistance leveraged during development is transparently documented in [`docs/ai-usage-log.md`](docs/ai-usage-log.md):
+- **Tools Utilized:** Claude 3.5 Sonnet (Architecture, Threat Model), Google Gemini (Compose UI, Node.js routines), AWS Bedrock (Prompt testing, Fallback design).
+- **Human Oversight & Audited Fixes:**
+  1. *Role Escalation in Staff Invite:* Ignored client role body, forced immutable `TEACHER` role scoped to caller tenant claims.
+  2. *Inline Policy Drift:* Eliminated divergent inline threshold comparisons in API routes; forced all decisions through authoritative `policy.ts` / `evaluatePolicyFloor()`.
+  3. *Sensor Null Value 0.0°C Bug:* Converted primitive `0.0` values to nullable `Double?` with offline banner/placeholders.
+  4. *PBKDF2 Iterations:* Upgraded weak 1,000 iteration count to OWASP-compliant 600,000 iterations with timing-safe comparison.
+  5. *Android Keystore Fallback:* Purged hardcoded password fallbacks; enforced fail-closed environment variables.
