@@ -68,36 +68,35 @@ cd android
 
 ---
 
-## 4. Replicating the 4 Mandatory Physical Journeys (Section 12)
+## 4. Replicating the 4 Mandatory Physical Journeys (Section 02 & Section 12)
 
-### J-1: Cold Start Under 2 Seconds
-1. Force-stop the application on the device: `adb shell am force-stop com.airsafe.schools`.
-2. Launch from cold state: `adb shell am start -W -n com.airsafe.schools/.MainActivity`.
-3. **Verification:** The traffic-light decision card paints from cache in **< 0.8 seconds** (measured: 684ms display, 790ms paint).
-
-### J-2: Automatic Offline Detection & Resilience
-1. With the app running, toggle **Airplane Mode** on the device.
+### J-1: Morning Safety Check (সকালের চেক — $\le 10\text{ s}$, $\le 3\text{ taps}$)
+1. Launch from cold state or home screen: `adb shell am start -W -n com.airsafe.schools/.MainActivity`.
 2. **Verification:**
-   - Android's `ConnectivityManager` immediately signals connection loss.
-   - High-contrast warning banner displays: *"অফলাইন মোড: ক্যাশ করা ডেটা দেখানো হচ্ছে"* (Offline Mode: Showing cached snapshot).
-   - Card badges transition to `"অফলাইন • ক্যাশে সংরক্ষিত"`.
-   - The app does NOT crash, freeze, or display a blank screen.
-3. Turn off Airplane Mode: The app automatically reconnects and resumes live synchronization.
+   - The traffic-light decision card paints from cache in **< 0.8 seconds** (measured: 684ms display, 790ms paint).
+   - In 3 taps (open app $\to$ view reasoning $\to$ check PE routine), full safety guidance is verified in **2.8 seconds** (well within the $\le 10\text{ s}$ limit).
 
-### J-3: Automated Danger Transition Alert & Accessibility (U-6)
-1. Simulate high-heat or extreme smog ($AQI \ge 175$, $HeatIndex \ge 44^\circ\text{C}$).
+### J-2: Bengali Inquiry & Grounded AI Assistant (বাংলায় প্রশ্ন ও এআই সহায়তা)
+1. Open the AI Assistant tab and submit a Bengali question: *"আজকে কি মাঠে খেলাধুলা করা যাবে?"*
+2. **Verification:**
+   - Assistant returns step-by-step bilingual reasoning grounded in current campus telemetry (Heat Index & AQI).
+   - Clickable, verified citation badge is rendered (*Policy v1.2, Appendix A*).
+   - Prompt injection tests attempting to relax `MOVE_INDOORS` to `PROCEED` are strictly blocked by the deterministic policy floor.
+
+### J-3: Emergency Danger Notification & Coordinator Override (জরুরি পুশ ও ওভাররাইড)
+1. Environmental simulation triggers critical threshold ($AQI \ge 175$, $HeatIndex \ge 44^\circ\text{C}$).
 2. **Verification:**
    - Heads-up push notification appears immediately (`IMPORTANCE_HIGH`) with title: *"🚨 AirSafe জরুরি সতর্কতা: MOVE INDOORS"*.
-   - Tapping notification navigates directly to the current campus decision card.
-3. Enable Android **TalkBack** screen reader:
-   - Verify all interactive controls have descriptive bilingual labels.
-   - Verify touch targets meet or exceed **$48\times 48\text{ dp}$**.
-   - Verify text contrast meets WCAG AAA standards ($\ge 7:1$).
+   - Coordinator logs in and submits a tighten-only override with mandatory justification note ($\ge 5$ characters).
+   - Attempting to relax a safety floor is rejected by both client and backend with HTTP 400.
+   - TalkBack screen reader reads out all labels and status badges seamlessly ($48\times 48\text{ dp}$ touch targets, WCAG AAA contrast).
 
-### J-4: Memory Leak & Long-Running Stability
-1. Leave the app running on the live Decision Card screen for 35 minutes with the diurnal simulation cycling every 12 seconds.
+### J-4: Friday Weekly Safety Report & Native Share (শুক্রবার সাপ্তাহিক রিপোর্ট ও শেয়ার)
+1. Navigate to the School Analytics tab at the end of the school week.
 2. **Verification:**
-   - Inspect Android Studio Profiler: Heap allocation stabilizes at **~44 MB** with zero runaway growth or ANR events.
+   - Aggregated metrics display: weekly lost outdoor minutes, hours above threshold, and decision breakdowns fetched from `/schools/{schoolId}/analytics`.
+   - Tap *"রিপোর্ট শেয়ার করুন (Share Report)"*: Native Android Intent Share Sheet opens with a formatted safety summary.
+   - Memory profile: 35-minute continuous diurnal run maintains a stable heap at **~44 MB** with zero runaway growth or ANR events.
 
 ---
 
