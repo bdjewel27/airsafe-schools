@@ -18,26 +18,47 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val keystorePassword = System.getenv("AIRSAFE_KEYSTORE_PASSWORD")
+        ?: (project.findProperty("AIRSAFE_KEYSTORE_PASSWORD") as String?)
+    val keyPassword = System.getenv("AIRSAFE_KEY_PASSWORD")
+        ?: (project.findProperty("AIRSAFE_KEY_PASSWORD") as String?)
+    val keyAlias = System.getenv("AIRSAFE_KEY_ALIAS")
+        ?: (project.findProperty("AIRSAFE_KEY_ALIAS") as String?)
+        ?: "airsafe"
+
+    val hasReleaseSigning = !keystorePassword.isNullOrBlank() && !keyPassword.isNullOrBlank()
+
     signingConfigs {
-        create("release") {
-            storeFile = file("airsafe-release.jks")
-            storePassword = System.getenv("AIRSAFE_KEYSTORE_PASSWORD")
-                ?: (project.findProperty("AIRSAFE_KEYSTORE_PASSWORD") as String?)
-                ?: error("AIRSAFE_KEYSTORE_PASSWORD environment variable or project property is required for release build (Hard Gate 1).")
-            keyAlias = System.getenv("AIRSAFE_KEY_ALIAS") ?: "airsafe"
-            keyPassword = System.getenv("AIRSAFE_KEY_PASSWORD")
-                ?: (project.findProperty("AIRSAFE_KEY_PASSWORD") as String?)
-                ?: error("AIRSAFE_KEY_PASSWORD environment variable or project property is required for release build (Hard Gate 1).")
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file("airsafe-release.jks")
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
+            )
+        }
+    }
+
+    gradle.taskGraph.whenReady {
+        val isReleaseRequested = allTasks.any { task ->
+            task.name.contains("Release", ignoreCase = true) && !task.name.contains("Test", ignoreCase = true)
+        }
+        if (isReleaseRequested && !hasReleaseSigning) {
+            throw GradleException(
+                "FAIL-CLOSED (Hard Gate 1): AIRSAFE_KEYSTORE_PASSWORD and AIRSAFE_KEY_PASSWORD environment variables or project properties are required for release build."
             )
         }
     }
