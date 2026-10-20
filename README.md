@@ -203,6 +203,7 @@ airsafe-schools/
 │           └── viewmodel/             # DecisionViewModel (diurnal engine & network listener)
 ├── docs/                              # Architecture, Cost, and Verification Reports
 │   ├── adr/                           # Architecture Decision Records (ADR 001 to 012)
+│   ├── ai-usage-log.md                # Human-audited AI usage & error log (Section 11, 14, 16)
 │   ├── COST.md                        # Metric-grounded AWS cost model (Sydney rates)
 │   ├── device-test.md                 # Physical device verification report (J-1 to J-4)
 │   ├── eval-report.md                 # AI assistant golden set evaluation report
