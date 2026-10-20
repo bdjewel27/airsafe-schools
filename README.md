@@ -180,12 +180,12 @@ npx cdk diff
 
 Detailed test data and device instrumentation logs are available in [`docs/device-test.md`](docs/device-test.md):
 
-| Journey ID | Focus Area | Benchmark Requirement | Empirical Physical Result | Status |
+| Journey ID | Focus Area (Section 02) | Benchmark Requirement | Empirical Physical Result | Status |
 | :---: | :--- | :--- | :---: | :---: |
-| **J-1** | **Morning Safety Check** (সকালের চেক) | Glance decision $< 10\text{ s}$, $\le 3\text{ taps}$, card paint $< 2.0\text{ s}$ | **2.8 s glance** (Card paint: 790ms) | ✅ PASS |
-| **J-2** | **Bengali AI Inquiry** (বাংলায় প্রশ্ন ও এআই) | Bilingual response, grounded in telemetry, Policy v1.2 citation | **100% Grounded** (Zero safety floor breaches) | ✅ PASS |
-| **J-3** | **Alert & Override** (পুশ সতর্কতা ও ওভাররাইড) | Heads-up push upon Danger entry; tighten-only coordinator override | **Verified on Hardware** (Audited immutable log) | ✅ PASS |
-| **J-4** | **Weekly Review & Export** (শুক্রবার রিপোর্ট) | Weekly lost minutes, metrics breakdown, native Android Share Sheet | **Verified on Hardware** (Stable 44MB heap) | ✅ PASS |
+| **J-1** | **সকালের চেক (১০ সেকেন্ডের কম, সর্বোচ্চ ৩ ট্যাপ)**<br>(Morning Check: $\le 10\text{s}$, $\le 3\text{ taps}$) | Decision glance $< 10\text{ s}$, $\le 3\text{ taps}$, card paint $< 2.0\text{ s}$ | **2.8 s glance** (Card paint: 790ms) | ✅ PASS |
+| **J-2** | **বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন)**<br>(Bengali Inquiry & AI Response: Streaming + Citation) | Bilingual response, grounded in telemetry, Policy v1.2 citation | **100% Grounded** (Zero safety floor breaches) | ✅ PASS |
+| **J-3** | **সিদ্ধান্ত খারাপ হওয়ার পুশ সতর্কবার্তা ও কোঅর্ডিনেটর ওভাররাইড**<br>(Deterioration Push Alert & Coordinator Override) | Heads-up push upon Danger entry; tighten-only coordinator override | **Verified on Hardware** (Audited immutable log) | ✅ PASS |
+| **J-4** | **শুক্রবারের সাপ্তাহিক পর্যালোচনা ও রিপোর্ট এক্সপোর্ট**<br>(Friday Weekly Safety Review & Report Export) | Weekly lost minutes, metrics breakdown, native Android Share Sheet | **Verified on Hardware** (Stable 44MB heap) | ✅ PASS |
 
 ---
 
