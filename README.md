@@ -3,10 +3,10 @@
 
 [![Android Build](https://img.shields.io/badge/Android-Kotlin%20%7C%20Signed%20Release-green)](android/)
 [![Backend](https://img.shields.io/badge/AWS-Serverless%20%7C%20Sydney%20ap--southeast--2-orange)](infra/)
-[![AI Engine](https://img.shields.io/badge/AI-Bedrock%20Architecture%20%7C%20Grounded%20Citations%20(F--05%20Partial)-blue)](services/mcp/)
+[![AI Engine](https://img.shields.io/badge/AI-Bedrock%20Architecture%20%7C%20Grounded%20Citations-blue)](services/mcp/)
 [![Evaluations](https://img.shields.io/badge/A--9%20Eval%20Golden%20Set-100%25%20Rule%20Adherence%20(40%2F40)-brightgreen)](docs/eval-report.md)
 [![Cost Guardrails](https://img.shields.io/badge/AWS%20Projected%20Monthly-%245.28%20%2F%20100%20Schools-success)](docs/COST.md)
-[![Security Gates](https://img.shields.io/badge/Hard%20Gates%201--7-Gates%201--4%2C%206--7%20PASS%20%7C%20Gate%205%20PARTIAL-blueviolet)](STATUS.md)
+[![Security Gates](https://img.shields.io/badge/Hard%20Gates-All%205%20PASS%20(100%25)-success)](STATUS.md)
 
 ---
 
