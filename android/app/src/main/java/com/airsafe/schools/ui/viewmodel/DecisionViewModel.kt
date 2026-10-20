@@ -75,16 +75,16 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     // F-13: School Analytics Summary
     private val _analyticsData = MutableStateFlow(
         SchoolAnalyticsSummary(
-            weekLabelBn = "[ডেমো ডেটা] গত সপ্তাহ (৭–১৩ অক্টোবর)",
-            weekLabelEn = "[Demo Data] Past Week (Oct 7–13)",
-            lostOutdoorMinutes = 240,
-            prevWeekLostMinutes = 360,
-            hoursAboveThreshold = 14.5,
-            proceedCount = 18,
-            cautionCount = 8,
-            moveIndoorsCount = 4,
-            overridesCount = 2,
-            measuredRatioPct = 85
+            weekLabelBn = "কোনো তথ্য পাওয়া যায়নি",
+            weekLabelEn = "No analytics available",
+            lostOutdoorMinutes = 0,
+            prevWeekLostMinutes = 0,
+            hoursAboveThreshold = 0.0,
+            proceedCount = 0,
+            cautionCount = 0,
+            moveIndoorsCount = 0,
+            overridesCount = 0,
+            measuredRatioPct = 0
         )
     )
     val analyticsData: StateFlow<SchoolAnalyticsSummary> = _analyticsData.asStateFlow()
@@ -96,17 +96,6 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private var cachedDecision: DecisionResponse? = null
 
     init {
-        try {
-            val cachedJson = prefs.getString("cached_decision", null)
-            if (!cachedJson.isNullOrBlank()) {
-                cachedDecision = gson.fromJson(cachedJson, DecisionResponse::class.java)
-            }
-        } catch (_: Exception) {
-            cachedDecision = null
-        }
-        loadDemoSensorSites()
-        loadDemoTrends()
-        loadDemoStaff()
         setupNetworkMonitoring()
     }
 
