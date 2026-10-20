@@ -458,4 +458,62 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(body.next_activity_bn).toBeNull();
     expect(body.next_activity_en).toBeNull();
   });
+
+  test('F-15: GET /policies/current returns authoritative Policy v1.2 specification', async () => {
+    const res = await handler(
+      makeEvent({
+        httpMethod: 'GET',
+        path: '/policies/current',
+      })
+    );
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.version).toBe('v1.2');
+    expect(body.name).toBe('Model School Outdoor Activity Policy');
+    expect(body.rules.length).toBe(6);
+    expect(body.aqiBands).toBeDefined();
+    expect(body.heatBands).toBeDefined();
+  });
+
+  test('F-08: POST and GET /schools/{schoolId}/notes saves and returns structured context note', async () => {
+    let storedItem: any = null;
+    jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+      if (command.input?.Item) {
+        storedItem = command.input.Item;
+        return {} as never;
+      }
+      if (command.input?.Key) {
+        return { Item: storedItem } as never;
+      }
+      return {} as never;
+    });
+
+    const postRes = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/notes',
+        headers: { Authorization: `Bearer ${teacherToken}` },
+        body: JSON.stringify({
+          note: 'ক্লাস ৩ এর এক শিশুর কাশি ও শ্বাসকষ্ট হচ্ছে',
+        }),
+      })
+    );
+    expect(postRes.statusCode).toBe(200);
+    const postBody = JSON.parse(postRes.body);
+    expect(postBody.status).toBe('SAVED');
+    expect(postBody.has_respiratory_condition).toBe(true);
+    expect(postBody.safety_tier_stepped_up).toBe(true);
+
+    const getRes = await handler(
+      makeEvent({
+        httpMethod: 'GET',
+        path: '/schools/school-dhaka-001/notes',
+        headers: { Authorization: `Bearer ${teacherToken}` },
+      })
+    );
+    expect(getRes.statusCode).toBe(200);
+    const getBody = JSON.parse(getRes.body);
+    expect(getBody.activeNote).toBeDefined();
+    expect(getBody.hasRespiratoryCondition).toBe(true);
+  });
 });
