@@ -215,7 +215,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
   test('Hard Gate 3 (F-12): Staff invite forces role=TEACHER and schoolId from caller token', async () => {
     let capturedItem: any = null;
     jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
-      if (command.input?.Item) {
+      if (command.input?.Item?.role) {
         capturedItem = command.input.Item;
         return {} as never;
       }
