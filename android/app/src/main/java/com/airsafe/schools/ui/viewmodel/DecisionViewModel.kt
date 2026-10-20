@@ -495,20 +495,21 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                             nameBn = siteDto.nameBn,
                             nameEn = siteDto.nameEn,
                             locationType = siteDto.locationType,
-                            tempC = siteDto.tempC ?: 0.0,
-                            rhPct = siteDto.rhPct ?: 0.0,
-                            pm25Ugm3 = siteDto.pm25Ugm3 ?: 0.0,
-                            heatIndexC = siteDto.heatIndexC ?: 0.0,
+                            tempC = siteDto.tempC,
+                            rhPct = siteDto.rhPct,
+                            pm25Ugm3 = siteDto.pm25Ugm3,
+                            heatIndexC = siteDto.heatIndexC,
                             isOnline = siteDto.isOnline,
                             lastUpdatedBn = siteDto.lastUpdatedBn ?: "এইমাত্র",
                             lastUpdatedEn = siteDto.lastUpdatedEn ?: "Just now"
                         )
                     }
                 } else {
-                    loadDemoSensorSites()
+                    _sensorSites.value = emptyList()
                 }
             } catch (_: Exception) {
-                loadDemoSensorSites()
+                // Fail-closed: on error in production, do not render fabricated sensor numbers
+                _sensorSites.value = emptyList()
             }
         }
     }
@@ -530,7 +531,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     measuredRatioPct = 100
                 )
             } catch (_: Exception) {
-                loadDemoAnalytics()
+                _analyticsData.value = SchoolAnalyticsSummary(
+                weekLabelBn = if (_isBengali.value) "তথ্য অনুপলব্ধ" else "Telemetry Unavailable",
+                weekLabelEn = "Telemetry Unavailable",
+                lostOutdoorMinutes = 0,
+                prevWeekLostMinutes = 0,
+                hoursAboveThreshold = 0.0,
+                proceedCount = 0,
+                cautionCount = 0,
+                moveIndoorsCount = 0,
+                overridesCount = 0,
+                measuredRatioPct = 0
+            )
             }
         }
     }
@@ -548,10 +560,10 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                         )
                     }
                 } else {
-                    loadDemoStaff()
+                    _invitedStaff.value = emptyList()
                 }
             } catch (_: Exception) {
-                loadDemoStaff()
+                _invitedStaff.value = emptyList()
             }
         }
     }
