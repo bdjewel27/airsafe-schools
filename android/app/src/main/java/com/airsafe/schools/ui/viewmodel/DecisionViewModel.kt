@@ -600,84 +600,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    private fun loadDemoSensorSites() {
-        _sensorSites.value = listOf(
-            SensorSite(
-                id = "dhk-001-field",
-                nameBn = "[ডেমো ডেটা] খেলার মাঠ",
-                nameEn = "[Demo Data] School Playground",
-                locationType = "FIELD",
-                tempC = 31.5,
-                rhPct = 68.0,
-                pm25Ugm3 = 42.0,
-                heatIndexC = 36.2,
-                isOnline = true,
-                lastUpdatedBn = "১ মিনিট আগে",
-                lastUpdatedEn = "1 min ago"
-            ),
-            SensorSite(
-                id = "dhk-001-courtyard",
-                nameBn = "[ডেমো ডেটা] স্কুল উঠান",
-                nameEn = "[Demo Data] School Courtyard",
-                locationType = "COURTYARD",
-                tempC = 29.8,
-                rhPct = 70.0,
-                pm25Ugm3 = 38.5,
-                heatIndexC = 33.1,
-                isOnline = true,
-                lastUpdatedBn = "৩ মিনিট আগে",
-                lastUpdatedEn = "3 mins ago"
-            ),
-            SensorSite(
-                id = "dhk-001-classroom-101",
-                nameBn = "[ডেমো ডেটা] ক্লাসরুম ১০১",
-                nameEn = "[Demo Data] Classroom 101",
-                locationType = "CLASSROOM",
-                tempC = 26.5,
-                rhPct = 55.0,
-                pm25Ugm3 = 18.0,
-                heatIndexC = 27.0,
-                isOnline = true,
-                lastUpdatedBn = "২ মিনিট আগে",
-                lastUpdatedEn = "2 mins ago"
-            )
-        )
-    }
-
-    private fun loadDemoTrends() {
-        _trendData.value = listOf(
-            TrendPoint("[ডেমো] সকাল ৮:০০", "[Demo] 8:00 AM", 27.2, 45, false),
-            TrendPoint("[ডেমো] সকাল ৯:০০", "[Demo] 9:00 AM", 29.5, 52, false),
-            TrendPoint("[ডেমো] সকাল ১০:০০", "[Demo] 10:00 AM", 32.1, 78, false),
-            TrendPoint("[ডেমো] সকাল ১১:০০", "[Demo] 11:00 AM", 35.8, 115, true),
-            TrendPoint("[ডেমো] দুপুর ১২:০০", "[Demo] 12:00 PM", 38.4, 142, true),
-            TrendPoint("[ডেমো] দুপুর ১:০০", "[Demo] 1:00 PM", 40.2, 158, true),
-            TrendPoint("[ডেমো] দুপুর ২:০০", "[Demo] 2:00 PM", 39.5, 150, true),
-            TrendPoint("[ডেমো] বিকেল ৩:০০", "[Demo] 3:00 PM", 36.0, 110, true),
-            TrendPoint("[ডেমো] বিকেল ৪:০০", "[Demo] 4:00 PM", 32.8, 85, false)
-        )
-    }
-
-    private fun loadDemoAnalytics() {
-        _analyticsData.value = SchoolAnalyticsSummary(
-            weekLabelBn = "[ডেমো ডেটা] গত সপ্তাহ (৭–১৩ অক্টোবর)",
-            weekLabelEn = "[Demo Data] Past Week (Oct 7–13)",
-            lostOutdoorMinutes = 240,
-            prevWeekLostMinutes = 360,
-            hoursAboveThreshold = 14.5,
-            proceedCount = 18,
-            cautionCount = 8,
-            moveIndoorsCount = 4,
-            overridesCount = 2,
-            measuredRatioPct = 85
-        )
-    }
-
-    private fun loadDemoStaff() {
-        _invitedStaff.value = listOf(
-            StaffItem("fatema.teacher@dms.edu.bd", "[ডেমো ডেটা] শিক্ষক", "[Demo Data] Teacher"),
-            StaffItem("karim.teacher@dms.edu.bd", "[ডেমো ডেটা] শিক্ষক", "[Demo Data] Teacher")
-        )
+    fun getWeeklyAnalyticsCsv(): String {
+        val a = _analyticsData.value
+        return buildString {
+            appendLine("metric_key,metric_label_bn,metric_label_en,value,unit")
+            appendLine("lost_outdoor_minutes,বাতিল হওয়া আউটডোর মিনিট,Lost Outdoor Minutes,${a.lostOutdoorMinutes},minutes")
+            appendLine("hours_above_threshold,বিপদসীমার ওপরে সময়,Hours Above Safety Threshold,${a.hoursAboveThreshold},hours")
+            appendLine("safe_sessions,নিরাপদ সেশন,Safe Sessions,${a.proceedCount},sessions")
+            appendLine("caution_sessions,সতর্কতা সেশন,Caution Sessions,${a.cautionCount},sessions")
+            appendLine("move_indoors_sessions,ভেতরে নেওয়া সেশন,Move Indoors Sessions,${a.moveIndoorsCount},sessions")
+            appendLine("logged_overrides,রেকর্ড করা ওভাররাইড,Logged Overrides,${a.overridesCount},count")
+            appendLine("measured_ratio,মাপা ডেটার অনুপাত,Measured Sensor Ratio,${a.measuredRatioPct},percent")
+        }
     }
 }
 

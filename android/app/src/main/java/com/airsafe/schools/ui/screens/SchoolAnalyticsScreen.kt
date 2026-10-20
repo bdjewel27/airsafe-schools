@@ -221,6 +221,7 @@ fun SchoolAnalyticsScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // F-14: Share / Export Weekly Report (Android Share Sheet)
+        // F-14: Share / Export Weekly Report Summary
         Button(
             onClick = {
                 val reportContent = buildString {
@@ -254,9 +255,38 @@ fun SchoolAnalyticsScreen(
             Icon(Icons.Default.Share, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isBengali) "সাপ্তাহিক রিপোর্ট এক্সপোর্ট / শেয়ার করুন" else "Export Weekly Report",
+                text = if (isBengali) "সাপ্তাহিক রিপোর্ট শেয়ার করুন" else "Share Weekly Report",
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
+                fontSize = 15.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // F-14: Row-Level CSV Export for Governing Board / Analytics
+        OutlinedButton(
+            onClick = {
+                val csvContent = viewModel.getWeeklyAnalyticsCsv()
+                val sendIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, csvContent)
+                    type = "text/csv"
+                }
+                val shareIntent = Intent.createChooser(sendIntent, if (isBengali) "রো-লেভেল CSV এক্সপোর্ট করুন" else "Export Row-Level CSV")
+                context.startActivity(shareIntent)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Download, contentDescription = null, tint = TextPrimary)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isBengali) "রো-লেভেল CSV এক্সপোর্ট করুন" else "Export Row-Level CSV",
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
                 fontSize = 15.sp
             )
         }
