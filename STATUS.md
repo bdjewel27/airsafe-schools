@@ -59,3 +59,12 @@
 - **Gate 3 (Tenant & Role Isolation):** **PASSED**. Strictly enforced server-side. Teachers cannot execute coordinator overrides or routines (`403 Forbidden`). Cross-tenant requests rejected. Cognito attributes client read-only.
 - **Gate 4 (Policy Safety Floor & Monotonic Strictness):** **PASSED**. `policy.ts` and `policy/v1.2.json` serve as the single source of truth. Coordinator overrides and AI assistant can only tighten safety decisions, never relax below the calculated floor. Zero demo fallbacks in production Android builds.
 - **Gate 5 (Cost Discipline & Evaluation Honesty):** **PASSED**. Empirical development burn of **$3.42** honestly tracked in `docs/COST.md` (Sydney Bedrock quota 0.0 documented in `docs/day1-checks.md` and ADR-001). Dynamic assistant evaluation suite (`evals/run-evals.js`) achieves 100% pass rate (40/40) on golden dataset.
+
+---
+
+## 4. Engineering Standards & Deliverables (Section 11, 14, 16)
+
+- **AI Usage & Error Log:** Documented in [`docs/ai-usage-log.md`](docs/ai-usage-log.md). Records tools utilized (Claude, Gemini, Bedrock Nova) and 5 human-audited error corrections (role escalation in invite, inline policy drift, sensor null 0.0°C bug, PBKDF2 600,000 upgrade, and keystore fallback sanitization).
+- **Weekly Development Status Reports:** Documented in `docs/status/week-1.md` through `docs/status/week-4.md`.
+- **Architectural Decision Records (ADRs):** Comprehensive records in `docs/adr/001-bedrock-model-fallback.md` through `docs/adr/007-read-only-model-context-protocol-mcp.md`.
+- **Physical Device Test Evidence:** Detailed empirical measurements and 5 physical screen captures in `docs/device-test.md`.
