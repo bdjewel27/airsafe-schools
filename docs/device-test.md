@@ -29,7 +29,7 @@ In compliance with **Hard Gate 7 (Section 12 - বাস্তব ডিভা�
 
 ---
 
-## 2. Journey J-1: Morning Check (সকালের চেক — ≤ 10s, ≤ 3 Taps, Sub-2.0s Render)
+## 2. Journey J-1: সকালের চেক (১০ সেকেন্ডের কম, সর্বোচ্চ ৩ ট্যাপ) / Morning Safety Check (≤ 10s, ≤ 3 Taps)
 
 ### Objective & Benchmark
 A teacher standing in a bustling corridor or assembly ground needs to glance at the safety decision card in **less than 10 seconds** and in **at most 3 taps** from the home screen.
@@ -50,7 +50,7 @@ A teacher standing in a bustling corridor or assembly ground needs to glance at 
 
 ---
 
-## 3. Journey J-2: Bengali Inquiry & Grounded AI Assistant (বাংলা প্রশ্ন ও এআই সহায়তা)
+## 3. Journey J-2: বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন) / Bengali Inquiry & AI Response (Streaming + Citation)
 
 ### Objective & Benchmark
 A teacher inquires in Bengali about outdoor sports safety during active PE class (*"আজকে কি মাঠে খেলাধুলা করা যাবে?"*). The system must:
@@ -67,7 +67,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ---
 
-## 4. Journey J-3: Emergency Danger Notification & Coordinator Override (জরুরি পুশ ও ওভাররাইড)
+## 4. Journey J-3: সিদ্ধান্ত খারাপ হওয়ার পুশ সতর্কবার্তা ও কোঅর্ডিনেটর ওভাররাইড / Deterioration Push Alert & Coordinator Override
 
 ### Objective & Benchmark
 1. Immediate Heads-Up push notification (`IMPORTANCE_HIGH`) when environmental conditions deteriorate to critical (`MOVE_INDOORS`).
@@ -85,7 +85,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ---
 
-## 5. Journey J-4: Friday Weekly Safety Report & Long Diurnal Stability (শুক্রবার সাপ্তাহিক রিপোর্ট)
+## 5. Journey J-4: শুক্রবারের সাপ্তাহিক পর্যালোচনা ও রিপোর্ট এক্সপোর্ট / Friday Weekly Safety Review & Report Export
 
 ### Objective & Benchmark
 1. At the end of the school week, coordinators inspect weekly aggregated safety metrics (lost outdoor minutes, hours above threshold, decision breakdown).
