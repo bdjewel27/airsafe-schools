@@ -70,20 +70,20 @@ cd android
 
 ## 4. Replicating the 4 Mandatory Physical Journeys (Section 02 & Section 12)
 
-### J-1: Morning Safety Check (সকালের চেক — $\le 10\text{ s}$, $\le 3\text{ taps}$)
+### J-1: সকালের চেক (১০ সেকেন্ডের কম, সর্বোচ্চ ৩ ট্যাপ) / Morning Safety Check ($\le 10\text{ s}$, $\le 3\text{ taps}$)
 1. Launch from cold state or home screen: `adb shell am start -W -n com.airsafe.schools/.MainActivity`.
 2. **Verification:**
    - The traffic-light decision card paints from cache in **< 0.8 seconds** (measured: 684ms display, 790ms paint).
    - In 3 taps (open app $\to$ view reasoning $\to$ check PE routine), full safety guidance is verified in **2.8 seconds** (well within the $\le 10\text{ s}$ limit).
 
-### J-2: Bengali Inquiry & Grounded AI Assistant (বাংলায় প্রশ্ন ও এআই সহায়তা)
+### J-2: বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন) / Bengali Inquiry & AI Response (Streaming + Citation)
 1. Open the AI Assistant tab and submit a Bengali question: *"আজকে কি মাঠে খেলাধুলা করা যাবে?"*
 2. **Verification:**
    - Assistant returns step-by-step bilingual reasoning grounded in current campus telemetry (Heat Index & AQI).
    - Clickable, verified citation badge is rendered (*Policy v1.2, Appendix A*).
    - Prompt injection tests attempting to relax `MOVE_INDOORS` to `PROCEED` are strictly blocked by the deterministic policy floor.
 
-### J-3: Emergency Danger Notification & Coordinator Override (জরুরি পুশ ও ওভাররাইড)
+### J-3: সিদ্ধান্ত খারাপ হওয়ার পুশ সতর্কবার্তা ও কোঅর্ডিনেটর ওভাররাইড / Deterioration Push Alert & Coordinator Override
 1. Environmental simulation triggers critical threshold ($AQI \ge 175$, $HeatIndex \ge 44^\circ\text{C}$).
 2. **Verification:**
    - Heads-up push notification appears immediately (`IMPORTANCE_HIGH`) with title: *"🚨 AirSafe জরুরি সতর্কতা: MOVE INDOORS"*.
@@ -91,7 +91,7 @@ cd android
    - Attempting to relax a safety floor is rejected by both client and backend with HTTP 400.
    - TalkBack screen reader reads out all labels and status badges seamlessly ($48\times 48\text{ dp}$ touch targets, WCAG AAA contrast).
 
-### J-4: Friday Weekly Safety Report & Native Share (শুক্রবার সাপ্তাহিক রিপোর্ট ও শেয়ার)
+### J-4: শুক্রবারের সাপ্তাহিক পর্যালোচনা ও রিপোর্ট এক্সপোর্ট / Friday Weekly Safety Review & Report Export
 1. Navigate to the School Analytics tab at the end of the school week.
 2. **Verification:**
    - Aggregated metrics display: weekly lost outdoor minutes, hours above threshold, and decision breakdowns fetched from `/schools/{schoolId}/analytics`.
