@@ -49,22 +49,28 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 - Java JDK 17+ (or Android Studio JBR: `E:\AndroidStudio\jbr`).
 - Android 8.0+ physical device (USB debugging enabled) or Android Virtual Device (API 26–35).
 
-### Option A: Install Pre-Built Signed Release APK
-The cryptographically signed release APK is located at:
-`android/app/build/outputs/apk/release/app-release.apk`
+> [!NOTE]
+> **APK Distribution Notice:** In accordance with Git repository hygiene and **Hard Gate 1**, binary artifacts (`*.apk`) are excluded from Git version control via `.gitignore`. Evaluators can obtain the release APK through either of the following methods:
 
-Install directly to an adb-connected device:
+### Option A: Download Pre-Built Signed Release APK (GitHub Releases)
+Download the pre-compiled, production-signed release APK directly from the official release page:  
+🔗 **[Download AirSafe Schools v1.0.0 Release APK](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)**
+
+Once downloaded, install directly to an adb-connected device:
 ```powershell
-adb install -r android/app/build/outputs/apk/release/app-release.apk
+adb install -r app-release.apk
 ```
 
 ### Option B: Compile Signed Release APK from Source
+Reviewers with signing credentials can compile and sign the release APK from source with fail-closed environment variables:
 ```powershell
 $env:JAVA_HOME = "E:\AndroidStudio\jbr"
+$env:AIRSAFE_KEYSTORE_PASSWORD = "<reviewer-keystore-password>"
+$env:AIRSAFE_KEY_PASSWORD = "<reviewer-keystore-password>"
 cd android
 .\gradlew.bat assembleRelease
 ```
-*Artifact generated: `android/app/build/outputs/apk/release/app-release.apk` (Signed with `airsafe-release.jks`).*
+*Artifact generated: `android/app/build/outputs/apk/release/app-release.apk` (Signed with `airsafe-release.jks`, RSA 2048-bit).*
 
 ---
 
