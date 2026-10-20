@@ -72,11 +72,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private val _invitedStaff = MutableStateFlow<List<StaffItem>>(emptyList())
     val invitedStaff: StateFlow<List<StaffItem>> = _invitedStaff.asStateFlow()
 
-    // F-13: School Analytics Summary
+    // Selected School ID for active tenant context
+    private val _selectedSchoolId = MutableStateFlow("school-dhaka-001")
+    val selectedSchoolId: StateFlow<String> = _selectedSchoolId.asStateFlow()
+
+    // F-13: School Analytics Summary (Clean Loading/Empty State without Fake Demo Data)
     private val _analyticsData = MutableStateFlow(
         SchoolAnalyticsSummary(
-            weekLabelBn = "কোনো তথ্য পাওয়া যায়নি",
-            weekLabelEn = "No analytics available",
+            weekLabelBn = "ডেটা লোড হচ্ছে...",
+            weekLabelEn = "Loading Data...",
             lostOutdoorMinutes = 0,
             prevWeekLostMinutes = 0,
             hoursAboveThreshold = 0.0,
@@ -96,6 +100,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private var cachedDecision: DecisionResponse? = null
 
     init {
+        try {
+            val cached = getCachedDecision(_selectedSchoolId.value)
+            if (cached != null) {
+                cachedDecision = cached
+                _uiState.value = DecisionUiState.Success(cached)
+            }
+        } catch (_: Exception) {
+            cachedDecision = null
+        }
         setupNetworkMonitoring()
     }
 
@@ -195,6 +208,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     schoolNameEn = loginResp.user.schoolNameEn ?: "Dhaka Model School",
                     token = loginResp.token
                 )
+                _selectedSchoolId.value = loginResp.user.schoolId
                 loadSchoolData(loginResp.user.schoolId)
             } catch (apiEx: Exception) {
                 _loginError.value = if (_isBengali.value) {
@@ -212,6 +226,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         _activeOverride.value = null
         _loginError.value = null
         _actionError.value = null
+        _selectedSchoolId.value = "school-dhaka-001"
         clearCache()
     }
 
