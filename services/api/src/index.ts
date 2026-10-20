@@ -117,6 +117,7 @@ export function mintMcpTokenForChat(schoolId: string, role: string = 'TEACHER'):
   return `${encHeader}.${encPayload}.${sig}`;
 }
 
+import policyConfig from './policy/v1.2.json';
 import {
   evaluatePolicy,
   PolicyDecision as SharedPolicyDecision,
@@ -371,6 +372,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   const path = event.path || event.resource || '';
+
+  // Public Policy Viewer Route: GET /policies/current (F-15)
+  if ((path.endsWith('/policies/current') || path.endsWith('/policy/current')) && event.httpMethod === 'GET') {
+    return {
+      statusCode: 200,
+      headers: getCorsHeaders(event),
+      body: JSON.stringify({
+        version: policyConfig.version || 'v1.2',
+        name: policyConfig.name || 'Model School Outdoor Activity Policy',
+        effectiveDate: policyConfig.effectiveDate || '2026-10-01',
+        authority: policyConfig.authority || 'AirSafe Schools Environmental Safety Protocol',
+        rules: [
+          { id: 'RULE-1', titleBn: 'তাপ ও বায়ু থ্রেশহোল্ড', titleEn: 'Heat & AQI Thresholds', description: 'Evaluates perceived Heat Index and AQI bands against activity intensity.' },
+          { id: 'RULE-2', titleBn: 'কার্যক্রমের তীব্রতা মডিফায়ার', titleEn: 'Activity Intensity Modifiers', description: 'Vigorous activities (PE, running, football) face earlier caps and mandatory indoor relocation.' },
+          { id: 'RULE-3', titleBn: 'শ্বাসকষ্ট ও সংবেদনশীল শিক্ষার্থীদের সতর্কতা', titleEn: 'Respiratory Vulnerability Step-Up', description: 'Students with asthma or respiratory conditions trigger an automatic 1-tier safety step-up.' },
+          { id: 'RULE-4', titleBn: 'ডেটা ফ্রেশনেস ও পুরোনো ডেটা ফ্লোর (৯০ মিনিট)', titleEn: 'Data Freshness & 90-min Stale Floor', description: 'Readings older than 90 minutes or modeled predictions are capped at PROCEED_WITH_PRECAUTIONS.' },
+          { id: 'RULE-5', titleBn: 'সতর্কবার্তা ট্রিগার ও নীরব সময় (২১:০০-০৬:০০)', titleEn: 'Alert Triggers & Quiet Hours', description: 'Heads-up FCM alerts dispatched on status deterioration; quiet hours enforced 9 PM to 6 AM.' },
+          { id: 'RULE-6', titleBn: 'কোঅর্ডিনেটর ওভাররাইড নিয়ম (শুধু কঠোর করা অনুমোদিত)', titleEn: 'Coordinator Override Tighten-Only', description: 'Authorized coordinators can tighten decisions with mandatory justification; relaxation below policy floor is strictly rejected (HTTP 400).' },
+        ],
+        aqiBands: policyConfig.aqiBands,
+        heatBands: policyConfig.heatBands,
+      }),
+    };
+  }
 
   // 1. Public Invite-Only Authentication Endpoint: POST /auth/login (F-01, S-2, Hard Gate 3)
   if (path.endsWith('/auth/login') && event.httpMethod === 'POST') {
@@ -636,6 +661,26 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Route: GET /schools/{schoolId}/notes (F-08 — Teacher Context Notes & Sensitive Group Status)
+    if (path.endsWith('/notes') && event.httpMethod === 'GET') {
+      const noteRes = await docClient.send(
+        new GetCommand({
+          TableName: DECISIONS_TABLE_NAME,
+          Key: { school_id: schoolId, activity_id: 'NOTE#latest' },
+        })
+      );
+      const activeNote = noteRes.Item || null;
+      return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({
+          schoolId,
+          activeNote,
+          hasRespiratoryCondition: Boolean(activeNote?.has_respiratory_condition),
+        }),
+      };
+    }
+
     // Route: POST /schools/{schoolId}/notes (F-08 — Teacher Activity Notes & Sensitive Group Step-Up)
     if (path.endsWith('/notes') && event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
@@ -663,7 +708,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ status: 'SAVED', note: noteItem }),
+        body: JSON.stringify({
+          status: 'SAVED',
+          note: noteItem,
+          has_respiratory_condition: hasRespiratory,
+          safety_tier_stepped_up: hasRespiratory,
+          messageBn: hasRespiratory
+            ? 'নোট সংরক্ষিত হয়েছে (শ্বাসকষ্ট সনাক্তকরণ: নিরাপত্তা সীমা ১ ধাপ বাড়ানো হয়েছে)'
+            : 'নোট সফলভাবে সংরক্ষিত হয়েছে',
+          messageEn: hasRespiratory
+            ? 'Note saved (respiratory condition detected: safety tier stepped up by 1)'
+            : 'Note successfully saved',
+        }),
       };
     }
 
