@@ -43,6 +43,9 @@ export class ApiStack extends cdk.Stack {
         DECISIONS_TABLE_NAME: props.decisionsTable?.tableName || `AirSafe-Decisions-${props.environmentName}`,
         PROJECT_REGION: this.region,
         NODE_OPTIONS: '--enable-source-maps',
+        API_JWT_SECRET: process.env.API_JWT_SECRET || 'airsafe-dev-secret-placeholder',
+        MCP_JWT_SECRET: process.env.MCP_JWT_SECRET || 'airsafe-mcp-secret-placeholder',
+        ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'https://airsafe.schools.internal,http://localhost:3000',
       },
       logGroup,
     });
@@ -53,25 +56,28 @@ export class ApiStack extends cdk.Stack {
       props.decisionsTable.grantReadWriteData(this.apiFunction);
     }
 
-    // Grant SSM parameter store access for JWT secret (Hard Gate 1)
+    // Grant SSM parameter store access for JWT and MCP secrets (Hard Gate 1)
     this.apiFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['ssm:GetParameter', 'ssm:GetParameters'],
         resources: [
           `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/${props.environmentName}/jwt-secret`,
           `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/jwt-secret`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/${props.environmentName}/mcp-jwt-secret`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/mcp-jwt-secret`,
         ],
       })
     );
 
-    // API Gateway REST API with CORS enabled
+    // API Gateway REST API with restricted CORS allowlist
     this.restApi = new apigateway.RestApi(this, 'AirSafeRestApi', {
       restApiName: `AirSafe-Api-${props.environmentName}`,
       description: 'AirSafe Schools REST API for mobile app and web clients',
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: ['https://airsafe.schools.internal', 'http://localhost:3000'],
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Content-Type', 'Authorization', 'x-school-id'],
+        allowCredentials: true,
       },
       deployOptions: {
         stageName: props.environmentName,
