@@ -176,6 +176,27 @@ npx cdk diff
 
 ---
 
+### Step 5: Release APK Distribution & Verification (Section 14 Deliverables)
+
+Per Git repository best practices and **Hard Gate 1**, compiled binary artifacts (`*.apk`) are git-ignored to prevent repository bloat and binary tampering. Evaluators can obtain and verify the signed release APK via two verified channels:
+
+- **Option A (Official GitHub Release — Recommended):**  
+  Download the pre-compiled, cryptographically signed APK attached to the official GitHub Release `v1.0.0`:  
+  🔗 [GitHub Releases: AirSafe Schools v1.0.0 (app-release.apk)](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)
+
+- **Option B (Compile from Source with Fail-Closed Keystore):**  
+  To compile and sign the release artifact locally:
+  ```powershell
+  cd android
+  $env:AIRSAFE_KEYSTORE_PASSWORD="<reviewer-keystore-password>"
+  $env:AIRSAFE_KEY_PASSWORD="<reviewer-keystore-password>"
+  .\gradlew.bat assembleRelease
+  ```
+  *Output Binary:* `android/app/build/outputs/apk/release/app-release.apk`  
+  *Signature:* SHA-256 with RSA 2048-bit key (`airsafe-release.jks`), APK Signature Scheme v1 & v2 enabled.
+
+---
+
 ## 5. Physical Device Test Journeys (Section 12: J-1 to J-4)
 
 Detailed test data and device instrumentation logs are available in [`docs/device-test.md`](docs/device-test.md):
@@ -205,9 +226,11 @@ airsafe-schools/
 │   ├── adr/                           # Architecture Decision Records (ADR 001 to 012)
 │   ├── ai-usage-log.md                # Human-audited AI usage & error log (Section 11, 14, 16)
 │   ├── COST.md                        # Metric-grounded AWS cost model (Sydney rates)
+│   ├── day1-checks.md                 # Day 1 baseline capability & API response checks
 │   ├── device-test.md                 # Physical device verification report (J-1 to J-4)
 │   ├── eval-report.md                 # AI assistant golden set evaluation report
 │   ├── ingestion-load-test-report.md  # 200 ev/s SQS/DLQ burst load test report
+│   ├── status/                        # Weekly Friday status reports (week-1.md to week-4.md)
 │   ├── threat-model.md                # Comprehensive STRIDE threat model
 │   └── STATUS.md                      # Comprehensive status matrix for all features
 ├── evals/                             # Golden Dataset & Evaluation Runner (A-9)

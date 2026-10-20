@@ -68,3 +68,4 @@
 - **Weekly Development Status Reports:** Documented in `docs/status/week-1.md` through `docs/status/week-4.md`.
 - **Architectural Decision Records (ADRs):** Comprehensive records in `docs/adr/001-bedrock-model-fallback.md` through `docs/adr/007-read-only-model-context-protocol-mcp.md`.
 - **Physical Device Test Evidence:** Detailed empirical measurements and 5 physical screen captures in `docs/device-test.md`.
+- **Release APK Distribution:** Available via official GitHub Releases (`v1.0.0`) and reproducible local compilation via `./gradlew assembleRelease` with fail-closed keystore credentials.
