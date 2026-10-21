@@ -83,31 +83,24 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
                         text = if (isBengali) site.nameBn else site.nameEn,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        color = TextPrimary
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Status Badge (Active/Online or Offline Cached)
-                    AssistChip(
-                        onClick = {},
-                        label = { 
-                            Text(
-                                text = if (site.isOnline) {
-                                    if (isBengali) "অনলাইন • ${site.lastUpdatedBn}" else "Live • ${site.lastUpdatedEn}"
-                                } else {
-                                    if (isBengali) "অফলাইন • ${site.lastUpdatedBn}" else "Offline • ${site.lastUpdatedEn}"
-                                },
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            ) 
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (site.isOnline) SafeGreenBackground else Color(0xFFFFF3CD)
+                ) {
+                    Text(
+                        text = if (site.isOnline) {
+                            if (isBengali) "অনলাইন • ${site.lastUpdatedBn}" else "Live • ${site.lastUpdatedEn}"
+                        } else {
+                            if (isBengali) "অফলাইন • ${site.lastUpdatedBn}" else "Offline • ${site.lastUpdatedEn}"
                         },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = if (site.isOnline) SafeGreenBackground else Color(0xFFFFF3CD),
-                            labelColor = if (site.isOnline) SafeGreen else Color(0xFF856404)
-                        )
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (site.isOnline) SafeGreen else Color(0xFF856404),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
