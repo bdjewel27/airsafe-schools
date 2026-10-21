@@ -77,6 +77,9 @@ fun DecisionCardScreen(
     var routineDurationMinutes by remember { mutableStateOf("45") }
     var routineTargetClass by remember { mutableStateOf("৬ষ্ঠ–১০ম শ্রেণি") }
 
+    var showServerDialog by remember { mutableStateOf(false) }
+    var serverUrlInput by remember { mutableStateOf(viewModel.getCustomBaseUrl()) }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -121,7 +124,7 @@ fun DecisionCardScreen(
                 }
             }
 
-            // Header Bar: User Info & Controls (Language, Logout)
+            // Header Bar: User Info & Controls (Language, Server Settings, Logout)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -161,11 +164,27 @@ fun DecisionCardScreen(
                     )
                 }
 
-                // D-9 & D-10: Accessible Touch Targets (min 48.dp)
+                // Accessible Touch Targets (min 48.dp)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // Server Settings Button
+                    IconButton(
+                        onClick = {
+                            serverUrlInput = viewModel.getCustomBaseUrl()
+                            showServerDialog = true
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = if (isBengali) "সার্ভার সেটিংস" else "Server Settings",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
                     // Language Toggle Button (Accessible touch target >= 48dp)
                     Surface(
                         onClick = { viewModel.toggleLanguage() },
@@ -336,7 +355,7 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (যেমন: অ্যাজমা)" else "Add Activity Note (e.g. Asthma)",
+                                text = if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (যেমন: আজমা)" else "Add Activity Note (e.g. Asthma)",
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp,
                                 textAlign = TextAlign.Center
@@ -418,35 +437,92 @@ fun DecisionCardScreen(
                 is DecisionUiState.Error -> {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = DangerRedBackground),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(18.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = DangerRed,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = if (isBengali) "তথ্য লোড করা যায়নি" else "Failed to load decision data",
+                                text = if (isBengali) "সার্ভার সংযোগে ত্রুটি (API Error)" else "Server Connection Error",
                                 color = DangerRed,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                fontSize = 16.sp
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = state.message,
-                                color = DangerRed,
-                                fontSize = 13.sp,
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // 1. Retry Button
                             Button(
                                 onClick = {
                                     val schoolId = userSession?.schoolId ?: "school-dhaka-001"
                                     viewModel.loadCurrentDecision(schoolId)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
+                                colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text(if (isBengali) "পুনরায় চেষ্টা করুন" else "Retry")
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (isBengali) "পুনরায় চেষ্টা করুন" else "Retry Connection", color = Color.White)
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 2. Use Offline Fallback Button
+                            OutlinedButton(
+                                onClick = {
+                                    val schoolId = userSession?.schoolId ?: "school-dhaka-001"
+                                    viewModel.useOfflineFallback(schoolId)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    if (isBengali) "অফলাইন ক্যাশ ও লোকাল পলিসি ব্যবহার করুন" else "Use Offline Mode & Local Policy",
+                                    color = SafeGreen,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // 3. Change Server Base URL Button
+                            TextButton(
+                                onClick = {
+                                    serverUrlInput = viewModel.getCustomBaseUrl()
+                                    showServerDialog = true
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 44.dp)
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp), tint = TextSecondary)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    if (isBengali) "সার্ভার URL পরিবর্তন করুন" else "Change Server Base URL",
+                                    color = TextSecondary,
+                                    fontSize = 13.sp
+                                )
                             }
                         }
                     }
@@ -465,7 +541,7 @@ fun DecisionCardScreen(
                     value = noteInput,
                     onValueChange = { noteInput = it },
                     label = { Text(if (isBengali) "নোটের বিবরণ" else "Note Description") },
-                    placeholder = { Text(if (isBengali) "যেমন: দুজন শিক্ষার্থীর অ্যাজমা আছে" else "e.g. 2 students have asthma") },
+                    placeholder = { Text(if (isBengali) "যেমন: দুজন শিক্ষার্থীর আজমা/হাঁপানি আছে" else "e.g. 2 students have asthma") },
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -679,6 +755,50 @@ fun DecisionCardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRoutineDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
+    }
+
+    // Server API Configuration Dialog
+    if (showServerDialog) {
+        AlertDialog(
+            onDismissRequest = { showServerDialog = false },
+            title = { Text(if (isBengali) "সার্ভার API কনফিগারেশন" else "Server API Configuration") },
+            text = {
+                Column {
+                    Text(
+                        text = if (isBengali)
+                            "ফিজিক্যাল ফোনে লোকাল সার্ভার টেস্টের জন্য আপনার কম্পিউটারের LAN IP দিন (যেমন http://192.168.31.37:3000/) অথবা AWS গেটওয়ে URL দিন:"
+                        else
+                            "For physical devices on local Wi-Fi, enter your host LAN IP (e.g. http://192.168.31.37:3000/) or deployed AWS API Gateway URL:",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = serverUrlInput,
+                        onValueChange = { serverUrlInput = it },
+                        label = { Text(if (isBengali) "সার্ভার Base URL" else "Server Base URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setCustomBaseUrl(serverUrlInput)
+                        showServerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                ) {
+                    Text(if (isBengali) "সংরক্ষণ ও সংযোগ" else "Save & Connect", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showServerDialog = false }) {
                     Text(if (isBengali) "বাতিল" else "Cancel")
                 }
             }

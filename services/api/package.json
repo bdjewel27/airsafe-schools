@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "dev-server": "node dev-server.js"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.1152.0",

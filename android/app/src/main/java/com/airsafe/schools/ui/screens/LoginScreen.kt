@@ -3,9 +3,10 @@ package com.airsafe.schools.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,9 @@ fun LoginScreen(
     var email by remember { mutableStateOf("fatema.teacher@dms.edu.bd") }
     var password by remember { mutableStateOf("TestStaffPassword2026!") }
 
+    var showServerDialog by remember { mutableStateOf(false) }
+    var serverUrlInput by remember { mutableStateOf(viewModel.getCustomBaseUrl()) }
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -39,11 +43,27 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Language Switch at Top of Login Screen
+            // Language Switch & Server Settings at Top of Login Screen
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = {
+                        serverUrlInput = viewModel.getCustomBaseUrl()
+                        showServerDialog = true
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Server Settings",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 OutlinedButton(
                     onClick = { viewModel.toggleLanguage() },
                     shape = RoundedCornerShape(20.dp),
@@ -89,7 +109,7 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Email Input
             OutlinedTextField(
@@ -126,7 +146,7 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Quick Demo Credential Autofill (Hard Gate 3: Role is determined strictly by server/token from email, not passed from UI)
             Text(
@@ -190,9 +210,9 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Sign In Button (Hard Gate 3: Only passes email & password, never a client-selected role!)
+            // Sign In Button
             Button(
                 onClick = { viewModel.authenticateStaff(email, password) },
                 colors = ButtonDefaults.buttonColors(containerColor = SafeGreen),
@@ -209,20 +229,65 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Notice: Self sign-up disabled per F-01 and S-02
-            Text(
-                text = if (isBengali)
-                    "⚠️ নতুন অ্যাকাউন্ট খোলার অনুমতি নেই (Self sign-up disabled)। আপনার রোল ও স্কুল আইডি সার্ভার দ্বারা নিয়ন্ত্রিত (S-2)।"
-                else
-                    "⚠️ Self sign-up is disabled. Your role and school_id are strictly controlled by the server token claims (S-2).",
-                fontSize = 12.sp,
-                color = TextSecondary,
-                lineHeight = 16.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Notice: Server Base URL Display
+            TextButton(
+                onClick = {
+                    serverUrlInput = viewModel.getCustomBaseUrl()
+                    showServerDialog = true
+                }
+            ) {
+                Text(
+                    text = "API: ${viewModel.getCustomBaseUrl()}",
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    maxLines = 1
+                )
+            }
         }
+    }
+
+    if (showServerDialog) {
+        AlertDialog(
+            onDismissRequest = { showServerDialog = false },
+            title = { Text(if (isBengali) "সার্ভার API কনফিগারেশন" else "Server API Configuration") },
+            text = {
+                Column {
+                    Text(
+                        text = if (isBengali)
+                            "ফিজিক্যাল ফোনে লোকাল সার্ভার টেস্টের জন্য কম্পিউটারের LAN IP দিন (যেমন http://192.168.31.37:3000/) অথবা AWS গেটওয়ে URL দিন:"
+                        else
+                            "For physical devices on local Wi-Fi, enter your host LAN IP (e.g. http://192.168.31.37:3000/) or deployed AWS API Gateway URL:",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = serverUrlInput,
+                        onValueChange = { serverUrlInput = it },
+                        label = { Text(if (isBengali) "সার্ভার Base URL" else "Server Base URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setCustomBaseUrl(serverUrlInput)
+                        showServerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                ) {
+                    Text(if (isBengali) "সংরক্ষণ" else "Save", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showServerDialog = false }) {
+                    Text(if (isBengali) "বাতিল" else "Cancel")
+                }
+            }
+        )
     }
 }
