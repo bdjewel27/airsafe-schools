@@ -1,0 +1,49 @@
+version: 2
+updates:
+  # 1. GitHub Actions CI dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # 2. AWS CDK Infrastructure
+  - package-ecosystem: "npm"
+    directory: "/infra"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # 3. REST API Service
+  - package-ecosystem: "npm"
+    directory: "/services/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # 4. Poller Service
+  - package-ecosystem: "npm"
+    directory: "/services/poller"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # 5. MCP Server
+  - package-ecosystem: "npm"
+    directory: "/services/mcp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # 6. Sensor Simulator
+  - package-ecosystem: "npm"
+    directory: "/simulator"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # 7. Native Android App (Gradle)
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
