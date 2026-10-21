@@ -113,3 +113,19 @@ Modeling 100 schools over a full 30-day operational month (weekdays 07:00–17:0
 $$\mathbf{Total\ Projected\ Monthly\ Spend\ for\ 100\ Schools} \approx \mathbf{\$5.28\ /\ month}$$
 
 This demonstrates that even in a full 100-school production deployment, monthly operational burn is less than **$6.00**, providing massive headroom within the $100.00 AWS credit budget.
+
+---
+
+## 5. Mandatory Submission Summary (সেকশন ০৯ সাবমিশন মেট্রিক)
+
+As required by Section 09 of the Project Specification, the official submission metrics are summarized below:
+
+| Submission Metric (চাহিদা) | Calculated Benchmark (Sydney `ap-southeast-2`) | Specification Ceiling | Compliance Status |
+| :--- | :--- | :--- | :---: |
+| **মোট আনুমানিক খরচ (Total Cumulative Spend)** | **$3.42** (Week 1: $0.85, Week 2: $1.42, Week 3: $1.15) | $\le \$40.00$ ($100 budget) | ✅ **PASSED** ($96.58 credit intact) |
+| **প্রতি ১০ লাখ ইভেন্টে খরচ (Cost per 1M Sensor Events)** | **$1.692** ($0.120 SQS + $0.035 Lambda + $1.525 DDB + $0.012 CW) | Metric-modeled | ✅ **PASSED** |
+| **প্রতি ১,০০০ উত্তরে খরচ (Cost per 1,000 AI Answers)** | **$0.104** ($1.040 per 10k Nova Lite queries $\div$ 10) | Metric-modeled | ✅ **PASSED** |
+| **প্রতি ১,০০,০০০ গ্ল্যান্সে খরচ (Cost per 100k Teacher Glances)** | **$0.412** ($0.350 API + $0.028 Lambda + $0.031 DDB) | Metric-modeled | ✅ **PASSED** |
+| **অলস অবস্থায় খরচ (Idle Spend per Day)** | **$0.00 / day** (100% On-Demand Serverless) | $\le \$0.50$ / day | ✅ **PASSED** |
+| **১০০টি স্কুলের পূর্ণ মাসিক বাজেট (100 Schools / Month)** | **$5.28 / month** | $\le \$40.00$ / month | ✅ **PASSED** |
+
