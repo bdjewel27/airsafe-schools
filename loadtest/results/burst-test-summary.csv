@@ -1,0 +1,6 @@
+timestamp_iso,second_index,phase,target_rate_ev_s,actual_ingested,p50_latency_ms,p95_latency_ms,errors_dlq
+2026-10-18T14:32:00Z,1,sustained,200,208,10.8,24.1,0
+2026-10-18T14:32:01Z,2,sustained,200,212,11.2,26.3,4
+2026-10-18T14:32:02Z,3,sustained,200,211,11.5,27.8,2
+2026-10-18T14:32:03Z,4,burst_peak,500,499,18.4,41.2,16
+2026-10-18T14:32:04Z,5,recovery,200,203,11.0,25.9,9
