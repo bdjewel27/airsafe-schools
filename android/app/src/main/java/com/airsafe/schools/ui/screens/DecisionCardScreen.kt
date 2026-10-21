@@ -1,6 +1,7 @@
 package com.airsafe.schools.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.data.model.DecisionResponse
 import com.airsafe.schools.data.model.DecisionUiState
+import com.airsafe.schools.data.model.toBengaliDigits
 import com.airsafe.schools.data.model.UserRole
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
@@ -78,6 +80,7 @@ fun DecisionCardScreen(
     var selectedIntensity by remember { mutableStateOf("MODERATE") }
     var routineDurationMinutes by remember { mutableStateOf("45") }
     var routineTargetClass by remember { mutableStateOf("৬ষ্ঠ–১০ম শ্রেণি") }
+    var metricDetailType by remember { mutableStateOf<String?>(null) }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -273,18 +276,14 @@ fun DecisionCardScreen(
 
             when (val state = uiState) {
                 is DecisionUiState.Loading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(260.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = SafeGreen)
-                    }
+                    // U-3: Skeleton Screen during Loading State
+                    DecisionCardSkeleton(isBengali = isBengali)
                 }
                 is DecisionUiState.Success -> {
-                    // Stale Warning (>90m)
+                    // Stale Warning (>90m) with dynamic minute calculation (U-3)
                     if (state.data.isStale == true) {
+                        val staleMins = state.data.dataAgeMinutes ?: 95
+                        val staleMinsStr = staleMins.toString().toBengaliDigits(isBengali)
                         Card(
                             colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
                             shape = RoundedCornerShape(12.dp),
@@ -305,9 +304,9 @@ fun DecisionCardScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (isBengali)
-                                        "সতর্কতা: ডেটা ৯০ মিনিটের বেশি পুরোনো।"
+                                        "সতর্কতা: ডেটা $staleMinsStr মিনিট পুরোনো (পলিসি অনুযায়ী সতর্কতামূলক ক্যাপ প্রযোজ্য)।"
                                     else
-                                        "Warning: Data older than 90m.",
+                                        "Warning: Data is $staleMins mins old (Safety caps applied).",
                                     color = CautionYellow,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
@@ -316,13 +315,16 @@ fun DecisionCardScreen(
                         }
                     }
 
-                    // U-1 Action-First Decision Card
+                    // U-1 Action-First Decision Card with clickable metric details
                     DecisionCardContent(
                         data = state.data,
                         isBengali = isBengali,
                         onRefresh = {
                             val schoolId = state.data.schoolId ?: userSession?.schoolId ?: "school-dhaka-001"
                             viewModel.loadCurrentDecision(schoolId)
+                        },
+                        onMetricClick = { mType ->
+                            metricDetailType = mType
                         }
                     )
 
@@ -732,6 +734,124 @@ fun DecisionCardScreen(
             }
         )
     }
+
+    // U-1: Detailed Metric Breakdown Dialog (Tap on any metric)
+    metricDetailType?.let { mType ->
+        val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
+        AlertDialog(
+            onDismissRequest = { metricDetailType = null },
+            title = {
+                Text(
+                    text = when (mType) {
+                        "HEAT_INDEX" -> if (isBengali) "হিট ইনডেক্স ও পরিবেশগত তাপমাত্রা" else "Heat Index & Environmental Rules"
+                        "AQI" -> if (isBengali) "বায়ুমান সূচক (US AQI ও PM2.5)" else "Air Quality Index (US AQI & PM2.5)"
+                        else -> if (isBengali) "ডেটার উৎস ও নির্ভরযোগ্যতা" else "Data Source & Reliability"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = SafeGreen
+                )
+            },
+            text = {
+                Column {
+                    when (mType) {
+                        "HEAT_INDEX" -> {
+                            val hiVal = safeData?.heatIndexC?.toString()?.toBengaliDigits(isBengali) ?: "—"
+                            Text(
+                                text = if (isBengali) "বর্তমান অনুভূত তাপমাত্রা: $hiVal°C" else "Current Observed Heat Index: $hiVal°C",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (isBengali)
+                                    "গণনা পদ্ধতি: শুষ্ক তাপমাত্রা ও আপেক্ষিক আর্দ্রতার সমন্বয়ে রথফুস (Rothfusz) সমীকরণ。\n\n" +
+                                    "Policy v1.2 সারণী ২-এর সীমা:\n" +
+                                    "• < ২৭°C: স্বাভাবিক (PROCEED)\n" +
+                                    "• ২৭°C–৩১°C: সতর্কতা ও প্রতি ২০ মিনিটে পানির বিরতি\n" +
+                                    "• ৩২°C–৩৮°C: MODIFY (ছায়া বাধ্যতামূলক, সর্বোচ্চ ৩০ মিনিট)\n" +
+                                    "• ≥ ৩৯°C: ভেতরে স্থানান্তর (MOVE INDOORS বাধ্যতামূলক)"
+                                else
+                                    "Methodology: Rothfusz regression equation combining temperature and relative humidity.\n\n" +
+                                    "Policy v1.2 Table 2 Environmental Thresholds:\n" +
+                                    "• < 27°C: Safe to PROCEED\n" +
+                                    "• 27°C–31°C: Precautions with 20-min hydration breaks\n" +
+                                    "• 32°C–38°C: MODIFY (Mandatory shade, max 30 mins)\n" +
+                                    "• >= 39°C: Mandatory MOVE INDOORS",
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        "AQI" -> {
+                            val aqiVal = safeData?.aqi?.toString()?.toBengaliDigits(isBengali) ?: "—"
+                            val pmVal = safeData?.pm25Ugm3?.toString()?.toBengaliDigits(isBengali) ?: "—"
+                            Text(
+                                text = if (isBengali) "বর্তমান US AQI: $aqiVal (PM2.5: $pmVal µg/m³)" else "Current US AQI: $aqiVal (PM2.5: $pmVal µg/m³)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (isBengali)
+                                    "গণনা পদ্ধতি: EPA US AQI স্ট্যান্ডার্ড অনুযায়ী PM2.5 কণার ঘনত্বের ভিত্তিতে পরিমাপিত।\n\n" +
+                                    "Policy v1.2 সারণী ১-এর সীমা:\n" +
+                                    "• ০–৫০: ভালো (PROCEED)\n" +
+                                    "• ৫১–১০০: মাঝারি (তীব্র খেলায় বিশেষ সতর্কতা)\n" +
+                                    "• ১০১–১৫০: অস্বাস্থ্যকর সংবেদনশীলদের জন্য (MODIFY - সময় কমানো ও ছায়া)\n" +
+                                    "• ≥ ১৫১: বিপজ্জনক/খারাপ (MOVE INDOORS অবিলম্বে ভেতরে নেওয়া)"
+                                else
+                                    "Methodology: EPA US AQI standard derived from PM2.5 particulate concentration.\n\n" +
+                                    "Policy v1.2 Table 1 Thresholds:\n" +
+                                    "• 0–50: Good (PROCEED)\n" +
+                                    "• 51–100: Moderate (Precautions for vigorous sports)\n" +
+                                    "• 101–150: Sensitive groups impacted (MODIFY - reduced duration)\n" +
+                                    "• >= 151: Critical / Unhealthy (Mandatory MOVE INDOORS)",
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        else -> {
+                            val isModeled = safeData?.isModeled ?: true
+                            val confidence = safeData?.confidenceLevelPct?.toString()?.toBengaliDigits(isBengali) ?: "৯৪"
+                            Text(
+                                text = if (isBengali)
+                                    "উৎস: ${if (isModeled) "মডেল করা (Open-Meteo স্যাটেলাইট)" else "মাপা (ক্যাম্পাস IoT সেন্সর)"} (কনফিডেন্স: $confidence%)"
+                                else
+                                    "Source: ${if (isModeled) "Modeled (Open-Meteo Satellite)" else "Measured (Campus IoT Sensor)"} (Confidence: ${safeData?.confidenceLevelPct ?: 94}%)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (isBengali)
+                                    "Policy v1.2 ধারা ৪ (ডেটা ফলব্যাক ও ক্যাপ):\n" +
+                                    "ক্যাম্পাসে প্রত্যক্ষ IoT সেন্সর সচল থাকলে প্রত্যক্ষ মাপা ডেটা অগ্রাধিকার পায়। সেন্সর অফলাইন বা ৯০ মিনিটের পুরোনো হলে ওপেন-মেটিও মডেলড ডেটায় অটো-ফলব্যাক হয় এবং সুরক্ষার জন্য কঠোরতম ক্যাপ প্রযোজ্য হয়।"
+                                else
+                                    "Policy v1.2 Section 4 (Data Fallback & Caps):\n" +
+                                    "Direct on-campus IoT sensors take top precedence when fresh. If offline or older than 90 minutes, the engine automatically falls back to Open-Meteo modeled telemetry with deterministic safety caps.",
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { metricDetailType = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                ) {
+                    Text(if (isBengali) "ঠিক আছে" else "Close", color = Color.White)
+                }
+            }
+        )
+    }
 }
 
 data class DecisionCardStyle(
@@ -745,7 +865,8 @@ data class DecisionCardStyle(
 fun DecisionCardContent(
     data: DecisionResponse,
     isBengali: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onMetricClick: (String) -> Unit = {}
 ) {
     val safeData = data.sanitized()
 
@@ -931,7 +1052,7 @@ fun DecisionCardContent(
                         color = ModifyOrange.copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = if (isBengali) "সর্বোচ্চ $durationLimit মিনিট" else "Max $durationLimit mins",
+                            text = if (isBengali) "সর্বোচ্চ ${durationLimit.toString().toBengaliDigits(isBengali)} মিনিট" else "Max $durationLimit mins",
                             color = ModifyOrange,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -1011,26 +1132,41 @@ fun DecisionCardContent(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // D-2: Real values with equal column distribution
+            // D-2 & U-1: Real values with equal column distribution (Tappable for breakdown)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onMetricClick("HEAT_INDEX") },
+                    contentAlignment = Alignment.Center
+                ) {
                     MetricItem(
-                        label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
-                        value = if (safeData.heatIndexC != null) "${safeData.heatIndexC}°C" else "—"
+                        label = if (isBengali) "হিট ইনডেক্স ℹ️" else "Heat Index ℹ️",
+                        value = if (safeData.heatIndexC != null) "${safeData.heatIndexC.toString().toBengaliDigits(isBengali)}°C" else "—"
                     )
                 }
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onMetricClick("AQI") },
+                    contentAlignment = Alignment.Center
+                ) {
                     MetricItem(
-                        label = "US AQI",
-                        value = safeData.aqi?.toString() ?: "—"
+                        label = "US AQI ℹ️",
+                        value = safeData.aqi?.toString()?.toBengaliDigits(isBengali) ?: "—"
                     )
                 }
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onMetricClick("SOURCE") },
+                    contentAlignment = Alignment.Center
+                ) {
                     MetricItem(
-                        label = if (isBengali) "উৎস" else "Source",
+                        label = if (isBengali) "উৎস ℹ️" else "Source ℹ️",
                         value = when (safeData.isModeled) {
                             true -> if (isBengali) "মডেল করা" else "Modeled"
                             false -> if (isBengali) "মাপা" else "Measured"
@@ -1072,7 +1208,7 @@ fun DecisionCardContent(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (confidenceVal != null && confidenceVal > 0)
-                                (if (isBengali) "আস্থা: ${confidenceVal}%" else "Confidence: ${confidenceVal}%")
+                                (if (isBengali) "আস্থা: ${confidenceVal.toString().toBengaliDigits(isBengali)}%" else "Confidence: ${confidenceVal}%")
                             else
                                 (if (isBengali) "আস্থা: —" else "Confidence: —"),
                             fontSize = 11.sp,
@@ -1139,5 +1275,89 @@ fun MetricItem(label: String, value: String) {
         Text(text = label, fontSize = 12.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(2.dp))
         Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+    }
+}
+
+/**
+ * U-3: Skeleton Screen for Loading State
+ */
+@Composable
+fun DecisionCardSkeleton(isBengali: Boolean) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Skeleton school name
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(20.dp)
+                    .background(Color.LightGray.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            // Skeleton routine banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .background(Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            // Skeleton circle icon
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(Color.LightGray.copy(alpha = 0.4f), RoundedCornerShape(30.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(26.dp), color = SafeGreen, strokeWidth = 3.dp)
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            // Skeleton decision title
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(26.dp)
+                    .background(Color.LightGray.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            // Skeleton primary reason box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .background(Color.LightGray.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            // Skeleton 3 metrics row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .width(80.dp)
+                            .height(44.dp)
+                            .background(Color.LightGray.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = if (isBengali) "যাচাইকৃত লাইভ ডেটা লোড হচ্ছে..." else "Loading verified live telemetry...",
+                fontSize = 12.sp,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }

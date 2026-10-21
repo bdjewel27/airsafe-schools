@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.data.model.SensorSite
+import com.airsafe.schools.data.model.toBengaliDigits
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
 
@@ -120,22 +121,22 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
                 MetricSmallItem(
                     modifier = Modifier.weight(1f),
                     label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
-                    value = if (site.heatIndexC != null) "${site.heatIndexC}°C" else "--"
+                    value = if (site.heatIndexC != null) "${site.heatIndexC.toString().toBengaliDigits(isBengali)}°C" else "--"
                 )
                 MetricSmallItem(
                     modifier = Modifier.weight(1f),
                     label = if (isBengali) "তাপমাত্রা" else "Temp",
-                    value = if (site.tempC != null) "${site.tempC}°C" else "--"
+                    value = if (site.tempC != null) "${site.tempC.toString().toBengaliDigits(isBengali)}°C" else "--"
                 )
                 MetricSmallItem(
                     modifier = Modifier.weight(1f),
                     label = if (isBengali) "আর্দ্রতা" else "Humidity",
-                    value = if (site.rhPct != null) "${site.rhPct}%" else "--"
+                    value = if (site.rhPct != null) "${site.rhPct.toString().toBengaliDigits(isBengali)}%" else "--"
                 )
                 MetricSmallItem(
                     modifier = Modifier.weight(1f),
                     label = "PM2.5",
-                    value = if (site.pm25Ugm3 != null) "${site.pm25Ugm3}" else "--"
+                    value = if (site.pm25Ugm3 != null) site.pm25Ugm3.toString().toBengaliDigits(isBengali) else "--"
                 )
             }
         }

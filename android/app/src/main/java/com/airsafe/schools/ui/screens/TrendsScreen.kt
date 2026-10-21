@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.data.model.TrendPoint
+import com.airsafe.schools.data.model.toBengaliDigits
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
 
@@ -142,7 +143,7 @@ fun TrendRow(item: TrendPoint, isBengali: Boolean) {
                 modifier = Modifier.weight(1.3f)
             )
             Text(
-                text = "${item.heatIndexC}°C",
+                text = "${item.heatIndexC.toString().toBengaliDigits(isBengali)}°C",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
@@ -150,7 +151,7 @@ fun TrendRow(item: TrendPoint, isBengali: Boolean) {
                 modifier = Modifier.weight(1.3f)
             )
             Text(
-                text = "${item.aqi}",
+                text = item.aqi.toString().toBengaliDigits(isBengali),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,
