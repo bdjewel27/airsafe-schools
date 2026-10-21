@@ -243,28 +243,35 @@ function evaluatePolicyV12(schoolId, telemetry) {
 
   // Reason Construction
   let primaryReason = '';
+  let primaryReasonEn = '';
   const reasonList = [];
 
   if (latestOverride && severity[latestOverride.decision] >= severity[finalDecision]) {
     primaryReason = `🚨 কোঅর্ডিনেটরের জরুরি নির্দেশ: ${latestOverride.reason}`;
+    primaryReasonEn = `🚨 Coordinator Emergency Order: ${latestOverride.reason}`;
     reasonList.push(primaryReason);
   } else if (hasRespiratory) {
     primaryReason = `সংবেদনশীল শিক্ষার্থী (আজমা/হাঁপানি): Policy v1.2 (রুল ৫) অনুযায়ী ১ ধাপ সতর্কতায় কার্যক্রম সীমিত (MODIFY) আবশ্যক — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক`;
+    primaryReasonEn = `Sensitive Students (Asthma/Respiratory): Policy v1.2 Rule 5 enforces 1-tier stricter MODIFY floor — max 30 mins and mandatory shade.`;
     reasonList.push(primaryReason);
     reasonList.push(`লাইভ আবহাওয়া: হিট ইনডেক্স ${heatIndexC}°C, US AQI ${aqi}`);
   } else if (status === 'ORANGE') {
     primaryReason = `লাইভ ওপেন-মেটিও পর্যবেক্ষণ: বর্তমান বায়ুমান সূচক (US AQI) ${aqi} ও অনুভূত তাপমাত্রা ${heatIndexC}°C। Policy v1.2 অনুযায়ী কার্যক্রম সীমিত (MODIFY) করুন — সর্বোচ্চ ${maxDurationMinutes} মিনিট ও ছায়া বাধ্যতামূলক।`;
+    primaryReasonEn = `Live Open-Meteo Observation: US AQI is ${aqi} and Heat Index is ${heatIndexC}°C. Per Policy v1.2, MODIFY activities — max ${maxDurationMinutes} mins and mandatory shade.`;
     reasonList.push(primaryReason);
     reasonList.push('ছায়ায় পর্যাপ্ত বিরতি ও পর্যাপ্ত পানীয় জল নিশ্চিত করুন');
   } else if (status === 'RED') {
     primaryReason = `🚨 চরম পরিবেশ ঝুঁকি: বর্তমান বায়ুমান সূচক (US AQI) ${aqi} অথবা হিট ইনডেক্স ${heatIndexC}°C নিরাপদ সীমা অতিক্রম করেছে। সব বহিরাঙ্গন ক্লাস অবিলম্বে ভেতরে নেওয়া আবশ্যক।`;
+    primaryReasonEn = `🚨 Extreme Environmental Hazard: US AQI ${aqi} or Heat Index ${heatIndexC}°C exceeds safety floor. All outdoor activities must move indoors.`;
     reasonList.push(primaryReason);
   } else if (status === 'YELLOW') {
     primaryReason = `লাইভ ওপেন-মেটিও পর্যবেক্ষণ: হিট ইনডেক্স ${heatIndexC}°C ও বায়ুমান ${aqi} সহনশীল সীমার মধ্যে — হাইড্রেটেড থাকুন ও ছায়াযুক্ত স্থানে পিই ক্লাস পরিচালনা করুন।`;
+    primaryReasonEn = `Live Open-Meteo Observation: Heat Index ${heatIndexC}°C and AQI ${aqi} within acceptable caution limits — stay hydrated and use shade.`;
     reasonList.push(primaryReason);
     reasonList.push('ছায়ায় পর্যাপ্ত বিরতি বাধ্যতামূলক');
   } else {
     primaryReason = `আবহাওয়া ও বায়ুমান সম্পূর্ণ স্বাভাবিক। ক্লাস স্বাভাবিকভাবে পরিচালনা করা নিরাপদ।`;
+    primaryReasonEn = `Weather and air quality within normal limits. Safe to proceed with outdoor classes.`;
     reasonList.push(primaryReason);
   }
 
@@ -278,6 +285,7 @@ function evaluatePolicyV12(schoolId, telemetry) {
     aqi,
     pm25Ugm3: telemetry.pm25Ugm3,
     primaryReason,
+    primaryReasonEn,
     reasons: reasonList,
     maxDurationMinutes,
     requiresShade,
@@ -305,6 +313,8 @@ function formatDecisionResponse(raw) {
     heat_index_c: raw.heatIndexC,
     pm25_ugm3: raw.pm25Ugm3,
     primary_reason: raw.primaryReason,
+    primary_reason_en: raw.primaryReasonEn,
+    primaryReasonEn: raw.primaryReasonEn,
     max_duration_minutes: raw.maxDurationMinutes,
     requires_shade: raw.requiresShade,
     is_stale: raw.isStale,

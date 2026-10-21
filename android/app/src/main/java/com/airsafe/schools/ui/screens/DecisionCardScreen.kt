@@ -137,9 +137,9 @@ fun DecisionCardScreen(
                 ) {
                     Text(
                         text = if (isBengali)
-                            (userSession?.schoolNameBn ?: "স্কুল ড্যাশবোর্ড")
+                            (userSession?.schoolNameBn ?: "ঢাকা মডেল স্কুল")
                         else
-                            (userSession?.schoolNameEn ?: "School Dashboard"),
+                            (userSession?.schoolNameEn ?: "Dhaka Model School"),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = SafeGreen,
@@ -152,12 +152,19 @@ fun DecisionCardScreen(
                                 (if (isBengali) "কোঅর্ডিনেটর" else "Coordinator")
                             else
                                 (if (isBengali) "শিক্ষক" else "Teacher")
-                            val nameStr = if (isBengali) userSession!!.nameBn else userSession!!.nameEn
-                            "$nameStr • $roleStr"
+                            val cleanName = if (isBengali) {
+                                userSession!!.nameBn
+                            } else {
+                                userSession!!.nameEn
+                                    .replace("Assistant Teacher ", "")
+                                    .replace("Principal ", "")
+                                    .replace("Teacher ", "")
+                            }
+                            "$cleanName • $roleStr"
                         } else {
                             if (isBengali) "এয়ারসেফ পোর্টাল" else "AirSafe Portal"
                         },
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         color = TextSecondary,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -803,7 +810,12 @@ fun DecisionCardContent(
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val displaySchoolName = safeData.schoolName ?: (if (isBengali) "স্কুল ক্যাম্পাস" else "School Campus")
+            val rawName = safeData.schoolName ?: "Dhaka Model School"
+            val displaySchoolName = if (isBengali) {
+                if (rawName.contains("(")) rawName.substringBefore(" (").trim() else rawName
+            } else {
+                if (rawName.contains("(")) rawName.substringAfter("(").removeSuffix(")").trim().ifBlank { "Dhaka Model School" } else "Dhaka Model School"
+            }
 
             Text(
                 text = displaySchoolName,
@@ -824,57 +836,58 @@ fun DecisionCardContent(
             val nextActText = if (isBengali) safeData.nextActivityBn else safeData.nextActivityEn
             val hasNextActivity = !nextActText.isNullOrBlank()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = if (hasNextActivity) Arrangement.SpaceBetween else Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White.copy(alpha = 0.88f)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = if (hasNextActivity) Modifier.weight(1.1f) else Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isBengali) "বর্তমান: " else "Now: ",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = currentActText,
-                        fontSize = 12.sp,
-                        lineHeight = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary,
-                        softWrap = true,
-                        maxLines = 2
-                    )
-                }
-                if (hasNextActivity) {
-                    Spacer(modifier = Modifier.width(6.dp))
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(0.9f),
-                        horizontalArrangement = Arrangement.End
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isBengali) "পরবর্তী: " else "Next: ",
-                            fontSize = 11.sp,
+                            text = if (isBengali) "বর্তমান: " else "Now: ",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextSecondary
+                            color = TextPrimary
                         )
                         Text(
-                            text = nextActText ?: "",
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp,
-                            color = TextSecondary,
-                            softWrap = true,
-                            maxLines = 2,
-                            textAlign = TextAlign.End
+                            text = currentActText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
+                    }
+                    if (hasNextActivity) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Row(
+                            modifier = Modifier.weight(1f, fill = false),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Text(
+                                text = if (isBengali) "পরবর্তী: " else "Next: ",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = nextActText ?: "",
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -908,7 +921,8 @@ fun DecisionCardContent(
             if (outcome == PolicyOutcome.MODIFY) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val durationLimit = safeData.maxDurationMinutes ?: 30
@@ -921,10 +935,11 @@ fun DecisionCardContent(
                             color = ModifyOrange,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
                     }
                     if (safeData.requiresShade != false) {
+                        Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = ModifyOrange.copy(alpha = 0.15f)
@@ -934,7 +949,7 @@ fun DecisionCardContent(
                                 color = ModifyOrange,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
@@ -966,11 +981,19 @@ fun DecisionCardContent(
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    val reason = safeData.primaryReason
-                        ?: if (outcome == PolicyOutcome.UNKNOWN)
-                            (if (isBengali) "কোনো নির্ভরযোগ্য পরিমাপ পাওয়া যায়নি। নিরাপত্তার জন্য ভেতরে থাকুন।" else "No reliable readings available. Stay indoors for safety.")
-                        else
-                            (if (isBengali) "পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে।" else "Conditions within policy limits.")
+                    val reason = if (!isBengali && !safeData.primaryReasonEn.isNullOrBlank()) {
+                        safeData.primaryReasonEn
+                    } else if (!isBengali) {
+                        when (outcome) {
+                            PolicyOutcome.MOVE_INDOORS -> "🚨 Extreme Hazard: US AQI ${safeData.aqi ?: "—"} or Heat Index ${safeData.heatIndexC ?: "—"}°C exceeds safety floor. All outdoor activities must move indoors."
+                            PolicyOutcome.MODIFY -> "Live Open-Meteo Observation: US AQI is ${safeData.aqi ?: "—"} and Heat Index is ${safeData.heatIndexC ?: "—"}°C. Per Policy v1.2, MODIFY activities — max ${safeData.maxDurationMinutes ?: 15} mins with mandatory shade."
+                            PolicyOutcome.PROCEED_WITH_PRECAUTIONS -> "Live Open-Meteo Observation: Heat Index ${safeData.heatIndexC ?: "—"}°C and AQI ${safeData.aqi ?: "—"} within tolerable limits — stay hydrated and use shade."
+                            PolicyOutcome.PROCEED -> "Conditions are within normal safety limits. Safe to proceed with outdoor classes."
+                            PolicyOutcome.UNKNOWN -> "No reliable telemetry available. Stay indoors for safety."
+                        }
+                    } else {
+                        safeData.primaryReason ?: "পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে।"
+                    }
 
                     Text(
                         text = reason,
@@ -979,7 +1002,7 @@ fun DecisionCardContent(
                             .wrapContentWidth(Alignment.CenterHorizontally),
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
-                        lineHeight = 19.sp,
+                        lineHeight = 20.sp,
                         color = TextPrimary,
                         softWrap = true
                     )
@@ -988,27 +1011,33 @@ fun DecisionCardContent(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // D-2: Real values or "—" (No fabricated numbers)
+            // D-2: Real values with equal column distribution
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MetricItem(
-                    label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
-                    value = if (safeData.heatIndexC != null) "${safeData.heatIndexC}°C" else "—"
-                )
-                MetricItem(
-                    label = "US AQI",
-                    value = safeData.aqi?.toString() ?: "—"
-                )
-                MetricItem(
-                    label = if (isBengali) "উৎস" else "Source",
-                    value = when (safeData.isModeled) {
-                        true -> if (isBengali) "মডেল করা" else "Modeled"
-                        false -> if (isBengali) "মাপা" else "Measured"
-                        null -> if (isBengali) "অজানা" else "Unknown"
-                    }
-                )
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricItem(
+                        label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
+                        value = if (safeData.heatIndexC != null) "${safeData.heatIndexC}°C" else "—"
+                    )
+                }
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricItem(
+                        label = "US AQI",
+                        value = safeData.aqi?.toString() ?: "—"
+                    )
+                }
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MetricItem(
+                        label = if (isBengali) "উৎস" else "Source",
+                        value = when (safeData.isModeled) {
+                            true -> if (isBengali) "মডেল করা" else "Modeled"
+                            false -> if (isBengali) "মাপা" else "Measured"
+                            null -> if (isBengali) "অজানা" else "Unknown"
+                        }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1018,57 +1047,61 @@ fun DecisionCardContent(
             val trendText = (if (isBengali) safeData.weatherTrendBn else safeData.weatherTrendEn)
                 ?: (if (isBengali) "বর্তমান পূর্বাভাস স্থিতিশীল" else "Forecast conditions stable")
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White.copy(alpha = 0.88f)
             ) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Shield,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = SafeGreen
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (confidenceVal != null && confidenceVal > 0)
-                            (if (isBengali) "আস্থা: ${confidenceVal}%" else "Confidence: ${confidenceVal}%")
-                        else
-                            (if (isBengali) "আস্থা: —" else "Confidence: —"),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = trendText,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        color = TextSecondary,
-                        softWrap = true,
-                        maxLines = 2,
-                        textAlign = TextAlign.End
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = SafeGreen
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (confidenceVal != null && confidenceVal > 0)
+                                (if (isBengali) "আস্থা: ${confidenceVal}%" else "Confidence: ${confidenceVal}%")
+                            else
+                                (if (isBengali) "আস্থা: —" else "Confidence: —"),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        modifier = Modifier.weight(1.2f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = trendText,
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -1079,12 +1112,20 @@ fun DecisionCardContent(
                 colors = ButtonDefaults.buttonColors(containerColor = statusColor),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .defaultMinSize(minHeight = 48.dp)
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isBengali) "রিফ্রেশ করুন" else "Refresh Live Decision",
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
             }

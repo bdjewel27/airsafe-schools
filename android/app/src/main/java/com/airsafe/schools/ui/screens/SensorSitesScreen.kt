@@ -67,7 +67,10 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
                         imageVector = Icons.Default.Sensors,
                         contentDescription = null,
@@ -77,9 +80,11 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isBengali) site.nameBn else site.nameEn,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
 
@@ -110,21 +115,25 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 MetricSmallItem(
+                    modifier = Modifier.weight(1f),
                     label = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
                     value = if (site.heatIndexC != null) "${site.heatIndexC}°C" else "--"
                 )
                 MetricSmallItem(
+                    modifier = Modifier.weight(1f),
                     label = if (isBengali) "তাপমাত্রা" else "Temp",
                     value = if (site.tempC != null) "${site.tempC}°C" else "--"
                 )
                 MetricSmallItem(
+                    modifier = Modifier.weight(1f),
                     label = if (isBengali) "আর্দ্রতা" else "Humidity",
                     value = if (site.rhPct != null) "${site.rhPct}%" else "--"
                 )
                 MetricSmallItem(
+                    modifier = Modifier.weight(1f),
                     label = "PM2.5",
                     value = if (site.pm25Ugm3 != null) "${site.pm25Ugm3}" else "--"
                 )
@@ -134,10 +143,13 @@ fun SensorSiteCard(site: SensorSite, isBengali: Boolean) {
 }
 
 @Composable
-fun MetricSmallItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, fontSize = 11.sp, color = TextSecondary)
+fun MetricSmallItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = label, fontSize = 11.sp, color = TextSecondary, maxLines = 1)
         Spacer(modifier = Modifier.height(2.dp))
-        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1)
     }
 }
