@@ -2,11 +2,13 @@
 
 **Project:** AirSafe Schools  
 **Target Platform:** Android 8.0 (API 26) through Android 15 (API 35)  
+**Application Package:** `com.airsafe.schools`  
+**Application Version:** `1.0.0` (versionCode: `1`)  
 **Physical Test Hardware:** ITEL itel A667LP (3GB RAM, MediaTek Helio G25, 720×1612 px)  
 **Target OS:** Android 14 (API Level 34, UpsideDownCake)  
 **Build Artifact:** Signed Release APK (`android/app/build/outputs/apk/release/app-release.apk`)  
-**Verified Commit SHA:** `cbb66a0` (clean orphan root `5f7164c`, `origin/main` HEAD)  
-**Verification Date:** October 2026  
+**Verified Commit SHA:** `7a32bce` (`origin/main` HEAD)  
+**Verification Date:** October 18–21, 2026  
 **Overall Status:** **Physical Hardware Verified (J-1, J-2, J-3, J-4, Offline, Accessibility, Timezone)**; **Bilingual AI Assistant & Row-Level CSV Export Fully Operational**.
 
 ---
@@ -138,3 +140,17 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 | **U-6** | Accessibility & Contrast | WCAG AAA ($\ge 7:1$, $\ge 48\text{dp}$) | **Passed Contrast & TalkBack** (Hardware Verified) | ✅ **PASS** |
 | **TZ** | UTC Phone Timezone Resilience | BST (Asia/Dhaka) Alignment | **Zero Timezone Drift** (Hardware Verified) | ✅ **PASS** |
 | **APK** | Release Signed Build | Release Keystore | **`app-release.apk` Verified** | ✅ **PASS** |
+
+---
+
+## 8. Video Recordings & Demonstration Artifacts (ভিডিও ও ডেমো লিঙ্ক)
+
+In accordance with Section 14 Deliverables (Day 28 Submission), the external video recordings and installation binaries are organized as follows:
+
+| Deliverable Artifact | Description & Scope | Location / Access Link |
+| :--- | :--- | :--- |
+| **8–10 Min End-to-End Demo Video** | Full walkthrough of Journeys J-1 through J-4 on ITEL itel A667LP | *[Insert YouTube / Google Drive Demo Link Here]* |
+| **Physical Device Test Recording** | Real-time verification of morning glance (2.8s) & offline resilience | *[Insert YouTube / Google Drive Device Test Link Here]* |
+| **TalkBack Accessibility Recording** | Screen reader navigation, spoken Bangla announcements & 200% font zoom | *[Insert YouTube / Google Drive TalkBack Link Here]* |
+| **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
+
