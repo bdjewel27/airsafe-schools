@@ -17,6 +17,7 @@ data class DecisionResponse(
     @SerializedName(value = "aqi") val aqi: Int? = null,
     @SerializedName(value = "pm25_ugm3", alternate = ["pm25Ugm3", "pm25"]) val pm25Ugm3: Double? = null,
     @SerializedName(value = "primary_reason", alternate = ["primaryReason"]) val primaryReason: String? = null,
+    @SerializedName(value = "primary_reason_en", alternate = ["primaryReasonEn"]) val primaryReasonEn: String? = null,
     @SerializedName(value = "reasons") val reasons: List<String>? = emptyList(),
     @SerializedName(value = "max_duration_minutes", alternate = ["maxDurationMinutes"]) val maxDurationMinutes: Int? = null,
     @SerializedName(value = "requires_shade", alternate = ["requiresShade"]) val requiresShade: Boolean? = true,
