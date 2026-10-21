@@ -75,8 +75,10 @@ object AirSafeApiClient {
     private const val PREFS_NAME = "airsafe_api_config"
     private const val KEY_BASE_URL = "base_url"
 
-    // Default reachable host for physical Android device on local Wi-Fi / LAN
-    const val DEFAULT_BASE_URL = "http://192.168.31.37:3000/"
+    // Default reachable host for USB cable via `adb reverse tcp:3000 tcp:3000`
+    const val USB_BASE_URL = "http://127.0.0.1:3000/"
+    const val LAN_BASE_URL = "http://192.168.31.37:3000/"
+    const val DEFAULT_BASE_URL = USB_BASE_URL
 
     @Volatile
     private var currentBaseUrl: String = DEFAULT_BASE_URL
