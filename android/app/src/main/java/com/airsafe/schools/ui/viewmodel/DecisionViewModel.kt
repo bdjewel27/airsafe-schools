@@ -225,18 +225,20 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     else -> UserRole.TEACHER
                 }
                 AirSafeApiClient.authToken = loginResp.token
+                val resolvedSchoolId = loginResp.user.schoolId
+                    ?: (if (normalizedEmail.contains("chittagong") || normalizedEmail.contains("chs")) "school-chittagong-002" else "school-dhaka-001")
                 _userSession.value = UserSession(
                     email = loginResp.user.email,
                     nameBn = loginResp.user.nameBn ?: "স্কুল স্টাফ",
                     nameEn = loginResp.user.nameEn ?: "School Staff",
                     role = resolvedRole,
-                    schoolId = loginResp.user.schoolId,
+                    schoolId = resolvedSchoolId,
                     schoolNameBn = loginResp.user.schoolNameBn ?: "ঢাকা মডেল স্কুল",
                     schoolNameEn = loginResp.user.schoolNameEn ?: "Dhaka Model School",
                     token = loginResp.token
                 )
-                _selectedSchoolId.value = loginResp.user.schoolId
-                loadSchoolData(loginResp.user.schoolId)
+                _selectedSchoolId.value = resolvedSchoolId
+                loadSchoolData(resolvedSchoolId)
             } catch (apiEx: Exception) {
                 Log.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
 
