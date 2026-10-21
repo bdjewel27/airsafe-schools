@@ -22,6 +22,7 @@ data class DecisionResponse(
     @SerializedName(value = "max_duration_minutes", alternate = ["maxDurationMinutes"]) val maxDurationMinutes: Int? = null,
     @SerializedName(value = "requires_shade", alternate = ["requiresShade"]) val requiresShade: Boolean? = true,
     @SerializedName(value = "is_stale", alternate = ["isStale"]) val isStale: Boolean? = true,
+    @SerializedName(value = "data_age_minutes", alternate = ["dataAgeMinutes", "staleMinutes"]) val dataAgeMinutes: Int? = null,
     @SerializedName(value = "is_modeled", alternate = ["isModeled"]) val isModeled: Boolean? = true,
     @SerializedName(value = "last_updated", alternate = ["lastUpdated"]) val lastUpdated: String? = null,
     @SerializedName(value = "current_activity_bn", alternate = ["currentActivityBn"]) val currentActivityBn: String? = null,
@@ -77,6 +78,7 @@ data class DecisionResponse(
             maxDurationMinutes = if (safeDecision == "UNKNOWN") null else maxDurationMinutes,
             requiresShade = requiresShade ?: (safeDecision != "PROCEED"),
             isStale = if (safeDecision == "UNKNOWN") true else (isStale ?: true),
+            dataAgeMinutes = dataAgeMinutes,
             isModeled = isModeled ?: true,
             lastUpdated = lastUpdated,
             currentActivityBn = if (currentActivityBn.isNullOrBlank()) "তথ্য নেই" else currentActivityBn,
@@ -199,4 +201,18 @@ sealed class DecisionUiState {
     object Loading : DecisionUiState()
     data class Success(val data: DecisionResponse) : DecisionUiState()
     data class Error(val message: String) : DecisionUiState()
+}
+
+fun String.toBengaliDigits(isBengali: Boolean): String {
+    if (!isBengali) return this
+    val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+    val sb = StringBuilder()
+    for (ch in this) {
+        if (ch in '0'..'9') {
+            sb.append(bnDigits[ch - '0'])
+        } else {
+            sb.append(ch)
+        }
+    }
+    return sb.toString()
 }
