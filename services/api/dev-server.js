@@ -1,7 +1,7 @@
 /**
  * AirSafe Schools Local Development Server
  * Binds to 0.0.0.0:3000 so both localhost and host LAN IP (e.g. http://192.168.31.37:3000) can access it.
- * Zero external dependencies — runs directly with `node dev-server.js`.
+ * Supports both snake_case and camelCase field serializations.
  */
 
 const http = require('http');
@@ -68,6 +68,32 @@ const schoolDecisions = {
     weatherTrendEn: 'Forecast conditions stable'
   }
 };
+
+function formatDecisionResponse(raw) {
+  return {
+    ...raw,
+    // Provide both snake_case and camelCase
+    school_id: raw.schoolId,
+    school_name: raw.schoolName,
+    policy_floor_decision: raw.policyFloorDecision,
+    heat_index_c: raw.heatIndexC,
+    pm25_ugm3: raw.pm25Ugm3,
+    primary_reason: raw.primaryReason,
+    max_duration_minutes: raw.maxDurationMinutes,
+    requires_shade: raw.requiresShade,
+    is_stale: raw.isStale,
+    is_modeled: raw.isModeled,
+    last_updated: raw.lastUpdated,
+    current_activity_bn: raw.currentActivityBn,
+    current_activity_en: raw.currentActivityEn,
+    next_activity_bn: raw.nextActivityBn,
+    next_activity_en: raw.nextActivityEn,
+    routine_intensity: raw.routineIntensity,
+    confidence_level_pct: raw.confidenceLevelPct,
+    weather_trend_bn: raw.weatherTrendBn,
+    weather_trend_en: raw.weatherTrendEn
+  };
+}
 
 const schoolNotes = {
   'school-dhaka-001': [],
@@ -182,10 +208,15 @@ const server = http.createServer((req, res) => {
           email,
           role,
           schoolId,
+          school_id: schoolId,
           nameBn,
+          name_bn: nameBn,
           nameEn,
+          name_en: nameEn,
           schoolNameBn,
-          schoolNameEn
+          school_name_bn: schoolNameBn,
+          schoolNameEn,
+          school_name_en: schoolNameEn
         }
       }));
       return;
@@ -197,7 +228,7 @@ const server = http.createServer((req, res) => {
       const schoolId = decisionMatch[1];
       const decision = schoolDecisions[schoolId] || schoolDecisions['school-dhaka-001'];
       res.writeHead(200);
-      res.end(JSON.stringify(decision));
+      res.end(JSON.stringify(formatDecisionResponse(decision)));
       return;
     }
 
@@ -206,7 +237,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && noteMatch) {
       const schoolId = noteMatch[1];
       const note = parsedBody.note || '';
-      const hasRespiratory = Boolean(parsedBody.hasRespiratoryCondition);
+      const hasRespiratory = Boolean(parsedBody.hasRespiratoryCondition || parsedBody.has_respiratory_condition);
 
       schoolNotes[schoolId] = schoolNotes[schoolId] || [];
       schoolNotes[schoolId].push({ note, hasRespiratory, timestamp: new Date().toISOString() });
@@ -278,8 +309,8 @@ const server = http.createServer((req, res) => {
     if (req.method === 'POST' && routineMatch) {
       const schoolId = routineMatch[1];
       const intensity = (parsedBody.intensity || 'MODERATE').toUpperCase();
-      const activityNameBn = parsedBody.activityNameBn || 'পিই ও খেলাধুলা';
-      const durationMinutes = parsedBody.durationMinutes || 45;
+      const activityNameBn = parsedBody.activityNameBn || parsedBody.activity_name_bn || 'পিই ও খেলাধুলা';
+      const durationMinutes = parsedBody.durationMinutes || parsedBody.duration_minutes || 45;
 
       if (schoolDecisions[schoolId]) {
         schoolDecisions[schoolId].currentActivityBn = activityNameBn;
@@ -302,7 +333,20 @@ const server = http.createServer((req, res) => {
     const sensorMatch = pathname.match(/^\/schools\/([^\/]+)\/sensor-sites$/);
     if (req.method === 'GET' && sensorMatch) {
       const schoolId = sensorMatch[1];
-      const sites = sensorSitesData[schoolId] || sensorSitesData['school-dhaka-001'];
+      const rawSites = sensorSitesData[schoolId] || sensorSitesData['school-dhaka-001'];
+      const sites = rawSites.map(s => ({
+        ...s,
+        name_bn: s.nameBn,
+        name_en: s.nameEn,
+        location_type: s.locationType,
+        temp_c: s.tempC,
+        rh_pct: s.rhPct,
+        pm25_ugm3: s.pm25Ugm3,
+        heat_index_c: s.heatIndexC,
+        is_online: s.isOnline,
+        last_updated_bn: s.lastUpdatedBn,
+        last_updated_en: s.lastUpdatedEn
+      }));
       res.writeHead(200);
       res.end(JSON.stringify({ sites }));
       return;
@@ -314,10 +358,19 @@ const server = http.createServer((req, res) => {
       res.writeHead(200);
       res.end(JSON.stringify({
         periodBn: 'গত সপ্তাহ (৭–১৩ অক্টোবর)',
+        period_bn: 'গত সপ্তাহ (৭–১৩ অক্টোবর)',
         periodEn: 'Past Week (Oct 7–13)',
+        period_en: 'Past Week (Oct 7–13)',
         totalIndoorHours: 4,
+        total_indoor_hours: 4,
         warningDaysCount: 8,
-        totalSessionsAnalyzed: 18
+        warning_days_count: 8,
+        totalSessionsAnalyzed: 18,
+        total_sessions_analyzed: 18,
+        avgAqi: 50,
+        avg_aqi: 50,
+        maxHeatIndexC: 33.1,
+        max_heat_index_c: 33.1
       }));
       return;
     }
@@ -328,9 +381,9 @@ const server = http.createServer((req, res) => {
       res.writeHead(200);
       res.end(JSON.stringify({
         staff: [
-          { email: 'fatema.teacher@dms.edu.bd', roleBn: 'সহকারী শিক্ষক', roleEn: 'Assistant Teacher' },
-          { email: 'karim.teacher@dms.edu.bd', roleBn: 'সহকারী শিক্ষক', roleEn: 'Assistant Teacher' },
-          { email: 'rafiq.principal@dms.edu.bd', roleBn: 'প্রধান শিক্ষক ও কোঅর্ডিনেটর', roleEn: 'Principal & Coordinator' }
+          { email: 'fatema.teacher@dms.edu.bd', roleBn: 'সহকারী শিক্ষক', role_bn: 'সহকারী শিক্ষক', roleEn: 'Assistant Teacher', role_en: 'Assistant Teacher' },
+          { email: 'karim.teacher@dms.edu.bd', roleBn: 'সহকারী শিক্ষক', role_bn: 'সহকারী শিক্ষক', roleEn: 'Assistant Teacher', role_en: 'Assistant Teacher' },
+          { email: 'rafiq.principal@dms.edu.bd', roleBn: 'প্রধান শিক্ষক ও কোঅর্ডিনেটর', role_bn: 'প্রধান শিক্ষক ও কোঅর্ডিনেটর', roleEn: 'Principal & Coordinator', role_en: 'Principal & Coordinator' }
         ]
       }));
       return;
@@ -357,8 +410,11 @@ const server = http.createServer((req, res) => {
         answer: isBn
           ? `ক্যাম্পাসের বর্তমান আবহাওয়া তথ্য: হিট ইনডেক্স ${current.heatIndexC}°C এবং AQI ${current.aqi}। Policy v1.2 অনুযায়ী বর্তমান সিদ্ধান্ত হলো: ${current.decision}। ${current.primaryReason}`
           : `Current campus telemetry: Heat Index is ${current.heatIndexC}°C and AQI is ${current.aqi}. Decision per Policy v1.2 is: ${current.decision}. ${current.primaryReason}`,
+        citation_id: 'Model School Outdoor Activity Policy v1.2 §3',
         citationId: 'Model School Outdoor Activity Policy v1.2 §3',
+        citation_excerpt: 'Deterministic environmental thresholds for student outdoor safety.',
         citationExcerpt: 'Deterministic environmental thresholds for student outdoor safety.',
+        doc_id: 'airsafe-policy-v1.2',
         docId: 'airsafe-policy-v1.2'
       }));
       return;
