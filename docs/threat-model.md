@@ -67,4 +67,5 @@ The Model Context Protocol (MCP) server (`services/mcp/src/index.ts`) enforces f
 - [x] **Fail-Closed MCP Execution:** MCP server strictly requires bearer tokens, rejecting invalid/missing tokens with 401.
 - [x] **Least-Privilege IAM:** Lambda execution roles grant only specific DynamoDB and SQS actions on designated resource ARNs.
 - [x] **Cross-Tenant Isolation:** 100% verified across REST API, DynamoDB single-table keys, and AI tool calling.
+- [x] **Automated Dependency Vulnerability Scanning:** GitHub Dependabot configured (`.github/dependabot.yml`) for npm, gradle, and GitHub Actions workflows.
 - [x] **Signed Release Artifacts:** Android release builds signed with dedicated cryptographic keystore (`airsafe-release.jks`).
