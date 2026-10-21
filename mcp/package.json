@@ -1,0 +1,19 @@
+{
+  "name": "airsafe-mcp-shared",
+  "version": "1.2.0",
+  "description": "AirSafe Schools Shared Tool Library & Read-Only Model Context Protocol (MCP) Server (F-22)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node dist/index.js --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,5 +1,4 @@
 import { SensorDataGenerator } from './generator';
-import { SensorEvent } from './types';
 
 export interface LoadTestMetrics {
   totalEvents: number;
@@ -63,7 +62,7 @@ export async function runLoadTest(options: {
         faultMode = 'DUPLICATE';
       }
 
-      const event = generator.generateEvent(schoolId, sensorId, faultMode) as any;
+      const _event = generator.generateEvent(schoolId, sensorId, faultMode) as any;
       const t1 = performance.now();
       latencies.push(t1 - t0);
 

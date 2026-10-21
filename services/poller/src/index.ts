@@ -39,7 +39,7 @@ export function isQuietHoursBst(now: Date = new Date()): boolean {
   return bstHour >= 20 || bstHour < 6;
 }
 
-export const handler = async (event: any): Promise<any> => {
+export const handler = async (_event: any): Promise<any> => {
   console.log(
     `AirSafe Poller Lambda triggered at ${new Date().toISOString()} (${BANGLADESH_64_DISTRICTS.length} districts seeded)`
   );

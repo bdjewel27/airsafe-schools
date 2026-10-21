@@ -1,0 +1,20 @@
+{
+  "name": "airsafe-schools",
+  "version": "1.0.0",
+  "description": "Smart, Policy-Bounded Environmental Decision Support & AI Assistant for Schools in Bangladesh",
+  "private": true,
+  "scripts": {
+    "lint": "eslint services/api/src services/poller/src services/mcp/src mcp/src simulator/src infra/lib",
+    "test": "npm run test:api && npm run test:poller && npm run test:mcp && npm run test:shared-mcp && npm run test:simulator && npm run test:evals",
+    "test:api": "cd services/api && npm test",
+    "test:poller": "cd services/poller && npm test",
+    "test:mcp": "cd services/mcp && npm test",
+    "test:shared-mcp": "cd mcp && npm test",
+    "test:simulator": "cd simulator && npm test",
+    "test:evals": "node evals/run-evals.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.13.0",
+    "typescript-eslint": "^8.11.0"
+  }
+}
