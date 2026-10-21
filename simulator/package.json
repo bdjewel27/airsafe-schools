@@ -9,7 +9,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "ulid": "^2.3.0"
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
