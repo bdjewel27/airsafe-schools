@@ -7,6 +7,7 @@
 
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:icon="@android:drawable/ic_dialog_info"
         android:label="AirSafe Schools"
         android:roundIcon="@android:drawable/ic_dialog_info"
