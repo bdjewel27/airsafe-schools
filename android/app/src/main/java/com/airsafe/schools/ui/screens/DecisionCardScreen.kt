@@ -319,10 +319,9 @@ fun DecisionCardScreen(
 
                     // ROLE-SPECIFIC ACTIONS (U-9 & F-08 & F-11)
                     if (userSession?.role == UserRole.TEACHER) {
-                        // F-08: Teacher Activity Note Button (Disabled when offline per D-13)
+                        // F-08: Teacher Activity Note Button
                         OutlinedButton(
                             onClick = { showNoteDialog = true },
-                            enabled = !isOffline,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
@@ -356,10 +355,9 @@ fun DecisionCardScreen(
                             }
                         }
                     } else if (userSession?.role == UserRole.COORDINATOR) {
-                        // F-11: Coordinator Override Button (Disabled when offline per D-13)
+                        // F-11: Coordinator Override Button
                         Button(
                             onClick = { showOverrideDialog = true },
-                            enabled = !isOffline,
                             colors = ButtonDefaults.buttonColors(containerColor = CautionYellow),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -390,7 +388,6 @@ fun DecisionCardScreen(
                         // F-10: Routine & Activity Management Button
                         OutlinedButton(
                             onClick = { showRoutineDialog = true },
-                            enabled = !isOffline,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
