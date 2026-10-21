@@ -6,6 +6,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +28,7 @@ import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
 
 /**
- * Policy v1.2 Four-Tier Outcome Model + Fail-Closed UNKNOWN state
+ * Policy v1.2 Four-Tier Outcome Model + Fail-Closed UNKNOWN state (Hard Gate 4)
  */
 enum class PolicyOutcome {
     PROCEED,
@@ -44,7 +47,6 @@ fun resolveOutcome(decision: String?, status: String?): PolicyOutcome {
         normDecision == "MODIFY" || normStatus == "ORANGE" -> PolicyOutcome.MODIFY
         normDecision == "PROCEED_WITH_PRECAUTIONS" || normStatus == "YELLOW" -> PolicyOutcome.PROCEED_WITH_PRECAUTIONS
         normDecision == "PROCEED" || normStatus == "GREEN" -> PolicyOutcome.PROCEED
-        // Strict Fail-Closed (D-1): Any null, unrecognized, or corrupted value maps to UNKNOWN
         else -> PolicyOutcome.UNKNOWN
     }
 }
@@ -77,9 +79,6 @@ fun DecisionCardScreen(
     var routineDurationMinutes by remember { mutableStateOf("45") }
     var routineTargetClass by remember { mutableStateOf("৬ষ্ঠ–১০ম শ্রেণি") }
 
-    var showServerDialog by remember { mutableStateOf(false) }
-    var serverUrlInput by remember { mutableStateOf(viewModel.getCustomBaseUrl()) }
-
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -91,6 +90,7 @@ fun DecisionCardScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Action Error Banner
             if (actionError != null) {
                 Card(
                     modifier = Modifier
@@ -124,7 +124,7 @@ fun DecisionCardScreen(
                 }
             }
 
-            // Header Bar: User Info & Controls (Language, Server Settings, Logout)
+            // Minimal Clean Header: School Name, User Info, Language, Logout
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -140,7 +140,7 @@ fun DecisionCardScreen(
                             (userSession?.schoolNameBn ?: "স্কুল ড্যাশবোর্ড")
                         else
                             (userSession?.schoolNameEn ?: "School Dashboard"),
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = SafeGreen,
                         maxLines = 1,
@@ -167,25 +167,9 @@ fun DecisionCardScreen(
                 // Accessible Touch Targets (min 48.dp)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Server Settings Button
-                    IconButton(
-                        onClick = {
-                            serverUrlInput = viewModel.getCustomBaseUrl()
-                            showServerDialog = true
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = if (isBengali) "সার্ভার সেটিংস" else "Server Settings",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    // Language Toggle Button (Accessible touch target >= 48dp)
+                    // Language Toggle
                     Surface(
                         onClick = { viewModel.toggleLanguage() },
                         shape = RoundedCornerShape(16.dp),
@@ -207,13 +191,13 @@ fun DecisionCardScreen(
                         }
                     }
 
-                    // Logout Button (Accessible touch target >= 48dp)
+                    // Logout Button
                     IconButton(
                         onClick = { viewModel.logout() },
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = if (isBengali) "লগআউট" else "Logout",
                             tint = DangerRed,
                             modifier = Modifier.size(24.dp)
@@ -224,7 +208,7 @@ fun DecisionCardScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // U-3 & U-8: Offline Banner Indicator
+            // Offline Banner Indicator (U-3 & U-8)
             if (isOffline) {
                 Card(
                     shape = RoundedCornerShape(12.dp),
@@ -252,7 +236,7 @@ fun DecisionCardScreen(
                 }
             }
 
-            // Active Coordinator Override Banner (F-11)
+            // Active Coordinator Override Banner (F-11 & J-3)
             if (activeOverride != null) {
                 Card(
                     shape = RoundedCornerShape(12.dp),
@@ -325,6 +309,7 @@ fun DecisionCardScreen(
                         }
                     }
 
+                    // U-1 Action-First Decision Card
                     DecisionCardContent(
                         data = state.data,
                         isBengali = isBengali,
@@ -338,7 +323,7 @@ fun DecisionCardScreen(
 
                     // ROLE-SPECIFIC ACTIONS (U-9 & F-08 & F-11)
                     if (userSession?.role == UserRole.TEACHER) {
-                        // F-08: Teacher Activity Note Button
+                        // F-08: Teacher Activity Context Note Button
                         OutlinedButton(
                             onClick = { showNoteDialog = true },
                             modifier = Modifier
@@ -349,7 +334,7 @@ fun DecisionCardScreen(
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.NoteAdd,
+                                imageVector = Icons.AutoMirrored.Filled.NoteAdd,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -374,7 +359,7 @@ fun DecisionCardScreen(
                             }
                         }
                     } else if (userSession?.role == UserRole.COORDINATOR) {
-                        // F-11: Coordinator Override Button
+                        // F-11: Coordinator Override Button (J-3)
                         Button(
                             onClick = { showOverrideDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = CautionYellow),
@@ -432,6 +417,7 @@ fun DecisionCardScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // F-03: School Sensor Sites (Field, Courtyard, Classroom)
                     SensorSitesView(viewModel = viewModel)
                 }
                 is DecisionUiState.Error -> {
@@ -441,7 +427,7 @@ fun DecisionCardScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(18.dp),
+                            modifier = Modifier.padding(20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
@@ -452,7 +438,7 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = if (isBengali) "সার্ভার সংযোগে ত্রুটি (API Error)" else "Server Connection Error",
+                                text = if (isBengali) "সার্ভার সংযোগে ত্রুটি" else "Server Connection Error",
                                 color = DangerRed,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
@@ -467,7 +453,7 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // 1. Retry Button
+                            // Retry Button
                             Button(
                                 onClick = {
                                     val schoolId = userSession?.schoolId ?: "school-dhaka-001"
@@ -486,7 +472,7 @@ fun DecisionCardScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // 2. Use Offline Fallback Button
+                            // Use Offline Fallback
                             OutlinedButton(
                                 onClick = {
                                     val schoolId = userSession?.schoolId ?: "school-dhaka-001"
@@ -501,27 +487,6 @@ fun DecisionCardScreen(
                                     if (isBengali) "অফলাইন ক্যাশ ও লোকাল পলিসি ব্যবহার করুন" else "Use Offline Mode & Local Policy",
                                     color = SafeGreen,
                                     fontWeight = FontWeight.SemiBold
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // 3. Change Server Base URL Button
-                            TextButton(
-                                onClick = {
-                                    serverUrlInput = viewModel.getCustomBaseUrl()
-                                    showServerDialog = true
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 44.dp)
-                            ) {
-                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp), tint = TextSecondary)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    if (isBengali) "সার্ভার URL পরিবর্তন করুন" else "Change Server Base URL",
-                                    color = TextSecondary,
-                                    fontSize = 13.sp
                                 )
                             }
                         }
@@ -564,7 +529,7 @@ fun DecisionCardScreen(
         )
     }
 
-    // Coordinator Override Dialog (F-11 & D-8: outcome choices + length validation)
+    // Coordinator Override Dialog (F-11 & J-3: outcome choices + minimum 5 chars reason)
     if (showOverrideDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -659,7 +624,7 @@ fun DecisionCardScreen(
         )
     }
 
-    // Coordinator Routine & Activity Management Dialog (F-10 & D-5: includes intensity)
+    // Coordinator Routine & Activity Management Dialog (F-10)
     if (showRoutineDialog) {
         AlertDialog(
             onDismissRequest = { showRoutineDialog = false },
@@ -690,7 +655,7 @@ fun DecisionCardScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (isBengali) "শারীরিক তীব্রতা (তীব্রতা সীমা নিয়ন্ত্রণ করে):" else "Physical Intensity (Determines Limits):",
+                        text = if (isBengali) "শারীরিক তীব্রতা:" else "Physical Intensity:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -760,50 +725,6 @@ fun DecisionCardScreen(
             }
         )
     }
-
-    // Server API Configuration Dialog
-    if (showServerDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text(if (isBengali) "সার্ভার API কনফিগারেশন" else "Server API Configuration") },
-            text = {
-                Column {
-                    Text(
-                        text = if (isBengali)
-                            "ফিজিক্যাল ফোনে লোকাল সার্ভার টেস্টের জন্য আপনার কম্পিউটারের LAN IP দিন (যেমন http://192.168.31.37:3000/) অথবা AWS গেটওয়ে URL দিন:"
-                        else
-                            "For physical devices on local Wi-Fi, enter your host LAN IP (e.g. http://192.168.31.37:3000/) or deployed AWS API Gateway URL:",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = serverUrlInput,
-                        onValueChange = { serverUrlInput = it },
-                        label = { Text(if (isBengali) "সার্ভার Base URL" else "Server Base URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.setCustomBaseUrl(serverUrlInput)
-                        showServerDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
-                ) {
-                    Text(if (isBengali) "সংরক্ষণ ও সংযোগ" else "Save & Connect", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) {
-                    Text(if (isBengali) "বাতিল" else "Cancel")
-                }
-            }
-        )
-    }
 }
 
 data class DecisionCardStyle(
@@ -852,7 +773,7 @@ fun DecisionCardContent(
         PolicyOutcome.UNKNOWN -> DecisionCardStyle(
             UnknownGray,
             UnknownGrayBackground,
-            Icons.Filled.HelpOutline,
+            Icons.AutoMirrored.Filled.HelpOutline,
             if (isBengali) "তথ্য পাওয়া যায়নি (DATA UNAVAILABLE)" else "DATA UNAVAILABLE"
         )
     }

@@ -291,9 +291,26 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
     fun loadSchoolData(schoolId: String) {
         loadCurrentDecision(schoolId)
+        loadNotes(schoolId)
         loadSensorSites(schoolId)
         loadAnalytics(schoolId)
         loadStaff(schoolId)
+    }
+
+    fun loadNotes(schoolId: String) {
+        viewModelScope.launch {
+            try {
+                val resp = AirSafeApiClient.service.getNotes(schoolId)
+                if (resp.notes.isNotEmpty()) {
+                    _activityNotes.value = resp.notes.map { it.note }
+                    if (resp.notes.any { it.hasRespiratory == true }) {
+                        hasRespiratoryNote = true
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "loadNotes skipped or failed: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -343,6 +360,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     NoteRequest(note = cleanNote, hasRespiratoryCondition = triggersRespiratoryStepUp)
                 )
                 Log.d(TAG, "submitNote API Success: $resp")
+                loadCurrentDecision(schoolId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in submitNote API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
@@ -393,6 +411,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     OverrideRequest(decision = decision, reason = cleanReason)
                 )
                 Log.d(TAG, "submitOverride API Success: $resp")
+                loadCurrentDecision(schoolId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in submitOverride API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
@@ -445,6 +464,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
                 Log.d(TAG, "updateRoutine API Success: $resp")
+                loadCurrentDecision(schoolId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in updateRoutine API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
