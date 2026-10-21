@@ -550,8 +550,8 @@ const server = http.createServer((req, res) => {
           heat_index_c: live.heatIndexC,
           isOnline: true,
           is_online: true,
-          lastUpdatedBn: 'এইমাত্র হালনাগাদকৃত',
-          last_updated_bn: 'এইমাত্র হালনাগাদকৃত',
+          lastUpdatedBn: 'এইমাত্র',
+          last_updated_bn: 'এইমাত্র',
           lastUpdatedEn: 'Just now',
           last_updated_en: 'Just now'
         },

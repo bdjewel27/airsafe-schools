@@ -146,8 +146,8 @@ fun DecisionCardScreen(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = SafeGreen,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        maxLines = 2,
+                        lineHeight = 22.sp
                     )
                     Text(
                         text = if (userSession != null) {
@@ -169,8 +169,8 @@ fun DecisionCardScreen(
                         },
                         fontSize = 13.sp,
                         color = TextSecondary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        maxLines = 2,
+                        lineHeight = 18.sp
                     )
                 }
 
@@ -962,15 +962,13 @@ fun DecisionCardContent(
                 shape = RoundedCornerShape(10.dp),
                 color = Color.White.copy(alpha = 0.88f)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -983,17 +981,14 @@ fun DecisionCardContent(
                             text = currentActText,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            color = TextPrimary
                         )
                     }
                     if (hasNextActivity) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
-                            modifier = Modifier.weight(1f, fill = false),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = if (isBengali) "পরবর্তী: " else "Next: ",
@@ -1004,9 +999,7 @@ fun DecisionCardContent(
                             Text(
                                 text = nextActText ?: "",
                                 fontSize = 11.sp,
-                                color = TextSecondary,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                color = TextSecondary
                             )
                         }
                     }
@@ -1188,40 +1181,39 @@ fun DecisionCardContent(
                 shape = RoundedCornerShape(10.dp),
                 color = Color.White.copy(alpha = 0.88f)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = SafeGreen
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (confidenceVal != null && confidenceVal > 0)
-                                (if (isBengali) "আস্থা: ${confidenceVal.toString().toBengaliDigits(isBengali)}%" else "Confidence: ${confidenceVal}%")
-                            else
-                                (if (isBengali) "আস্থা: —" else "Confidence: —"),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            maxLines = 1
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = SafeGreen
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (confidenceVal != null && confidenceVal > 0)
+                                    (if (isBengali) "আস্থা: ${confidenceVal.toString().toBengaliDigits(isBengali)}%" else "Confidence: ${confidenceVal}%")
+                                else
+                                    (if (isBengali) "আস্থা: —" else "Confidence: —"),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
-                        modifier = Modifier.weight(1.2f, fill = false),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Timer,
@@ -1233,9 +1225,7 @@ fun DecisionCardContent(
                         Text(
                             text = trendText,
                             fontSize = 11.sp,
-                            color = TextSecondary,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            color = TextSecondary
                         )
                     }
                 }
