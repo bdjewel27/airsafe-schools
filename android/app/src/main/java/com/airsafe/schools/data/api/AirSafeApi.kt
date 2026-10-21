@@ -57,6 +57,11 @@ interface AirSafeApiService {
         @Body request: NoteRequest
     ): Map<String, Any>
 
+    @GET("schools/{schoolId}/notes")
+    suspend fun getNotes(
+        @Path("schoolId") schoolId: String
+    ): NotesListResponse
+
     @POST("schools/{schoolId}/staff/invite")
     suspend fun inviteStaff(
         @Path("schoolId") schoolId: String,

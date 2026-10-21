@@ -167,6 +167,16 @@ data class NoteRequest(
     @SerializedName("has_respiratory_condition") val hasRespiratoryCondition: Boolean
 )
 
+data class NoteItemDto(
+    @SerializedName("note") val note: String,
+    @SerializedName("hasRespiratory", alternate = ["has_respiratory"]) val hasRespiratory: Boolean? = false,
+    @SerializedName("timestamp") val timestamp: String? = null
+)
+
+data class NotesListResponse(
+    @SerializedName("notes") val notes: List<NoteItemDto> = emptyList()
+)
+
 data class StaffInviteRequest(
     @SerializedName("email") val email: String,
     @SerializedName("role") val role: String
