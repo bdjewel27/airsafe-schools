@@ -1,5 +1,7 @@
 package com.airsafe.schools.data.api
 
+import android.content.Context
+import android.util.Log
 import com.airsafe.schools.data.model.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -69,15 +71,71 @@ interface AirSafeApiService {
 }
 
 object AirSafeApiClient {
-    // Live AWS API Gateway Dev Stage in Sydney (ap-southeast-2)
-    private const val BASE_URL = "https://api.airsafe.example.internal/dev/"
+    private const val TAG = "API_DEBUG"
+    private const val PREFS_NAME = "airsafe_api_config"
+    private const val KEY_BASE_URL = "base_url"
+
+    // Default reachable host for physical Android device on local Wi-Fi / LAN
+    const val DEFAULT_BASE_URL = "http://192.168.31.37:3000/"
+
+    @Volatile
+    private var currentBaseUrl: String = DEFAULT_BASE_URL
 
     @Volatile
     var authToken: String? = null
 
-    val service: AirSafeApiService by lazy {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+    @Volatile
+    private var _service: AirSafeApiService? = null
+
+    val service: AirSafeApiService
+        get() {
+            return _service ?: synchronized(this) {
+                _service ?: buildService(currentBaseUrl).also { _service = it }
+            }
+        }
+
+    fun init(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedUrl = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+        setBaseUrl(savedUrl, context)
+    }
+
+    fun getBaseUrl(): String = currentBaseUrl
+
+    @Synchronized
+    fun setBaseUrl(newUrl: String, context: Context? = null) {
+        var normalized = newUrl.trim()
+        if (normalized.isBlank()) {
+            normalized = DEFAULT_BASE_URL
+        }
+        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+            normalized = "http://$normalized"
+        }
+        if (!normalized.endsWith("/")) {
+            normalized = "$normalized/"
+        }
+
+        currentBaseUrl = normalized
+        _service = buildService(normalized)
+        Log.d(TAG, "AirSafeApiClient Base URL set to: $normalized")
+
+        context?.let { ctx ->
+            try {
+                ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putString(KEY_BASE_URL, normalized)
+                    .apply()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to persist base URL: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun buildService(baseUrl: String): AirSafeApiService {
+        val logging = HttpLoggingInterceptor { message ->
+            Log.d(TAG, "[HTTP] $message")
+        }.apply {
+            level = HttpLoggingInterceptor.Level.BODY
         }
 
         val client = OkHttpClient.Builder()
@@ -88,15 +146,19 @@ object AirSafeApiClient {
                 if (!token.isNullOrBlank()) {
                     reqBuilder.header("Authorization", "Bearer $token")
                 }
-                chain.proceed(reqBuilder.build())
+                Log.d(TAG, "--> ${original.method} ${original.url}")
+                val response = chain.proceed(reqBuilder.build())
+                Log.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
+                response
             }
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .writeTimeout(8, TimeUnit.SECONDS)
             .build()
 
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
