@@ -633,20 +633,45 @@ const server = http.createServer((req, res) => {
     const chatMatch = pathname.match(/^\/schools\/([^\/]+)\/assistant\/chat$/);
     if (req.method === 'POST' && chatMatch) {
       const q = parsedBody.query || '';
-      const isBn = parsedBody.isBengali !== false;
+      const isBn = parsedBody.is_bengali !== undefined 
+        ? Boolean(parsedBody.is_bengali) 
+        : (parsedBody.isBengali !== undefined ? Boolean(parsedBody.isBengali) : true);
       const schoolId = chatMatch[1];
       const live = await fetchLiveTelemetry(schoolId);
       const current = evaluatePolicyV12(schoolId, live);
 
+      // Check for sport-specific queries (Table 1 & 2 / Edge Cases)
+      const isSportSpecific = /(volleyball|swimming|football tournament|cricket|sports day|ভলিবল|সাঁতার|ফুটবল|টুর্নামেন্ট)/i.test(q);
+
+      let answer = '';
+      let citationId = '';
+      let citationExcerpt = '';
+
+      if (isBn) {
+        citationId = 'Model School Outdoor Activity Policy v1.2 ধারা ১–৩';
+        citationExcerpt = 'শিক্ষার্থীদের আউটডোর সুরক্ষার জন্য নির্ধারিত পরিবেশগত সীমা ও সিদ্ধান্ত নীতি (হিট ইনডেক্স ও AQI থ্রেশহোল্ড)।';
+        if (isSportSpecific) {
+          answer = `এই নির্দিষ্ট খেলার জন্য Policy v1.2-এ আলাদা কোনো শিথিল অনুচ্ছেদ নেই। ক্যাম্পাসের বর্তমান লাইভ ওপেন-মেটিও সেন্সর ডেটা (হিট ইনডেক্স ${current.heatIndexC}°C ও US AQI ${current.aqi}) অনুযায়ী সকল সাধারণ আউটডোর কার্যক্রমের বাধ্যতামূলক সিদ্ধান্ত হলো: ${current.decision} (${current.status})। ${current.primaryReason}`;
+        } else {
+          answer = `ক্যাম্পাসের লাইভ ওপেন-মেটিও পর্যবেক্ষণ: বর্তমান অনুভূত তাপমাত্রা (হিট ইনডেক্স) ${current.heatIndexC}°C এবং বায়ুমান সূচক (US AQI) ${current.aqi}। Policy v1.2 অনুযায়ী বর্তমান সিদ্ধান্ত হলো: ${current.decision} (${current.status})। ${current.primaryReason}`;
+        }
+      } else {
+        citationId = 'Model School Outdoor Activity Policy v1.2 Sections 1-3';
+        citationExcerpt = 'Deterministic environmental thresholds and outdoor safety policy rules for students (Heat Index and AQI thresholds).';
+        if (isSportSpecific) {
+          answer = `No sport-specific exception exists in Policy v1.2 for this activity. Under current live campus telemetry (Heat Index ${current.heatIndexC}°C, US AQI ${current.aqi}), the mandatory Policy v1.2 decision is: ${current.decision} (${current.status}). ${current.primaryReasonEn || current.primaryReason}`;
+        } else {
+          answer = `Live campus telemetry observation: Current Heat Index is ${current.heatIndexC}°C and Air Quality Index (US AQI) is ${current.aqi}. Mandatory decision per Policy v1.2 is: ${current.decision} (${current.status}). ${current.primaryReasonEn || current.primaryReason}`;
+        }
+      }
+
       res.writeHead(200);
       res.end(JSON.stringify({
-        answer: isBn
-          ? `ক্যাম্পাসের লাইভ ওপেন-মেটিও পর্যবেক্ষণ: বর্তমান অনুভূত তাপমাত্রা (হিট ইনডেক্স) ${current.heatIndexC}°C এবং বায়ুমান সূচক (US AQI) ${current.aqi}। Policy v1.2 অনুযায়ী বর্তমান সিদ্ধান্ত হলো: ${current.decision} (${current.status})। ${current.primaryReason}`
-          : `Current campus live telemetry: Heat Index is ${current.heatIndexC}°C and AQI is ${current.aqi}. Decision per Policy v1.2 is: ${current.decision} (${current.status}). ${current.primaryReason}`,
-        citation_id: 'Model School Outdoor Activity Policy v1.2 §3',
-        citationId: 'Model School Outdoor Activity Policy v1.2 §3',
-        citation_excerpt: 'Deterministic environmental thresholds for student outdoor safety.',
-        citationExcerpt: 'Deterministic environmental thresholds for student outdoor safety.',
+        answer,
+        citation_id: citationId,
+        citationId: citationId,
+        citation_excerpt: citationExcerpt,
+        citationExcerpt: citationExcerpt,
         doc_id: 'airsafe-policy-v1.2',
         docId: 'airsafe-policy-v1.2'
       }));
