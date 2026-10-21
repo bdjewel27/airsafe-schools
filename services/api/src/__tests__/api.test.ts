@@ -1,5 +1,6 @@
 process.env.API_JWT_SECRET = 'test-suite-secure-jwt-secret-for-jest-only-32bytes';
 process.env.MCP_JWT_SECRET = 'test-suite-secure-mcp-secret-for-jest-only-32bytes';
+import * as crypto from 'crypto';
 import {
   handler,
   createSignedJwt,
@@ -77,7 +78,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
   test('Hard Gate 2: Rejects token with missing exp claim with 401', async () => {
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
     const payload = Buffer.from(JSON.stringify({ school_id: 'school-dhaka-001', role: 'TEACHER' })).toString('base64url');
-    const sig = require('crypto').createHmac('sha256', process.env.API_JWT_SECRET).update(`${header}.${payload}`).digest('base64url');
+    const sig = crypto.createHmac('sha256', process.env.API_JWT_SECRET!).update(`${header}.${payload}`).digest('base64url');
     const tokenNoExp = `${header}.${payload}.${sig}`;
     const res = await handler(makeEvent({ headers: { Authorization: `Bearer ${tokenNoExp}` } }));
     expect(res.statusCode).toBe(401);

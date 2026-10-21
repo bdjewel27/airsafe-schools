@@ -21,8 +21,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test-services:
-    name: Services & Simulator Tests
+  lint-and-test:
+    name: Lint Gate, Services & Evals
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -33,7 +33,13 @@ jobs:
         with:
           node-version: 22
 
-      # 1. Simulator Tests
+      # 1. Root Quality & Lint Gate (Fail-Closed on any warning)
+      - name: Strict TypeScript & ESLint Gate
+        run: |
+          npm ci
+          npm run lint -- --max-warnings 0
+
+      # 2. Simulator Tests
       - name: Test Simulator
         working-directory: simulator
         run: |
@@ -41,7 +47,7 @@ jobs:
           npm test
           npm run build
 
-      # 2. Poller Tests
+      # 3. Poller Tests
       - name: Test Poller Service
         working-directory: services/poller
         run: |
@@ -49,7 +55,7 @@ jobs:
           npm test
           npm run build
 
-      # 3. REST API Tests
+      # 4. REST API Tests
       - name: Test REST API Service
         working-directory: services/api
         run: |
@@ -57,7 +63,7 @@ jobs:
           npm test
           npm run build
 
-      # 4. MCP Server Tests
+      # 5. MCP Service Tests
       - name: Test MCP Server
         working-directory: services/mcp
         run: |
@@ -65,9 +71,21 @@ jobs:
           npm run build
           npm test
 
+      # 6. Root MCP & Shared Tool Library Tests
+      - name: Test Shared MCP Tool Library
+        working-directory: mcp
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+      # 7. AI Decision & Policy Golden Evals
+      - name: Run AI Golden Evaluation Benchmark
+        run: node evals/run-evals.js
+
   infra-synth:
     name: CDK Infrastructure Synth
-    needs: [test-services]
+    needs: [lint-and-test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

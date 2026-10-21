@@ -1,0 +1,38 @@
+config:
+  target: "{{ $processEnvironment.API_URL || 'http://localhost:3000' }}"
+  phases:
+    - name: "Warm-up"
+      duration: 10
+      arrivalRate: 20
+    - name: "Sustained Baseline (200 ev/s Target)"
+      duration: 30
+      arrivalRate: 200
+    - name: "Peak Surge Burst (500 ev/s)"
+      duration: 10
+      arrivalRate: 500
+    - name: "Recovery (200 ev/s)"
+      duration: 15
+      arrivalRate: 200
+  ensure:
+    p95: 250
+    p99: 500
+    maxErrorRate: 1
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      X-AirSafe-Source: "artillery-loadtest"
+
+scenarios:
+  - name: "Telemetry Ingestion Flow"
+    flow:
+      - post:
+          url: "/telemetry"
+          json:
+            school_id: "school-dhaka-001"
+            sensor_id: "sensor-field-01"
+            location_type: "FIELD"
+            pm25: 42.5
+            co2: 520
+            temperature: 31.2
+            humidity: 68
+            timestamp: "{{ $timestamp }}"

@@ -1,0 +1,13 @@
+{
+  "name": "airsafe-loadtest",
+  "version": "1.0.0",
+  "description": "AirSafe Schools Telemetry Pipeline Load & Burst Testing Suite (k6 & Artillery)",
+  "scripts": {
+    "loadtest:k6": "k6 run k6-loadtest.js",
+    "loadtest:artillery": "artillery run artillery-loadtest.yml",
+    "loadtest:simulator": "cd ../simulator && npm run build && node -e \"require('./dist/loadTest.js').runLoadTest({ targetRatePerSec: 200, durationSeconds: 5, burstFrequencySeconds: 4, burstMultiplier: 2.5 }).then(console.log)\""
+  },
+  "devDependencies": {
+    "artillery": "^2.0.21"
+  }
+}
