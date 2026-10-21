@@ -55,14 +55,37 @@ fun TrendsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFE0E0E0), RoundedCornerShape(8.dp))
-                .padding(vertical = 10.dp, horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .background(Color(0xFFE8ECEF), RoundedCornerShape(8.dp))
+                .padding(vertical = 12.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = if (isBengali) "সময়" else "Time", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(text = if (isBengali) "হিট ইনডেক্স" else "Heat Index", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(text = "US AQI", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(text = if (isBengali) "অবস্থা" else "Status", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(
+                text = if (isBengali) "সময়" else "Time",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                modifier = Modifier.weight(1.3f)
+            )
+            Text(
+                text = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1.3f)
+            )
+            Text(
+                text = "US AQI",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1.0f)
+            )
+            Text(
+                text = if (isBengali) "অবস্থা" else "Status",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.weight(1.1f)
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -109,17 +132,38 @@ fun TrendRow(item: TrendPoint, isBengali: Boolean) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp, horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = if (isBengali) item.timeLabelBn else item.timeLabelEn, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-            Text(text = "${item.heatIndexC}°C", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(text = "${item.aqi}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+            Text(
+                text = if (isBengali) item.timeLabelBn else item.timeLabelEn,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                modifier = Modifier.weight(1.3f)
+            )
+            Text(
+                text = "${item.heatIndexC}°C",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1.3f)
+            )
+            Text(
+                text = "${item.aqi}",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1.0f)
+            )
             Text(
                 text = statusLabel,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = statusColor
+                color = statusColor,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.weight(1.1f)
             )
         }
     }
