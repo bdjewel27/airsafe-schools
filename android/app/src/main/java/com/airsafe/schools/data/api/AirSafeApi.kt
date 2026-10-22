@@ -80,10 +80,11 @@ object AirSafeApiClient {
     private const val PREFS_NAME = "airsafe_api_config"
     private const val KEY_BASE_URL = "base_url"
 
-    // Default reachable host for USB cable via `adb reverse tcp:3000 tcp:3000`
+    // AWS Live API Gateway Endpoint (ap-southeast-2 Sydney dev stage)
+    const val AWS_LIVE_BASE_URL = "https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/"
     const val USB_BASE_URL = "http://127.0.0.1:3000/"
     const val LAN_BASE_URL = "http://192.168.31.37:3000/"
-    const val DEFAULT_BASE_URL = USB_BASE_URL
+    const val DEFAULT_BASE_URL = AWS_LIVE_BASE_URL
 
     @Volatile
     private var currentBaseUrl: String = DEFAULT_BASE_URL
