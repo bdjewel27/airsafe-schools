@@ -403,9 +403,11 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     );
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.sites).toHaveLength(1);
+    expect(body.sites).toHaveLength(3);
     expect(body.sites[0].heat_index_c).toBe(35.5);
     expect(body.sites[0].is_online).toBe(true);
+    expect(body.sites[1].location_type).toBe('COURTYARD');
+    expect(body.sites[2].location_type).toBe('CLASSROOM');
   });
 
   test('GET /schools/{schoolId}/analytics returns calculated aggregations', async () => {

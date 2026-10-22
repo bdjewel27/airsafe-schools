@@ -237,12 +237,12 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Notice: Self sign-up disabled per F-01 and S-2
+            // Notice: Invite-only access
             Text(
                 text = if (isBengali)
-                    "⚠️ নতুন অ্যাকাউন্ট খোলার অনুমতি নেই (Self sign-up disabled)। আপনার রোল ও স্কুল আইডি সার্ভার দ্বারা নিয়ন্ত্রিত (S-2)।"
+                    "⚠️ শুধু আমন্ত্রিত স্টাফদের জন্য উন্মুক্ত। আপনার পদবী ও স্কুল কর্তৃপক্ষ কর্তৃক নির্ধারিত।"
                 else
-                    "⚠️ Self sign-up is disabled. Your role and school_id are strictly controlled by server token claims (S-2).",
+                    "⚠️ Invite-only access. Your role and school are assigned by school administration.",
                 fontSize = 11.sp,
                 color = TextSecondary,
                 lineHeight = 15.sp,
