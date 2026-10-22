@@ -6,6 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.ui.theme.*
@@ -30,7 +33,8 @@ fun LoginScreen(
     val isBengali by viewModel.isBengali.collectAsState()
     val loginError by viewModel.loginError.collectAsState()
     var email by remember { mutableStateOf("fatema.teacher@dms.edu.bd") }
-    var password by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("[REDACTED_PASSWORD]") }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -113,9 +117,25 @@ fun LoginScreen(
                 onValueChange = { password = it },
                 label = { Text(if (isBengali) "পাসওয়ার্ড" else "Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                    val desc = if (passwordVisible) "পাসওয়ার্ড লুকান" else "পাসওয়ার্ড দেখুন"
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = desc)
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
+            )
+
+            Text(
+                text = if (isBengali) "🔑 টেস্ট পাসওয়ার্ড: [REDACTED_PASSWORD]" else "🔑 Test Password: [REDACTED_PASSWORD]",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, start = 4.dp)
             )
 
             if (!loginError.isNullOrBlank()) {
@@ -151,6 +171,7 @@ fun LoginScreen(
                     selected = email.equals("fatema.teacher@dms.edu.bd", ignoreCase = true),
                     onClick = {
                         email = "fatema.teacher@dms.edu.bd"
+                        password = "[REDACTED_PASSWORD]"
                     },
                     label = {
                         Box(
@@ -174,6 +195,7 @@ fun LoginScreen(
                     selected = email.equals("rafiq.principal@dms.edu.bd", ignoreCase = true),
                     onClick = {
                         email = "rafiq.principal@dms.edu.bd"
+                        password = "[REDACTED_PASSWORD]"
                     },
                     label = {
                         Box(
