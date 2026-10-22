@@ -173,6 +173,26 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun saveSessionToCache(session: UserSession) {
+        try {
+            val json = gson.toJson(session)
+            prefs.edit().putString("cached_user_session_${session.email}", json).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist user session to cache: ", e)
+        }
+    }
+
+    private fun getCachedUserSession(email: String): UserSession? {
+        return try {
+            val json = prefs.getString("cached_user_session_$email", null)
+            if (!json.isNullOrBlank()) {
+                gson.fromJson(json, UserSession::class.java)
+            } else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun clearCache() {
         cachedDecision = null
         try {
@@ -242,7 +262,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 AirSafeApiClient.authToken = loginResp.token
                 val resolvedSchoolId = loginResp.user.schoolId
                     ?: (if (normalizedEmail.contains("chittagong") || normalizedEmail.contains("chs")) "school-chittagong-002" else "school-dhaka-001")
-                _userSession.value = UserSession(
+                val userSessionObj = UserSession(
                     email = loginResp.user.email,
                     nameBn = loginResp.user.nameBn ?: "স্কুল স্টাফ",
                     nameEn = loginResp.user.nameEn ?: "School Staff",
@@ -252,35 +272,21 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     schoolNameEn = loginResp.user.schoolNameEn ?: "Dhaka Model School",
                     token = loginResp.token
                 )
+                saveSessionToCache(userSessionObj)
+                _userSession.value = userSessionObj
                 _selectedSchoolId.value = resolvedSchoolId
                 loadSchoolData(resolvedSchoolId)
             } catch (apiEx: Exception) {
                 Log.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
 
-                // Offline resilience / local device testing when backend is unreachable
-                if (passwordInput == "TestStaffPassword2026!" || passwordInput == "airsafe2026") {
-                    Log.d(TAG, "Using authenticated local offline credentials for $normalizedEmail")
-                    val isCoordinator = normalizedEmail.contains("principal") || normalizedEmail.contains("coordinator")
-                    val role = if (isCoordinator) UserRole.COORDINATOR else UserRole.TEACHER
-                    val isChittagong = normalizedEmail.contains("chs.edu.bd") || normalizedEmail.contains("chittagong")
-                    val schoolId = if (isChittagong) "school-chittagong-002" else "school-dhaka-001"
-                    val schoolNameBn = if (isChittagong) "চট্টগ্রাম হাই স্কুল" else "ঢাকা মডেল স্কুল"
-                    val schoolNameEn = if (isChittagong) "Chittagong High School" else "Dhaka Model School"
-                    val nameBn = if (isCoordinator) "প্রিন্সিপাল রফিক" else "সহকারী শিক্ষক ফাতিমা"
-                    val nameEn = if (isCoordinator) "Principal Rafiq" else "Assistant Teacher Fatema"
-
-                    _userSession.value = UserSession(
-                        email = normalizedEmail,
-                        nameBn = nameBn,
-                        nameEn = nameEn,
-                        role = role,
-                        schoolId = schoolId,
-                        schoolNameBn = schoolNameBn,
-                        schoolNameEn = schoolNameEn,
-                        token = "offline-token-$normalizedEmail"
-                    )
-                    _selectedSchoolId.value = schoolId
-                    loadSchoolData(schoolId)
+                // Hard Gate 3 & Gate 1: Only restore previously authenticated server sessions during offline mode
+                val cachedSession = getCachedUserSession(normalizedEmail)
+                if (cachedSession != null) {
+                    Log.d(TAG, "Restoring verified cached server session for $normalizedEmail")
+                    AirSafeApiClient.authToken = cachedSession.token
+                    _userSession.value = cachedSession
+                    _selectedSchoolId.value = cachedSession.schoolId
+                    loadSchoolData(cachedSession.schoolId)
                     return@launch
                 }
 

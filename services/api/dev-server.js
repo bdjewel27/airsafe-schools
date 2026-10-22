@@ -16,6 +16,80 @@ const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 // Connected AppSync WebSocket clients: Set<{ socket, schoolId }>
 const wsClients = new Set();
 
+const JWT_SECRET = 'airsafe-dev-secret-key-2026';
+
+function createToken(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
+function verifyToken(tokenStr) {
+  if (!tokenStr || typeof tokenStr !== 'string') return null;
+  if (tokenStr.startsWith('mock-jwt-token-')) {
+    const parts = tokenStr.split('-');
+    const email = parts[3] || '';
+    const isChittagong = email.includes('chs') || email.includes('chittagong');
+    const isCoord = email.includes('principal') || email.includes('coordinator');
+    return {
+      email,
+      role: isCoord ? 'COORDINATOR' : 'TEACHER',
+      schoolId: isChittagong ? 'school-chittagong-002' : 'school-dhaka-001'
+    };
+  }
+
+  const parts = tokenStr.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, signature] = parts;
+  const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  if (signature !== expectedSig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+function authenticateTenant(req, res, targetSchoolId) {
+  const authHeader = req.headers['authorization'] || '';
+  let token = '';
+  if (authHeader.startsWith('Bearer ') || authHeader.startsWith('bearer ')) {
+    token = authHeader.substring(7).trim();
+  }
+  if (!token) {
+    const u = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    token = u.searchParams.get('token') || '';
+  }
+
+  if (!token) {
+    res.writeHead(401);
+    res.end(JSON.stringify({ error: 'Unauthorized: Missing Authorization Bearer token (Hard Gate 2/3)' }));
+    return null;
+  }
+
+  const session = verifyToken(token);
+  if (!session) {
+    res.writeHead(403);
+    res.end(JSON.stringify({ error: 'Forbidden: Invalid or expired token (Hard Gate 2/3)' }));
+    return null;
+  }
+
+  const callerSchoolId = session.schoolId || session.school_id;
+  if (session.role !== 'PLATFORM_ADMIN' && targetSchoolId && callerSchoolId !== targetSchoolId) {
+    console.warn(`[TENANT VIOLATION BLOCKED] Caller from ${callerSchoolId} attempted to access ${targetSchoolId}`);
+    res.writeHead(403);
+    res.end(JSON.stringify({
+      error: `Forbidden: Cross-tenant access denied. Token is scoped to ${callerSchoolId}, cannot access ${targetSchoolId} (Hard Gate 3 / S-3).`
+    }));
+    return null;
+  }
+
+  return session;
+}
+
 function makeAcceptKey(clientKey) {
   return crypto.createHash('sha1').update(clientKey + WS_GUID).digest('base64');
 }
@@ -493,9 +567,19 @@ const server = http.createServer((req, res) => {
       const nameBn = isCoordinator ? 'প্রিন্সিপাল রফিক' : 'সহকারী শিক্ষক ফাতিমা';
       const nameEn = isCoordinator ? 'Principal Rafiq' : 'Assistant Teacher Fatema';
 
+      const token = createToken({
+        email,
+        role,
+        schoolId,
+        school_id: schoolId,
+        'custom:school_id': schoolId,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 86400 * 7
+      });
+
       res.writeHead(200);
       res.end(JSON.stringify({
-        token: `mock-jwt-token-${email}-${Date.now()}`,
+        token,
         user: {
           email,
           role,
@@ -518,6 +602,8 @@ const server = http.createServer((req, res) => {
     const decisionMatch = pathname.match(/^\/schools\/([^\/]+)\/current-decision$/);
     if (req.method === 'GET' && decisionMatch) {
       const schoolId = decisionMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const telemetry = await fetchLiveTelemetry(schoolId);
       const rawDecision = evaluatePolicyV12(schoolId, telemetry);
       res.writeHead(200);
@@ -529,6 +615,8 @@ const server = http.createServer((req, res) => {
     const noteMatch = pathname.match(/^\/schools\/([^\/]+)\/notes$/);
     if (req.method === 'POST' && noteMatch) {
       const schoolId = noteMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const note = parsedBody.note || '';
       const hasRespiratory = Boolean(
         parsedBody.hasRespiratoryCondition ||
@@ -561,6 +649,8 @@ const server = http.createServer((req, res) => {
     // 4. GET /schools/:schoolId/notes
     if (req.method === 'GET' && noteMatch) {
       const schoolId = noteMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const notes = schoolNotes[schoolId] || [];
       res.writeHead(200);
       res.end(JSON.stringify({ notes }));
@@ -571,6 +661,13 @@ const server = http.createServer((req, res) => {
     const overrideMatch = pathname.match(/^\/schools\/([^\/]+)\/overrides$/);
     if (req.method === 'POST' && overrideMatch) {
       const schoolId = overrideMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
+      if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Forbidden: Only coordinators can override decisions (Hard Gate 3)' }));
+        return;
+      }
       const decision = parsedBody.decision || 'MOVE_INDOORS';
       const reason = parsedBody.reason || '';
 
@@ -596,6 +693,13 @@ const server = http.createServer((req, res) => {
     const routineMatch = pathname.match(/^\/schools\/([^\/]+)\/routines$/);
     if (req.method === 'POST' && routineMatch) {
       const schoolId = routineMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
+      if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Forbidden: Only coordinators can configure routines (Hard Gate 3)' }));
+        return;
+      }
       const intensity = (parsedBody.intensity || 'MODERATE').toUpperCase();
       const activityNameBn = parsedBody.activityNameBn || parsedBody.activity_name_bn || 'পিই ও খেলাধুলা';
       const durationMinutes = parsedBody.durationMinutes || parsedBody.duration_minutes || 45;
@@ -623,6 +727,8 @@ const server = http.createServer((req, res) => {
     const sensorMatch = pathname.match(/^\/schools\/([^\/]+)\/sensor-sites$/);
     if (req.method === 'GET' && sensorMatch) {
       const schoolId = sensorMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const live = await fetchLiveTelemetry(schoolId);
 
       const sites = [
@@ -706,6 +812,8 @@ const server = http.createServer((req, res) => {
     const analyticsMatch = pathname.match(/^\/schools\/([^\/]+)\/analytics$/);
     if (req.method === 'GET' && analyticsMatch) {
       const schoolId = analyticsMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const live = await fetchLiveTelemetry(schoolId);
       res.writeHead(200);
       res.end(JSON.stringify({
@@ -730,6 +838,9 @@ const server = http.createServer((req, res) => {
     // 9. GET /schools/:schoolId/staff
     const staffMatch = pathname.match(/^\/schools\/([^\/]+)\/staff$/);
     if (req.method === 'GET' && staffMatch) {
+      const schoolId = staffMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       res.writeHead(200);
       res.end(JSON.stringify({
         staff: [
@@ -744,6 +855,14 @@ const server = http.createServer((req, res) => {
     // 10. POST /schools/:schoolId/staff/invite
     const inviteMatch = pathname.match(/^\/schools\/([^\/]+)\/staff\/invite$/);
     if (req.method === 'POST' && inviteMatch) {
+      const schoolId = inviteMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
+      if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Forbidden: Only coordinators can invite staff (Hard Gate 3)' }));
+        return;
+      }
       res.writeHead(200);
       res.end(JSON.stringify({ success: true, email: parsedBody.email }));
       return;
@@ -752,11 +871,13 @@ const server = http.createServer((req, res) => {
     // 11. POST /schools/:schoolId/assistant/chat
     const chatMatch = pathname.match(/^\/schools\/([^\/]+)\/assistant\/chat$/);
     if (req.method === 'POST' && chatMatch) {
+      const schoolId = chatMatch[1];
+      const auth = authenticateTenant(req, res, schoolId);
+      if (!auth) return;
       const q = parsedBody.query || '';
       const isBn = parsedBody.is_bengali !== undefined 
         ? Boolean(parsedBody.is_bengali) 
         : (parsedBody.isBengali !== undefined ? Boolean(parsedBody.isBengali) : true);
-      const schoolId = chatMatch[1];
       const live = await fetchLiveTelemetry(schoolId);
       const current = evaluatePolicyV12(schoolId, live);
 
@@ -819,7 +940,35 @@ server.listen(PORT, HOST, () => {
 server.on('upgrade', (req, socket, head) => {
   const wsUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const match = wsUrl.pathname.match(/\/schools\/([^\/]+)/);
-  const schoolId = match ? match[1] : 'school-dhaka-001';
+  const requestedSchoolId = match ? match[1] : null;
+
+  // Extract Bearer token from headers, sec-websocket-protocol, or query string
+  let token = '';
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ') || authHeader.startsWith('bearer ')) {
+    token = authHeader.substring(7).trim();
+  }
+  if (!token) {
+    token = wsUrl.searchParams.get('token') || '';
+  }
+
+  const session = token ? verifyToken(token) : null;
+  const callerSchoolId = session ? (session.schoolId || session.school_id) : null;
+
+  if (!requestedSchoolId || !session || (session.role !== 'PLATFORM_ADMIN' && callerSchoolId !== requestedSchoolId)) {
+    console.warn(`[WEBSOCKET REJECT] Blocked cross-tenant or unauthenticated connection to /schools/${requestedSchoolId}/events (Caller: ${callerSchoolId || 'unauthenticated'})`);
+    socket.write(
+      'HTTP/1.1 403 Forbidden\r\n' +
+      'Connection: close\r\n' +
+      'Content-Type: application/json\r\n\r\n' +
+      JSON.stringify({ error: 'Forbidden: Cross-tenant or unauthenticated WebSocket access denied (Hard Gate 3)' }) +
+      '\r\n'
+    );
+    socket.destroy();
+    return;
+  }
+
+  const schoolId = requestedSchoolId;
 
   const key = req.headers['sec-websocket-key'];
   if (!key) {
