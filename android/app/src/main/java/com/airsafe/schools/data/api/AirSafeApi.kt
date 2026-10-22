@@ -105,7 +105,14 @@ object AirSafeApiClient {
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedUrl = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
-        setBaseUrl(savedUrl, context)
+        // Force upgrade legacy local/emulator URLs to the live AWS Sydney API Gateway endpoint
+        val targetUrl = if (savedUrl.contains("127.0.0.1") || savedUrl.contains("localhost") || savedUrl.contains("192.168.")) {
+            prefs.edit().putString(KEY_BASE_URL, AWS_LIVE_BASE_URL).apply()
+            AWS_LIVE_BASE_URL
+        } else {
+            savedUrl
+        }
+        setBaseUrl(targetUrl, context)
     }
 
     fun getBaseUrl(): String = currentBaseUrl
