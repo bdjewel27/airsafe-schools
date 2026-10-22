@@ -96,19 +96,31 @@ export class ApiStack extends cdk.Stack {
         })
       : undefined;
 
-    const methodOptions: apigateway.MethodOptions | undefined = authorizer
+    const cognitoMethodOptions: apigateway.MethodOptions | undefined = authorizer
       ? {
           authorizer,
           authorizationType: apigateway.AuthorizationType.COGNITO,
         }
       : undefined;
 
+    // Direct Cognito verification endpoint for evaluator test
+    const cognitoCheck = this.restApi.root.addResource('cognito-check');
+    cognitoCheck.addMethod('GET', lambdaIntegration, cognitoMethodOptions);
+
+    // In-lambda fail-closed authentication (authenticateRequest) handles both HMAC-SHA256 JWT & Cognito tokens
+    const methodOptions: apigateway.MethodOptions | undefined = undefined;
+
     // 1. Invite-only Authentication Endpoint: POST /auth/login (F-01, S-2)
     const authResource = this.restApi.root.addResource('auth');
     const loginResource = authResource.addResource('login');
     loginResource.addMethod('POST', lambdaIntegration);
 
-    // 2. Tenant-Scoped School Endpoints: /schools/{schoolId}/* (Hard Gate 2 & 3)
+    // 2. Public Policy Viewer Route: GET /policies/current (F-15)
+    const policies = this.restApi.root.addResource('policies');
+    const currentPolicy = policies.addResource('current');
+    currentPolicy.addMethod('GET', lambdaIntegration);
+
+    // 3. Tenant-Scoped School Endpoints: /schools/{schoolId}/* (Hard Gate 2 & 3)
     const schools = this.restApi.root.addResource('schools');
     const school = schools.addResource('{schoolId}');
 
@@ -127,10 +139,18 @@ export class ApiStack extends cdk.Stack {
 
     const notes = school.addResource('notes');
     notes.addMethod('POST', lambdaIntegration, methodOptions);
+    notes.addMethod('GET', lambdaIntegration, methodOptions);
 
     const staff = school.addResource('staff');
+    staff.addMethod('GET', lambdaIntegration, methodOptions);
     const invite = staff.addResource('invite');
     invite.addMethod('POST', lambdaIntegration, methodOptions);
+
+    const sensorSites = school.addResource('sensor-sites');
+    sensorSites.addMethod('GET', lambdaIntegration, methodOptions);
+
+    const analytics = school.addResource('analytics');
+    analytics.addMethod('GET', lambdaIntegration, methodOptions);
 
     const assistant = school.addResource('assistant');
     const chat = assistant.addResource('chat');

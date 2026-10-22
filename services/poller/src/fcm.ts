@@ -1,7 +1,14 @@
 /**
  * Firebase Cloud Messaging Integration via Firebase Admin SDK
  */
-import * as admin from 'firebase-admin';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let adminModule: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  adminModule = require('firebase-admin');
+} catch (_err) {
+  // Graceful fallback when firebase-admin is not packaged in Lambda layer
+}
 
 let isInitialized = false;
 
@@ -9,10 +16,14 @@ export function initializeFirebase(serviceAccountJsonString: string): boolean {
   if (isInitialized) {
     return true;
   }
+  if (!adminModule) {
+    console.warn('firebase-admin module not available in runtime environment. Push notifications disabled.');
+    return false;
+  }
   try {
     const serviceAccount = JSON.parse(serviceAccountJsonString);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    adminModule.initializeApp({
+      credential: adminModule.credential.cert(serviceAccount),
     });
     isInitialized = true;
     console.log('Firebase Admin initialized successfully.');
@@ -29,13 +40,13 @@ export async function sendSchoolAlertPushNotification(params: {
   body: string;
   data?: Record<string, string>;
 }): Promise<boolean> {
-  if (!isInitialized) {
+  if (!adminModule || !isInitialized) {
     console.warn('Firebase not initialized. Skipping FCM push notification.');
     return false;
   }
 
   try {
-    const message: admin.messaging.Message = {
+    const message = {
       topic: `school-${params.schoolId}`,
       notification: {
         title: params.title,
@@ -51,7 +62,7 @@ export async function sendSchoolAlertPushNotification(params: {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await adminModule.messaging().send(message);
     console.log(`FCM alert sent successfully to topic school-${params.schoolId}:`, response);
     return true;
   } catch (error) {
