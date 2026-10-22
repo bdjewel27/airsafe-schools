@@ -50,6 +50,17 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        val schoolId = viewModel.userSession.value?.schoolId ?: viewModel.selectedSchoolId.value
+        viewModel.startForegroundSync(schoolId)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewModel.stopForegroundSync()
+    }
 }
 
 @Composable

@@ -104,6 +104,21 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
     private var cachedDecision: DecisionResponse? = null
 
+    // U-4: Throttling & Live Sync State
+    private var lastRealtimeUpdateMs: Long = 0L
+    private var autoRecalculationJob: kotlinx.coroutines.Job? = null
+    private var isForegrounded: Boolean = true
+
+    // AWS AppSync Events WebSocket client for real-time fan-out
+    private val appSyncEventsClient = com.airsafe.schools.data.api.AppSyncEventsClient(
+        onDecisionUpdated = { realtimeDecision ->
+            handleRealtimeDecision(realtimeDecision)
+        },
+        onConnectionStatusChanged = { connected ->
+            Log.d(TAG, "AppSync Events connection status: $connected")
+        }
+    )
+
     init {
         // Initialize Base URL from SharedPreferences
         AirSafeApiClient.init(application)
@@ -280,6 +295,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun logout() {
+        stopForegroundSync()
         AirSafeApiClient.authToken = null
         _userSession.value = null
         _activeOverride.value = null
@@ -290,11 +306,98 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun loadSchoolData(schoolId: String) {
+        startForegroundSync(schoolId)
         loadCurrentDecision(schoolId)
         loadNotes(schoolId)
         loadSensorSites(schoolId)
         loadAnalytics(schoolId)
         loadStaff(schoolId)
+    }
+
+    /**
+     * AWS AppSync Events WebSocket live fan-out handler.
+     * U-4: Throttled to <= 1 update per second per item.
+     * Updates in-place without triggering DecisionUiState.Loading to prevent screen jitter or jumps.
+     */
+    fun handleRealtimeDecision(decision: DecisionResponse) {
+        if (_isOffline.value) return
+
+        val now = System.currentTimeMillis()
+        // U-4: Enforce <= 1 update per second rate limit
+        if (now - lastRealtimeUpdateMs < 1000L) {
+            Log.d(TAG, "U-4 Throttle: Live decision update rate-limited (< 1 sec)")
+            return
+        }
+        lastRealtimeUpdateMs = now
+
+        val sanitized = decision.sanitized()
+        saveDecisionToCache(sanitized)
+
+        // In-place update without skeleton/loading flicker
+        _uiState.value = DecisionUiState.Success(sanitized)
+
+        if (sanitized.status == "RED" && lastAlertedStatus != "RED") {
+            lastAlertedStatus = "RED"
+            val title = if (_isBengali.value) "🚨 জরুরি এয়ারসেফ অ্যালার্ট: MOVE INDOORS" else "🚨 Urgent AirSafe Alert: MOVE INDOORS"
+            AirSafeNotificationHelper.sendDangerAlert(getApplication(), title, sanitized.primaryReason ?: "")
+        } else if (sanitized.status != "RED") {
+            lastAlertedStatus = sanitized.status
+        }
+        Log.d(TAG, "Live decision updated smoothly via AppSync: ${sanitized.decision} (${sanitized.status})")
+    }
+
+    /**
+     * Starts foreground WebSocket subscription and 45s periodic recalculation loop (<= 60s requirement).
+     */
+    fun startForegroundSync(schoolId: String? = null) {
+        if (_isOffline.value) {
+            stopForegroundSync()
+            return
+        }
+        isForegrounded = true
+        val targetSchoolId = schoolId ?: _userSession.value?.schoolId ?: _selectedSchoolId.value
+
+        // 1. Connect AWS AppSync WebSocket channel
+        appSyncEventsClient.connect(AirSafeApiClient.getBaseUrl(), targetSchoolId)
+
+        // 2. Start foreground auto-recalculation timer (45 seconds <= 60 second performance limit)
+        autoRecalculationJob?.cancel()
+        autoRecalculationJob = viewModelScope.launch {
+            while (isForegrounded && !_isOffline.value) {
+                kotlinx.coroutines.delay(45000L)
+                if (isForegrounded && !_isOffline.value) {
+                    recalculateDecisionSilently(targetSchoolId)
+                }
+            }
+        }
+    }
+
+    /**
+     * Cleanly unsubscribes from WebSocket and halts timer when app is backgrounded or switched offline.
+     */
+    fun stopForegroundSync() {
+        isForegrounded = false
+        appSyncEventsClient.disconnect()
+        autoRecalculationJob?.cancel()
+        autoRecalculationJob = null
+    }
+
+    /**
+     * Silent recalculation poll that updates UI state in-place without flashing loading indicators.
+     */
+    fun recalculateDecisionSilently(schoolId: String) {
+        if (_isOffline.value) return
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "[AUTO-RECALC] Running silent <= 60s recalculation for $schoolId...")
+                val resp = AirSafeApiClient.service.getCurrentDecision(schoolId).sanitized()
+                saveDecisionToCache(resp)
+                _uiState.value = DecisionUiState.Success(resp)
+                Log.d(TAG, "[AUTO-RECALC] Successfully updated decision in-place: ${resp.decision}")
+            } catch (e: Exception) {
+                Log.d(TAG, "[AUTO-RECALC] Silent recalculation skipped or failed: ${e.message}")
+            }
+        }
     }
 
     fun loadNotes(schoolId: String) {
@@ -518,6 +621,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         _isOffline.value = offline
         Log.d(TAG, "Offline mode changed to: $offline")
         if (offline) {
+            stopForegroundSync()
             val cached = cachedDecision ?: (_uiState.value as? DecisionUiState.Success)?.data
             if (cached != null) {
                 val cappedDecision = if (cached.decision == "PROCEED") "PROCEED_WITH_PRECAUTIONS" else cached.decision
@@ -525,7 +629,8 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 val offlineCopy = cached.copy(
                     decision = cappedDecision,
                     status = cappedStatus,
-                    isStale = true
+                    isStale = true,
+                    dataAgeMinutes = cached.dataAgeMinutes ?: 15
                 )
                 _uiState.value = DecisionUiState.Success(offlineCopy)
             } else {
@@ -546,11 +651,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     lastUpdatedEn = "1 min ago"
                 )
             }
-            val schoolId = _userSession.value?.schoolId
-            if (schoolId != null) {
-                loadSchoolData(schoolId)
-            }
+            val schoolId = _userSession.value?.schoolId ?: _selectedSchoolId.value
+            loadSchoolData(schoolId)
+            startForegroundSync(schoolId)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopForegroundSync()
     }
 
     /**

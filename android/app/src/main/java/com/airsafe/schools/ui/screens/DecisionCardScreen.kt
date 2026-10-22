@@ -280,9 +280,9 @@ fun DecisionCardScreen(
                     DecisionCardSkeleton(isBengali = isBengali)
                 }
                 is DecisionUiState.Success -> {
-                    // Stale Warning (>90m) with dynamic minute calculation (U-3)
-                    if (state.data.isStale == true) {
-                        val staleMins = state.data.dataAgeMinutes ?: 95
+                    // Stale Warning (>90m) with dynamic minute calculation (U-3 & F-07)
+                    if (isOffline || state.data.isStale == true) {
+                        val staleMins = state.data.dataAgeMinutes ?: (if (isOffline) 15 else 95)
                         val staleMinsStr = staleMins.toString().toBengaliDigits(isBengali)
                         Card(
                             colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
@@ -1291,7 +1291,10 @@ fun DecisionCardContent(
 
 @Composable
 fun MetricItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.defaultMinSize(minWidth = 68.dp)
+    ) {
         Text(text = label, fontSize = 12.sp, color = TextSecondary)
         Spacer(modifier = Modifier.height(2.dp))
         Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
