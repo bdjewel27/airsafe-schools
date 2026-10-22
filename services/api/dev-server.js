@@ -6,9 +6,79 @@
  */
 
 const http = require('http');
+const crypto = require('crypto');
 
 const PORT = 3000;
 const HOST = '0.0.0.0';
+
+// WebSocket GUID for RFC 6455
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+// Connected AppSync WebSocket clients: Set<{ socket, schoolId }>
+const wsClients = new Set();
+
+function makeAcceptKey(clientKey) {
+  return crypto.createHash('sha1').update(clientKey + WS_GUID).digest('base64');
+}
+
+function encodeWsText(text) {
+  const buf = Buffer.from(text, 'utf8');
+  let header;
+  if (buf.length <= 125) {
+    header = Buffer.from([0x81, buf.length]);
+  } else if (buf.length <= 65535) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(buf.length, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(buf.length), 2);
+  }
+  return Buffer.concat([header, buf]);
+}
+
+function parseWsFrames(buffer) {
+  const frames = [];
+  let offset = 0;
+  while (offset + 2 <= buffer.length) {
+    const firstByte = buffer[offset];
+    const secondByte = buffer[offset + 1];
+    const opcode = firstByte & 0x0f;
+    const isMasked = (secondByte & 0x80) !== 0;
+    let payloadLen = secondByte & 0x7f;
+    let headerLen = 2;
+
+    if (payloadLen === 126) {
+      if (offset + 4 > buffer.length) break;
+      payloadLen = buffer.readUInt16BE(offset + 2);
+      headerLen = 4;
+    } else if (payloadLen === 127) {
+      if (offset + 10 > buffer.length) break;
+      payloadLen = Number(buffer.readBigUInt64BE(offset + 2));
+      headerLen = 10;
+    }
+
+    const maskOffset = offset + headerLen;
+    const dataOffset = maskOffset + (isMasked ? 4 : 0);
+    if (dataOffset + payloadLen > buffer.length) break;
+
+    const payload = Buffer.alloc(payloadLen);
+    if (isMasked) {
+      const mask = buffer.subarray(maskOffset, maskOffset + 4);
+      for (let i = 0; i < payloadLen; i++) {
+        payload[i] = buffer[dataOffset + i] ^ mask[i % 4];
+      }
+    } else {
+      buffer.copy(payload, 0, dataOffset, dataOffset + payloadLen);
+    }
+
+    frames.push({ opcode, payload });
+    offset = dataOffset + payloadLen;
+  }
+  return { frames, rest: buffer.subarray(offset) };
+}
 
 const SCHOOL_COORDINATES = {
   'school-dhaka-001': {
@@ -334,6 +404,43 @@ function formatDecisionResponse(raw) {
   };
 }
 
+async function sendDecisionToClient(client) {
+  try {
+    const live = await fetchLiveTelemetry(client.schoolId);
+    const rawDecision = evaluatePolicyV12(client.schoolId, live);
+    const formatted = formatDecisionResponse(rawDecision);
+    const encoded = encodeWsText(JSON.stringify(formatted));
+    client.socket.write(encoded);
+    console.log(`[WEBSOCKET] Sent initial decision payload to client for school ${client.schoolId}`);
+  } catch (err) {
+    console.error(`[WEBSOCKET] Error sending initial decision:`, err.message);
+  }
+}
+
+async function broadcastSchoolUpdate(schoolId) {
+  try {
+    const live = await fetchLiveTelemetry(schoolId);
+    const rawDecision = evaluatePolicyV12(schoolId, live);
+    const formatted = formatDecisionResponse(rawDecision);
+    const encoded = encodeWsText(JSON.stringify(formatted));
+
+    let count = 0;
+    for (const client of wsClients) {
+      if (client.schoolId === schoolId || client.schoolId === 'all') {
+        try {
+          client.socket.write(encoded);
+          count++;
+        } catch (e) {
+          wsClients.delete(client);
+        }
+      }
+    }
+    console.log(`[WEBSOCKET BROADCAST] Pushed decision update for ${schoolId} to ${count} clients. Decision: ${formatted.decision} (${formatted.status})`);
+  } catch (err) {
+    console.error(`[WEBSOCKET BROADCAST ERROR] for ${schoolId}:`, err.message);
+  }
+}
+
 const server = http.createServer((req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -438,6 +545,9 @@ const server = http.createServer((req, res) => {
 
       console.log(`[NOTE SAVED] School ${schoolId}: "${note}" (Respiratory: ${hasRespiratory})`);
 
+      // Real-time AppSync push to all foreground subscribers
+      broadcastSchoolUpdate(schoolId);
+
       res.writeHead(200);
       res.end(JSON.stringify({
         success: true,
@@ -474,6 +584,9 @@ const server = http.createServer((req, res) => {
       schoolOverrides[schoolId].push({ decision, reason, timestamp: new Date().toISOString() });
       console.log(`[COORDINATOR OVERRIDE] School ${schoolId} overridden to ${decision}: ${reason}`);
 
+      // Real-time AppSync push to all foreground subscribers
+      broadcastSchoolUpdate(schoolId);
+
       res.writeHead(200);
       res.end(JSON.stringify({ success: true, message: 'Coordinator override applied', schoolId }));
       return;
@@ -497,6 +610,10 @@ const server = http.createServer((req, res) => {
       };
 
       console.log(`[ROUTINE UPDATED] School ${schoolId}: ${activityNameBn} (${intensity})`);
+
+      // Real-time AppSync push to all foreground subscribers
+      broadcastSchoolUpdate(schoolId);
+
       res.writeHead(200);
       res.end(JSON.stringify({ success: true, message: 'Routine updated', schoolId }));
       return;
@@ -693,5 +810,79 @@ server.listen(PORT, HOST, () => {
   console.log(` - Localhost: http://localhost:${PORT}/`);
   console.log(` - LAN (Mobile): http://192.168.31.37:${PORT}/`);
   console.log(' Live telemetry connected for Dhaka & Chittagong!');
+  console.log(' AWS AppSync WebSocket Events active on /schools/:schoolId/events');
+  console.log(' Auto-recalculation loop active (<= 30s interval)');
   console.log('====================================================');
 });
+
+// AWS AppSync Events WebSocket Upgrade Handler
+server.on('upgrade', (req, socket, head) => {
+  const wsUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const match = wsUrl.pathname.match(/\/schools\/([^\/]+)/);
+  const schoolId = match ? match[1] : 'school-dhaka-001';
+
+  const key = req.headers['sec-websocket-key'];
+  if (!key) {
+    socket.destroy();
+    return;
+  }
+
+  const acceptKey = makeAcceptKey(key);
+  const responseHeaders = [
+    'HTTP/1.1 101 Switching Protocols',
+    'Upgrade: websocket',
+    'Connection: Upgrade',
+    `Sec-WebSocket-Accept: ${acceptKey}`,
+    '\r\n'
+  ].join('\r\n');
+
+  socket.write(responseHeaders);
+  const client = { socket, schoolId };
+  wsClients.add(client);
+  console.log(`[WEBSOCKET] Client connected to channel /schools/${schoolId}/events (Total active clients: ${wsClients.size})`);
+
+  // Send initial live decision immediately
+  sendDecisionToClient(client);
+
+  let incomingBuffer = Buffer.alloc(0);
+  socket.on('data', chunk => {
+    incomingBuffer = Buffer.concat([incomingBuffer, chunk]);
+    const { frames, rest } = parseWsFrames(incomingBuffer);
+    incomingBuffer = rest;
+
+    for (const frame of frames) {
+      if (frame.opcode === 8) { // CLOSE
+        socket.end();
+        wsClients.delete(client);
+      } else if (frame.opcode === 9) { // PING
+        // Respond with PONG
+        const pong = Buffer.from([0x8a, 0x00]);
+        socket.write(pong);
+      }
+    }
+  });
+
+  socket.on('close', () => {
+    wsClients.delete(client);
+    console.log(`[WEBSOCKET] Client disconnected (Remaining: ${wsClients.size})`);
+  });
+
+  socket.on('error', err => {
+    wsClients.delete(client);
+    console.error(`[WEBSOCKET] Socket error:`, err.message);
+  });
+});
+
+// Periodic Recalculation Loop (Every 30 seconds <= 60s mandate)
+setInterval(async () => {
+  for (const sId of Object.keys(SCHOOL_COORDINATES)) {
+    try {
+      if (telemetryCache[sId] && (Date.now() - telemetryCache[sId].timestamp >= 25000)) {
+        delete telemetryCache[sId];
+      }
+      await broadcastSchoolUpdate(sId);
+    } catch (e) {
+      console.error(`[AUTO-RECALC] Error updating ${sId}:`, e.message);
+    }
+  }
+}, 30000);
