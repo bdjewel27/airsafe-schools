@@ -57,10 +57,11 @@ class AppSyncEventsClient(
             .trimEnd('/')
 
         val wsUrl = "$wsScheme$hostPart/schools/$schoolId/events"
-        Log.d(TAG, "Subscribing to AWS AppSync Events channel: $wsUrl")
-
-        val reqBuilder = Request.Builder().url(wsUrl)
         val token = AirSafeApiClient.authToken
+        val wsUrlWithToken = if (!token.isNullOrBlank()) "$wsUrl?token=$token" else wsUrl
+        Log.d(TAG, "Subscribing to AWS AppSync Events channel: $wsUrl (authenticated: ${!token.isNullOrBlank()})")
+
+        val reqBuilder = Request.Builder().url(wsUrlWithToken)
         if (!token.isNullOrBlank()) {
             reqBuilder.header("Authorization", "Bearer $token")
         }
