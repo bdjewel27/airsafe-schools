@@ -216,3 +216,26 @@ fun String.toBengaliDigits(isBengali: Boolean): String {
     }
     return sb.toString()
 }
+
+fun formatRelativeTimeAgo(isoTimestamp: String?, isBengali: Boolean): String {
+    if (isoTimestamp.isNullOrBlank()) {
+        return if (isBengali) "১ মিনিট আগে" else "1 min ago"
+    }
+    return try {
+        val instant = java.time.Instant.parse(isoTimestamp)
+        val diffMs = java.time.Duration.between(instant, java.time.Instant.now()).toMillis().coerceAtLeast(0)
+        val diffMinutes = diffMs / (60 * 1000)
+        if (diffMinutes < 1) {
+            if (isBengali) "এইমাত্র" else "Just now"
+        } else if (diffMinutes < 60) {
+            val numStr = diffMinutes.toString().toBengaliDigits(isBengali)
+            if (isBengali) "$numStr মিনিট আগে" else "$diffMinutes mins ago"
+        } else {
+            val diffHours = diffMinutes / 60
+            val numStr = diffHours.toString().toBengaliDigits(isBengali)
+            if (isBengali) "$numStr ঘণ্টা আগে" else "$diffHours hrs ago"
+        }
+    } catch (_: Exception) {
+        if (isBengali) "২ মিনিট আগে" else "2 mins ago"
+    }
+}
