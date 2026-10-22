@@ -319,6 +319,7 @@ fun DecisionCardScreen(
                     DecisionCardContent(
                         data = state.data,
                         isBengali = isBengali,
+                        isOffline = isOffline,
                         onRefresh = {
                             val schoolId = state.data.schoolId ?: userSession?.schoolId ?: "school-dhaka-001"
                             viewModel.loadCurrentDecision(schoolId)
@@ -335,6 +336,7 @@ fun DecisionCardScreen(
                         // F-08: Teacher Activity Context Note Button
                         OutlinedButton(
                             onClick = { showNoteDialog = true },
+                            enabled = !isOffline,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
@@ -349,7 +351,11 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (যেমন: আজমা)" else "Add Activity Note (e.g. Asthma)",
+                                text = if (isOffline) {
+                                    if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (অফলাইনে নিষ্ক্রিয়)" else "Add Activity Note (Offline Disabled)"
+                                } else {
+                                    if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (যেমন: আজমা)" else "Add Activity Note (e.g. Asthma)"
+                                },
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp,
                                 textAlign = TextAlign.Center
@@ -371,7 +377,12 @@ fun DecisionCardScreen(
                         // F-11: Coordinator Override Button (J-3)
                         Button(
                             onClick = { showOverrideDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = CautionYellow),
+                            enabled = !isOffline,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CautionYellow,
+                                disabledContainerColor = Color(0xFFE0E0E0),
+                                disabledContentColor = Color(0xFF757575)
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
@@ -382,13 +393,17 @@ fun DecisionCardScreen(
                             Icon(
                                 imageVector = Icons.Default.EditCalendar,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = if (!isOffline) Color.White else Color(0xFF757575),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isBengali) "সিদ্ধান্ত ওভাররাইড করুন" else "Override Decision",
-                                color = Color.White,
+                                text = if (isOffline) {
+                                    if (isBengali) "সিদ্ধান্ত ওভাররাইড (অফলাইনে নিষ্ক্রিয়)" else "Override Decision (Offline Disabled)"
+                                } else {
+                                    if (isBengali) "সিদ্ধান্ত ওভাররাইড করুন" else "Override Decision"
+                                },
+                                color = if (!isOffline) Color.White else Color(0xFF757575),
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp,
                                 fontWeight = FontWeight.Bold,
@@ -401,6 +416,7 @@ fun DecisionCardScreen(
                         // F-10: Routine & Activity Management Button
                         OutlinedButton(
                             onClick = { showRoutineDialog = true },
+                            enabled = !isOffline,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .defaultMinSize(minHeight = 48.dp)
@@ -415,7 +431,11 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isBengali) "রুটিন ও অ্যাক্টিভিটি কনফিগার করুন" else "Manage Routine & Activities",
+                                text = if (isOffline) {
+                                    if (isBengali) "রুটিন কনফিগার (অফলাইনে নিষ্ক্রিয়)" else "Manage Routine (Offline Disabled)"
+                                } else {
+                                    if (isBengali) "রুটিন ও অ্যাক্টিভিটি কনফিগার করুন" else "Manage Routine & Activities"
+                                },
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -866,7 +886,8 @@ fun DecisionCardContent(
     data: DecisionResponse,
     isBengali: Boolean,
     onRefresh: () -> Unit,
-    onMetricClick: (String) -> Unit = {}
+    onMetricClick: (String) -> Unit = {},
+    isOffline: Boolean = false
 ) {
     val safeData = data.sanitized()
 
@@ -1235,7 +1256,12 @@ fun DecisionCardContent(
 
             Button(
                 onClick = onRefresh,
-                colors = ButtonDefaults.buttonColors(containerColor = statusColor),
+                enabled = !isOffline,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = statusColor,
+                    disabledContainerColor = Color(0xFFE0E0E0),
+                    disabledContentColor = Color(0xFF757575)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -1244,15 +1270,19 @@ fun DecisionCardContent(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = if (!isOffline) Color.White else Color(0xFF757575),
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isBengali) "রিফ্রেশ করুন" else "Refresh Live Decision",
+                    text = if (isOffline) {
+                        if (isBengali) "অফলাইন (রিফ্রেশ নিষ্ক্রিয়)" else "Offline (Refresh Disabled)"
+                    } else {
+                        if (isBengali) "রিফ্রেশ করুন" else "Refresh Live Decision"
+                    },
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = if (!isOffline) Color.White else Color(0xFF757575)
                 )
             }
         }
