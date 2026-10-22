@@ -48,9 +48,9 @@ fun SchoolAnalyticsScreen(
 
         Text(
             text = if (isBengali)
-                "সাপ্তাহিক নিরাপত্তা মূল্যায়ন ও সিদ্ধান্তের প্রভাব (J-4)"
+                "সাপ্তাহিক নিরাপত্তা মূল্যায়ন ও সিদ্ধান্তের প্রভাব"
             else
-                "Weekly Safety Review & Decision Impact (J-4)",
+                "Weekly Safety Review & Decision Impact",
             fontSize = 13.sp,
             color = TextSecondary
         )

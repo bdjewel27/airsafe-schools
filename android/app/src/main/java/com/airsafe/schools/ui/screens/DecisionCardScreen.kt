@@ -322,7 +322,7 @@ fun DecisionCardScreen(
                         isOffline = isOffline,
                         onRefresh = {
                             val schoolId = state.data.schoolId ?: userSession?.schoolId ?: "school-dhaka-001"
-                            viewModel.loadCurrentDecision(schoolId)
+                            viewModel.loadSchoolData(schoolId)
                         },
                         onMetricClick = { mType ->
                             metricDetailType = mType
@@ -1247,6 +1247,26 @@ fun DecisionCardContent(
                             text = trendText,
                             fontSize = 11.sp,
                             color = TextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = SafeGreen
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        val freshnessStr = com.airsafe.schools.data.model.formatRelativeTimeAgo(safeData.lastUpdated, isBengali)
+                        Text(
+                            text = if (isBengali) "তথ্যের সময়: $freshnessStr" else "Data updated: $freshnessStr",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextPrimary
                         )
                     }
                 }

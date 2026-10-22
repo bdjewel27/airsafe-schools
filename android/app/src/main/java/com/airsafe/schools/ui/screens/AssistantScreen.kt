@@ -55,13 +55,13 @@ fun AssistantScreen(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (isBengali) "AI সহকারী (MCP + Policy v1.2 Grounded)" else "AI Assistant (MCP + Policy v1.2 Grounded)",
+                text = if (isBengali) "AI পরিবেশ সহকারী" else "AI Environmental Assistant",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
             Text(
-                text = if (isBengali) "যাচাইকৃত সেন্সর ডেটা ও Policy v1.2 উদ্ধৃতি-ভিত্তিক প্রশ্নোত্তর (F-05, A-7)" else "Strictly grounded in verified telemetry & Policy v1.2 citations (F-05, A-7)",
+                text = if (isBengali) "যাচাইকৃত সেন্সর ডেটা ও পরিবেশ নীতিমালা ভিত্তিক প্রশ্নোত্তর" else "Reliable guidance grounded in live sensor data & safety policy",
                 fontSize = 13.sp,
                 color = TextSecondary
             )
@@ -293,14 +293,14 @@ fun AssistantScreen(
 
                                 if (isInjectionOrCrossTenant) {
                                     responseAnswer = if (isBengali)
-                                        "নিরাপত্তা গার্ডরেইল (Policy A-5/S-8): আমি অন্য কোনো স্কুলের ডেটা অ্যাক্সেস করতে বা Model School Outdoor Activity Policy v1.2-এর নির্ধারিত নিরাপত্তা ফ্লোর শিথিল করতে পারি না।"
+                                        "নিরাপত্তা নীতি: আমি অন্য কোনো স্কুলের ডেটা অ্যাক্সেস করতে বা অনুমোদিত নিরাপত্তা সীমা শিথিল করতে পারি না।"
                                     else
-                                        "Security Guardrail (Policy A-5/S-8): I cannot access another school's telemetry or relax the deterministic safety floor of Model School Outdoor Activity Policy v1.2."
+                                        "Security Policy: I cannot access other schools' data or relax the authoritative safety limit."
                                     activeCitation = PolicyCitation(
-                                        policyTitleBn = "Policy v1.2 §A-1 & §S-8 (Guardrail)",
-                                        policyTitleEn = "Policy v1.2 §A-1 & §S-8 (Guardrail)",
-                                        sectionTextBn = "AI সহকারী শুধুমাত্র ব্যাখ্যামূলক এবং টোকেন-স্কোপড; এটি কখনোই পলিসি ফ্লোর শিথিল করতে বা অন্য স্কুলের ডেটা পড়তে পারে না।",
-                                        sectionTextEn = "The AI assistant is strictly explanatory and tenant-scoped; it can never relax the deterministic policy floor or read cross-tenant data.",
+                                        policyTitleBn = "স্কুল আউটডোর কার্যক্রম নীতি v1.2 (নিরাপত্তা বিধি)",
+                                        policyTitleEn = "School Outdoor Activity Policy v1.2 (Safety Protocol)",
+                                        sectionTextBn = "AI সহকারী শুধুমাত্র ব্যাখ্যামূলক ও পরামর্শমূলক; এটি কখনোই নিরাপত্তা সীমা শিথিল করতে বা অন্য স্কুলের ডেটা পড়তে পারে না।",
+                                        sectionTextEn = "The AI assistant is strictly explanatory; it cannot relax safety limits or read unauthorized school data.",
                                         version = "airsafe-policy-v1.2"
                                     )
                                     isThinking = false
