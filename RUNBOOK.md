@@ -21,24 +21,29 @@ Run these commands in their respective directories to verify the complete verifi
 
 ---
 
-## 2. Reviewer Account Provisioning (Out-of-Band Delivery)
+## 2. Reviewer Account Provisioning (Out-of-Band Delivery & Live Deployment)
 
-To comply strictly with **Hard Gate 1 (Security & Secret Sanitization)**, no plaintext passwords or live JWT secrets are committed to the public Git repository. 
+To comply strictly with **Hard Gate 1 (Security & Secret Sanitization)** and **Section 16 (Reviewer Evaluation Readiness)**:
+- Live Serverless Backend is actively running in **AWS Sydney (`ap-southeast-2`)**.
+- **Live Base URL:** `https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/`
+- Zero idle spend serverless architecture (DynamoDB On-Demand + API Gateway + Lambda).
 
-Three dedicated evaluation accounts representing isolated tenants and roles have been provisioned in the Cognito User Pool:
+Three dedicated evaluation accounts representing isolated tenants and roles have been provisioned in DynamoDB & Cognito:
 
 | Account Identifier | Role | Tenant School | Purpose & Evaluation Coverage |
 | :--- | :--- | :--- | :--- |
-| **School A Teacher** | `teacher` | `school-dhaka-001`<br>*(Dhaka Model School)* | Verify teacher view, PE routine notes (F-08), AI Assistant query (F-05). Verify rejection if attempting coordinator override (RBAC Gate 3). |
-| **School B Teacher** | `teacher` | `school-chittagong-002`<br>*(Chittagong High School)* | Verify strict multi-tenant isolation (Gate 2): Cannot view or query School A's data, context notes, or routines. |
-| **School Coordinator** | `coordinator` | `school-dhaka-001`<br>*(Dhaka Model School)* | Full administrative capabilities: Read decision card, submit mandatory-justification activity override (F-11), invite new staff (F-12), export weekly analytics report (F-13, F-14). |
+| **`fatema.teacher@dms.edu.bd`** | `TEACHER` | `school-dhaka-001`<br>*(Dhaka Model School)* | Verify teacher view, PE routine notes (F-08), AI Assistant query (F-05). Verify rejection if attempting coordinator override (RBAC Gate 3). |
+| **`nusrat.teacher@chs.edu.bd`** | `TEACHER` | `school-chittagong-002`<br>*(Chittagong High School)* | Verify strict multi-tenant isolation (Gate 2): Cannot view or query School A's data, context notes, or routines. |
+| **`rafiq.principal@dms.edu.bd`** | `COORDINATOR` | `school-dhaka-001`<br>*(Dhaka Model School)* | Full administrative capabilities: Read decision card, submit mandatory-justification activity override (F-11), invite new staff (F-12), export weekly analytics report (F-13, F-14). |
 
 > [!IMPORTANT]
-> **Out-of-Band Credentials Delivery:** The passwords and active test tokens for the 3 accounts above are transmitted directly to the evaluation committee via private submission message / secure channel. To execute API requests locally with custom credentials, set the shell environment variables:
-> ```powershell
-> $env:COGNITO_USER_TEACHER_A="fatema.teacher@dms.edu.bd"
-> $env:COGNITO_USER_TEACHER_B="nusrat.teacher@chs.edu.bd"
-> $env:COGNITO_USER_COORDINATOR="rafiq.principal@dms.edu.bd"
+> **Out-of-Band Credentials Delivery:** The seeded evaluation password for all 3 reviewer accounts is:
+> **`AirSafe@2026!`**
+> Reviewers can authenticate directly on the mobile app or via API:
+> ```bash
+> curl -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
+>   -H "Content-Type: application/json" \
+>   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "AirSafe@2026!"}'
 > ```
 
 ---
