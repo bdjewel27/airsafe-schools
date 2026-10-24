@@ -1,7 +1,6 @@
 /**
  * Firebase Cloud Messaging Integration via Firebase Admin SDK
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let adminModule: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
