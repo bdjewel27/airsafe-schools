@@ -2,12 +2,17 @@ package com.airsafe.schools.data.notification
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.airsafe.schools.MainActivity
 
 object AirSafeNotificationHelper {
+    private const val TAG = "AirSafeNotif"
     private const val CHANNEL_ID = "airsafe_alerts_channel"
     private const val CHANNEL_NAME = "AirSafe Emergency Alerts"
     private const val NOTIFICATION_ID = 1001
@@ -18,6 +23,7 @@ object AirSafeNotificationHelper {
             val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
                 description = "High priority notifications when outdoor safety limits are exceeded"
                 enableVibration(true)
+                enableLights(true)
             }
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
@@ -25,19 +31,35 @@ object AirSafeNotificationHelper {
     }
 
     fun sendDangerAlert(context: Context, title: String, message: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("SHOW_EXPLANATION", true)
+            putExtra("ALERT_TITLE", title)
+            putExtra("ALERT_MESSAGE", message)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
         try {
             val manager = NotificationManagerCompat.from(context)
             manager.notify(NOTIFICATION_ID, builder.build())
+            Log.d(TAG, "Notification posted successfully: $title - $message")
         } catch (e: Throwable) {
-            // Notification dispatch should never crash the app
+            Log.e(TAG, "Notification dispatch error: ${e.message}", e)
         }
     }
 }
