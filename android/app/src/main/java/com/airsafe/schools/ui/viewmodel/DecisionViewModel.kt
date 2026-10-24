@@ -534,6 +534,52 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Deterioration Alert Simulation (F-06 / J-3):
+     * Simulates acute environmental deterioration (AQI 185, Heat Index 44.5°C -> MOVE_INDOORS).
+     * Triggers immediate heads-up push alert and transitions decision card to RED (MOVE_INDOORS).
+     */
+    fun triggerSimulationDeterioration() {
+        val targetSchoolId = _userSession.value?.schoolId ?: _selectedSchoolId.value
+        val severeDecision = DecisionResponse(
+            schoolId = targetSchoolId,
+            schoolName = _userSession.value?.schoolNameBn ?: "ঢাকা মডেল স্কুল",
+            status = "RED",
+            decision = "MOVE_INDOORS",
+            policyFloorDecision = "MOVE_INDOORS",
+            heatIndexC = 44.5,
+            aqi = 185,
+            pm25Ugm3 = 120.5,
+            primaryReason = if (_isBengali.value)
+                "🚨 চরম ঝুঁকি: US AQI ১৮৫ ও হিট ইনডেক্স ৪৪.৫°C বিপদসীমা অতিক্রম করেছে। সকল বহিরাঙ্গন কার্যক্রম অবিলম্বে বন্ধ করে ভেতরে নেওয়া আবশ্যক।"
+            else
+                "🚨 Severe Hazard: US AQI 185 & Heat Index 44.5°C exceed critical safety floor. Move all outdoor activities indoors immediately.",
+            reasons = listOf(
+                "US AQI 185 triggers MOVE_INDOORS",
+                "Heat Index 44.5°C triggers MOVE_INDOORS"
+            ),
+            maxDurationMinutes = 0,
+            requiresShade = true,
+            isStale = false,
+            isModeled = false,
+            lastUpdated = java.time.Instant.now().toString(),
+            currentActivityBn = "মাঠের খেলাধুলা",
+            currentActivityEn = "Outdoor Sports",
+            nextActivityBn = "ইনডোর অ্যাসেম্বলি",
+            nextActivityEn = "Indoor Assembly",
+            routineIntensity = "VIGOROUS"
+        )
+        saveDecisionToCache(severeDecision)
+        _uiState.value = DecisionUiState.Success(severeDecision)
+        lastAlertedStatus = "RED"
+        val title = if (_isBengali.value) "🚨 জরুরি এয়ারসেফ সতর্কতা: MOVE INDOORS" else "🚨 Urgent AirSafe Alert: MOVE INDOORS"
+        AirSafeNotificationHelper.sendDangerAlert(
+            getApplication(),
+            title,
+            severeDecision.primaryReason ?: "পরিস্থিতি খারাপ হওয়ায় সকল কার্যক্রম ভেতরে নিতে হবে।"
+        )
+    }
+
+    /**
      * F-10 & Policy v1.2: Coordinator Routine & Intensity configuration.
      * Passes explicit intensity directly (no string parsing) and reports errors.
      */
