@@ -96,6 +96,19 @@ jobs:
         with:
           node-version: 22
 
+      # CDK lambda assets require dist/ bundles from services/poller and services/api
+      - name: Build Poller Service Asset
+        working-directory: services/poller
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build REST API Service Asset
+        working-directory: services/api
+        run: |
+          npm ci
+          npm run build
+
       - name: Install CDK Dependencies
         working-directory: infra
         run: npm ci
