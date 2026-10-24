@@ -446,6 +446,65 @@ fun DecisionCardScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    // Deterioration Alert Test & Reset (F-06 / J-3)
+                    OutlinedButton(
+                        onClick = { viewModel.triggerSimulationDeterioration() },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .wrapContentHeight(),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = DangerRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isBengali) "🚨 সতর্কতা টেস্ট: অবস্থা খারাপ হলে নোটিফিকেশন" else "🚨 Test Alert: Notify on Deterioration",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    if (state.data.status == "RED") {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val sId = userSession?.schoolId ?: viewModel.selectedSchoolId.value
+                                viewModel.loadCurrentDecision(sId)
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SafeGreen),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .wrapContentHeight(),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = SafeGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isBengali) "🔄 লাইভ ক্লাউড ডেটায় ফিরুন" else "🔄 Reset to Live Cloud Data",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     // F-03: School Sensor Sites (Field, Courtyard, Classroom)
                     SensorSitesView(viewModel = viewModel)
                 }
