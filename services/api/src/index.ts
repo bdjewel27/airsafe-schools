@@ -1625,82 +1625,119 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
-    // Route: GET /schools/{schoolId}/sensor-sites
+    // Route: GET /schools/{schoolId}/sensor-sites (P6 & U-5: Verified Per-Sensor Telemetry from LATEST#<sensor_id>)
     if (path.endsWith('/sensor-sites') && event.httpMethod === 'GET') {
-      const readingRes = await docClient.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          KeyConditionExpression: 'school_id = :sid',
-          ExpressionAttributeValues: { ':sid': schoolId },
-          ScanIndexForward: false,
-          Limit: 1,
-        })
-      );
-      const item = readingRes.Items?.[0];
-      const readings = item?.readings;
+      let latestSensorItems: any[] = [];
+      let latestHistoricalItem: any = null;
 
-      const baseTemp = readings?.temperature_c ?? 26.3;
-      const baseRh = readings?.relative_humidity_pct ?? 71;
-      const basePm25 = readings?.pm25_ugm3 ?? 44.6;
-      const baseHi = readings?.heat_index_c ?? 27.8;
-      const isOnline = Boolean(item && readings);
+      try {
+        // Query sensor telemetry items for school tenant (P6)
+        const queryRes = await docClient.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid',
+            ExpressionAttributeValues: { ':sid': schoolId },
+            ScanIndexForward: false,
+            Limit: 50,
+          })
+        );
+        const allItems = queryRes.Items || [];
+        latestSensorItems = allItems.filter((i: any) => String(i.timestamp).startsWith('LATEST#'));
+        latestHistoricalItem = allItems.find((i: any) => !String(i.timestamp).startsWith('LATEST#')) || null;
+      } catch (err) {
+        console.warn('[Sensor-Sites Warning] Failed to query sensors:', err);
+      }
 
-      // Dynamic relative freshness calculation
-      const diffMs = item?.timestamp ? Math.max(0, Date.now() - new Date(item.timestamp).getTime()) : 0;
-      const diffMins = Math.floor(diffMs / 60000);
-      const toBnDigits = (n: number) => String(n).replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[parseInt(d, 10)]);
+      // Helper to compute relative freshness
+      const toBnDigits = (n: number) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[parseInt(d, 10)]);
+      const formatFreshness = (timestampStr?: string) => {
+        if (!timestampStr) return { ageBn: 'ডেটা নেই', ageEn: 'No data', isFresh: false };
+        const readingMs = Date.parse(timestampStr);
+        if (!Number.isFinite(readingMs)) return { ageBn: 'ডেটা নেই', ageEn: 'No data', isFresh: false };
+        const diffMs = Math.max(0, Date.now() - readingMs);
+        const diffMins = Math.floor(diffMs / 60000);
+        const isFresh = diffMins <= 90; // Fresh per Policy v1.2 (<90m)
+        const ageBn = diffMins < 1 ? 'এইমাত্র' : `${toBnDigits(diffMins)} মিনিট আগে`;
+        const ageEn = diffMins < 1 ? 'Just now' : `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+        return { ageBn, ageEn, isFresh };
+      };
 
-      const fieldAgeBn = diffMins < 1 ? 'এইমাত্র' : `${toBnDigits(diffMins)} মিনিট আগে`;
-      const fieldAgeEn = diffMins < 1 ? 'Just now' : `${diffMins} min ago`;
-
-      const courtyardAgeBn = diffMins + 1 <= 1 ? '১ মিনিট আগে' : `${toBnDigits(diffMins + 1)} মিনিট আগে`;
-      const courtyardAgeEn = `${diffMins + 1} mins ago`;
-
-      const classroomAgeBn = diffMins + 2 <= 2 ? '২ মিনিট আগে' : `${toBnDigits(diffMins + 2)} মিনিট আগে`;
-      const classroomAgeEn = `${diffMins + 2} mins ago`;
-
-      // School Campus Sensor Sites: Field, Courtyard, Classroom (Clean, no district feed)
-      const sites = [
+      // Standard School Campus Sensor Sites
+      const campusSitesConfig = [
         {
           id: `${schoolId}-field`,
+          aliases: [`${schoolId}-field`, 'dhk-001-field-1', 'ctg-002-field-1', 'raj-003-field-1'],
           name_bn: 'খেলার মাঠ (Playground)',
           name_en: 'School Playground',
           location_type: 'FIELD',
-          temp_c: readings?.temperature_c ?? baseTemp,
-          rh_pct: readings?.relative_humidity_pct ?? baseRh,
-          pm25_ugm3: readings?.pm25_ugm3 ?? basePm25,
-          heat_index_c: readings?.heat_index_c ?? baseHi,
-          is_online: isOnline,
-          last_updated_bn: fieldAgeBn,
-          last_updated_en: fieldAgeEn,
         },
         {
           id: `${schoolId}-courtyard`,
+          aliases: [`${schoolId}-courtyard`, 'dhk-001-courtyard-1'],
           name_bn: 'স্কুল উঠান (Courtyard)',
           name_en: 'School Courtyard',
           location_type: 'COURTYARD',
-          temp_c: Math.round(((readings?.temperature_c ?? baseTemp) - 0.7) * 10) / 10,
-          rh_pct: Math.round((readings?.relative_humidity_pct ?? baseRh) * 0.98),
-          pm25_ugm3: Math.round(((readings?.pm25_ugm3 ?? basePm25) * 0.92) * 10) / 10,
-          heat_index_c: Math.round(((readings?.heat_index_c ?? baseHi) - 0.9) * 10) / 10,
-          is_online: isOnline,
-          last_updated_bn: courtyardAgeBn,
-          last_updated_en: courtyardAgeEn,
         },
         {
           id: `${schoolId}-classroom-101`,
+          aliases: [`${schoolId}-classroom-101`, 'dhk-001-classroom-101'],
           name_bn: 'ক্লাসরুম ৩-এ (Classroom 3A)',
           name_en: 'Classroom 3A',
           location_type: 'CLASSROOM',
-          temp_c: Math.round(((readings?.temperature_c ?? baseTemp) - 1.9) * 10) / 10,
-          rh_pct: 60,
-          pm25_ugm3: Math.round(((readings?.pm25_ugm3 ?? basePm25) * 0.60) * 10) / 10,
-          heat_index_c: Math.round(((readings?.heat_index_c ?? baseHi) - 2.3) * 10) / 10,
-          is_online: isOnline,
-          last_updated_bn: classroomAgeBn,
-          last_updated_en: classroomAgeEn,
         },
       ];
+
+      const sites = campusSitesConfig.map((siteConfig) => {
+        let matchingItem = latestSensorItems.find((item) => {
+          const itemSortKey = String(item.timestamp || '');
+          const sensorId = item.sensor_id || itemSortKey.replace('LATEST#', '');
+          return (
+            siteConfig.aliases.includes(sensorId) ||
+            siteConfig.aliases.includes(itemSortKey.replace('LATEST#', '')) ||
+            (item.location_type && item.location_type.toUpperCase() === siteConfig.location_type)
+          );
+        });
+
+        // For playground/FIELD: if no separate LATEST# item, fall back to school's verified reading
+        if (!matchingItem && siteConfig.location_type === 'FIELD' && latestHistoricalItem?.readings) {
+          matchingItem = latestHistoricalItem;
+        }
+
+        if (matchingItem && matchingItem.readings) {
+          const r = matchingItem.readings;
+          const ts = matchingItem.observed_at || matchingItem.timestamp;
+          const freshness = formatFreshness(ts);
+          return {
+            id: siteConfig.id,
+            name_bn: siteConfig.name_bn,
+            name_en: siteConfig.name_en,
+            location_type: siteConfig.location_type,
+            temp_c: typeof r.temperature_c === 'number' && Number.isFinite(r.temperature_c) ? r.temperature_c : null,
+            rh_pct: typeof r.relative_humidity_pct === 'number' && Number.isFinite(r.relative_humidity_pct) ? r.relative_humidity_pct : null,
+            pm25_ugm3: typeof r.pm25_ugm3 === 'number' && Number.isFinite(r.pm25_ugm3) ? r.pm25_ugm3 : null,
+            heat_index_c: typeof r.heat_index_c === 'number' && Number.isFinite(r.heat_index_c) ? r.heat_index_c : null,
+            is_online: Boolean(freshness.isFresh),
+            last_updated_bn: freshness.ageBn,
+            last_updated_en: freshness.ageEn,
+          };
+        }
+
+        // P6 & U-5: When telemetry is unmeasured or nonexistent, DO NOT FABRICATE DATA!
+        return {
+          id: siteConfig.id,
+          name_bn: siteConfig.name_bn,
+          name_en: siteConfig.name_en,
+          location_type: siteConfig.location_type,
+          temp_c: null,
+          rh_pct: null,
+          pm25_ugm3: null,
+          heat_index_c: null,
+          is_online: false,
+          last_updated_bn: 'ডেটা নেই',
+          last_updated_en: 'No data',
+        };
+      });
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
