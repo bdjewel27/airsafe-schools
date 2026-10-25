@@ -126,4 +126,31 @@ describe('SQS Ingestion Pipeline & Dead Letter Queue (DLQ) Quarantine', () => {
     expect(item.evaluations.VIGOROUS).toBeDefined();
     expect(item.evaluation).toBe(item.evaluations.VIGOROUS);
   });
+  test('P6: persists dedicated LATEST#<sensor_id> item with real un-fabricated readings for each sensor station', async () => {
+    const records = [
+      {
+        messageId: 'msg-p6-courtyard',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FC1',
+          sensor_id: 'dhk-001-courtyard-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-26T01:00:00Z',
+          readings: { temp_c: 29.4, rh_pct: 68, pm25_ugm3: 31.2 },
+          battery_pct: 90,
+        }),
+      },
+    ];
+
+    const result = await processSensorBatch(records);
+    expect(result.batchItemFailures).toHaveLength(0);
+
+    const latestCall = mockSend.mock.calls.find((c: any) => c[0]?.input?.Item?.timestamp === 'LATEST#dhk-001-courtyard-1');
+    expect(latestCall).toBeDefined();
+    const item = latestCall[0].input.Item;
+    expect(item.sensor_id).toBe('dhk-001-courtyard-1');
+    expect(item.readings.temperature_c).toBe(29.4);
+    expect(item.readings.relative_humidity_pct).toBe(68);
+    expect(item.readings.pm25_ugm3).toBe(31.2);
+    expect(item.is_online).toBe(true);
+  });
 });
