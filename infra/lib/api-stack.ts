@@ -13,6 +13,7 @@ export interface ApiStackProps extends cdk.StackProps {
   readingsTable: dynamodb.Table;
   decisionsTable?: dynamodb.Table;
   userPool?: cognito.UserPool;
+  userPoolClient?: cognito.UserPoolClient;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -43,6 +44,7 @@ export class ApiStack extends cdk.Stack {
         DECISIONS_TABLE_NAME: props.decisionsTable?.tableName || `AirSafe-Decisions-${props.environmentName}`,
         PROJECT_REGION: this.region,
         USER_POOL_ID: props.userPool?.userPoolId || '',
+        USER_POOL_CLIENT_ID: props.userPoolClient?.userPoolClientId || '',
         NODE_OPTIONS: '--enable-source-maps',
         JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/jwt-secret`,
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
