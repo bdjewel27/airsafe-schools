@@ -1,4 +1,4 @@
-import { evaluatePolicy, evaluateAQIDecision, evaluateHeatDecision, PolicyDecision, ActivityIntensity } from '../policy';
+import { evaluatePolicy, evaluateAQIDecision, evaluateHeatDecision, calculateAqiFromPm25, PolicyDecision, ActivityIntensity } from '../policy';
 
 const SEVERITY: Record<PolicyDecision, number> = {
   PROCEED: 1,
@@ -182,6 +182,37 @@ describe('A-2: Property-Based Rule Engine Tests (≥1,000 Scenarios)', () => {
       expect(SEVERITY[finalEnforcedDecision]).toBeGreaterThanOrEqual(SEVERITY[floor.decision]);
       if (floor.decision === 'MOVE_INDOORS') {
         expect(finalEnforcedDecision).toBe('MOVE_INDOORS');
+      }
+    }
+  });
+test(`Property 9: PM2.5 to AQI Piecewise-Linear Monotonicity & End-to-End Safety Floor over ${NUM_SCENARIOS} states`, () => {
+    for (let i = 0; i < NUM_SCENARIOS; i++) {
+      const pm1 = randomFloat(0, 450);
+      const pmDelta = randomFloat(0.1, 150);
+      const pm2 = pm1 + pmDelta;
+
+      const aqi1 = calculateAqiFromPm25(pm1);
+      const aqi2 = calculateAqiFromPm25(pm2);
+
+      // Bounded invariant: 0 <= AQI <= 500
+      expect(aqi1).toBeGreaterThanOrEqual(0);
+      expect(aqi1).toBeLessThanOrEqual(500);
+      expect(aqi2).toBeGreaterThanOrEqual(aqi1);
+
+      // End-to-end policy monotonicity from raw PM2.5 sensor telemetry
+      const heatIndex = randomFloat(18, 50);
+      const intensity = randomIntensity();
+      const isModeled = randomBool();
+      const isStale = randomBool();
+
+      const res1 = evaluatePolicy(aqi1, heatIndex, intensity, isModeled, isStale);
+      const res2 = evaluatePolicy(aqi2, heatIndex, intensity, isModeled, isStale);
+      expect(SEVERITY[res2.decision]).toBeGreaterThanOrEqual(SEVERITY[res1.decision]);
+
+      // Safety floor invariant: PM2.5 >= 55.5 ug/m3 (AQI >= 151) MUST trigger MOVE_INDOORS for VIGOROUS activity
+      if (Math.round(pm1 * 10) / 10 >= 55.5) {
+        const vigFloor = evaluatePolicy(aqi1, 25.0, 'VIGOROUS', false, false);
+        expect(vigFloor.decision).toBe('MOVE_INDOORS');
       }
     }
   });
