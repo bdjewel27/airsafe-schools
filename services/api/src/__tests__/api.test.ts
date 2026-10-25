@@ -15,6 +15,8 @@ import {
   authenticateRequest,
   hashPassword,
   resetSecretsCache,
+  ActivitySchema,
+  evaluateDecisionForActivity,
 } from '../index';
 
 describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
@@ -917,6 +919,218 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(worst.worstAqi).toBe(40);
       expect(worst.worstHeatIndexC).toBe(25);
       expect(worst.isForecastWorse).toBe(false);
+    });
+  });
+  describe('P4 (F-10 Routine & Activity Modeling): Granular ACTIVITY#<id> and per-activity policy decisions', () => {
+    test('ActivitySchema validates valid activity and rejects invalid intensity / duration', () => {
+      const validActivity = {
+        name_bn: 'প্রাতঃকালীন সমাবেশ',
+        name_en: 'Morning Assembly',
+        time_slot: '08:30 - 09:15',
+        intensity: 'LIGHT',
+        location_type: 'COURTYARD',
+        target_class: 'All Classes',
+        duration_minutes: 30,
+        is_current: true,
+      };
+      const parsed = ActivitySchema.safeParse(validActivity);
+      expect(parsed.success).toBe(true);
+
+      // Rejects invalid intensity
+      const invalidInt = ActivitySchema.safeParse({ ...validActivity, intensity: 'SUPER_EXTREME' });
+      expect(invalidInt.success).toBe(false);
+
+      // Rejects invalid duration
+      const invalidDur = ActivitySchema.safeParse({ ...validActivity, duration_minutes: 0 });
+      expect(invalidDur.success).toBe(false);
+    });
+
+    test('evaluateDecisionForActivity computes tailored decisions per activity intensity under same weather', () => {
+      // Per Policy v1.2: Under Heat Index 36°C (Extreme Caution / Danger boundary)
+      // Light intensity allows activity with precautions (YELLOW / PROCEED_WITH_PRECAUTIONS)
+      // Vigorous intensity requires moving indoors (RED / MOVE_INDOORS)
+      const lightActivity = {
+        id: 'assembly',
+        name_bn: 'প্রাতঃকালীন সমাবেশ',
+        name_en: 'Morning Assembly',
+        time_slot: '08:30 - 09:15',
+        intensity: 'LIGHT',
+        location_type: 'COURTYARD',
+        duration_minutes: 30,
+        is_current: true,
+      };
+
+      const vigorousActivity = {
+        id: 'pe-football',
+        name_bn: 'শারীরিক শিক্ষা (ফুটবল)',
+        name_en: 'PE Football Practice',
+        time_slot: '09:30 - 10:15',
+        intensity: 'VIGOROUS',
+        location_type: 'FIELD',
+        duration_minutes: 45,
+        is_current: false,
+      };
+
+      const lightDecision = evaluateDecisionForActivity({
+        activity: lightActivity,
+        currentAqi: 65,
+        currentHeatIndexC: 40,
+      });
+
+      const vigorousDecision = evaluateDecisionForActivity({
+        activity: vigorousActivity,
+        currentAqi: 65,
+        currentHeatIndexC: 40,
+      });
+
+      // Light activity can proceed with precautions or modify, but vigorous activity under 36°C HI is restricted
+      expect(['PROCEED', 'PROCEED_WITH_PRECAUTIONS', 'MODIFY']).toContain(lightDecision.decision);
+      expect(vigorousDecision.decision).toBe('MOVE_INDOORS');
+      expect(vigorousDecision.status).toBe('RED');
+      expect(lightDecision.decision).not.toBe(vigorousDecision.decision);
+    });
+
+    test('POST /schools/{schoolId}/routines with activities array persists individual ACTIVITY#<id> items', async () => {
+      const putCalls: any[] = [];
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command?.input?.Item) {
+          putCalls.push(command.input.Item);
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            activities: [
+              {
+                id: 'act-assembly',
+                name_bn: 'প্রাতঃকালীন সমাবেশ',
+                name_en: 'Morning Assembly',
+                time_slot: '08:30 - 09:00',
+                intensity: 'LIGHT',
+                location_type: 'COURTYARD',
+                target_class: 'All',
+                duration_minutes: 30,
+                is_current: true,
+              },
+              {
+                id: 'act-pe-class9',
+                name_bn: 'শারীরিক শিক্ষা (ফুটবল)',
+                name_en: 'PE Football',
+                time_slot: '09:15 - 10:00',
+                intensity: 'VIGOROUS',
+                location_type: 'FIELD',
+                target_class: 'Class 9',
+                duration_minutes: 45,
+                is_current: false,
+              },
+            ],
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('UPDATED');
+      expect(body.activities).toHaveLength(2);
+
+      // Verify that individual ACTIVITY# items were saved to DECISIONS_TABLE_NAME
+      const assemblyItem = putCalls.find((i) => i.activity_id === 'ACTIVITY#act-assembly');
+      const peItem = putCalls.find((i) => i.activity_id === 'ACTIVITY#act-pe-class9');
+      const routineCurrent = putCalls.find((i) => i.activity_id === 'ROUTINE#current');
+
+      expect(assemblyItem).toBeDefined();
+      expect(assemblyItem.time_slot).toBe('08:30 - 09:00');
+      expect(assemblyItem.intensity).toBe('LIGHT');
+      expect(assemblyItem.location_type).toBe('COURTYARD');
+
+      expect(peItem).toBeDefined();
+      expect(peItem.time_slot).toBe('09:15 - 10:00');
+      expect(peItem.intensity).toBe('VIGOROUS');
+      expect(peItem.target_class).toBe('Class 9');
+
+      expect(routineCurrent).toBeDefined();
+      expect(routineCurrent.activity_name_bn).toBe('প্রাতঃকালীন সমাবেশ');
+    });
+
+    test('GET /schools/{schoolId}/routines returns evaluated activities with individual decisions', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        // Mock query for TABLE_NAME (readings)
+        if (command?.input?.TableName === 'AirSafe-Telemetry-dev' || command?.input?.ScanIndexForward === false) {
+          return {
+            Items: [
+              {
+                timestamp: new Date().toISOString(),
+                readings: { heat_index_c: 40, aqi: 70 },
+              },
+            ],
+          } as never;
+        }
+        // Mock query for DECISIONS_TABLE_NAME (activities)
+        if (command?.input?.KeyConditionExpression && command.input.KeyConditionExpression.includes('begins_with')) {
+          return {
+            Items: [
+              {
+                id: 'assembly',
+                activity_id: 'ACTIVITY#assembly',
+                name_bn: 'প্রাতঃকালীন সমাবেশ',
+                name_en: 'Morning Assembly',
+                time_slot: '08:30 - 09:00',
+                intensity: 'LIGHT',
+                location_type: 'COURTYARD',
+                target_class: 'All',
+                duration_minutes: 30,
+                is_current: true,
+                order: 1,
+              },
+              {
+                id: 'pe-football',
+                activity_id: 'ACTIVITY#pe-football',
+                name_bn: 'শারীরিক শিক্ষা (ফুটবল)',
+                name_en: 'PE Football',
+                time_slot: '09:15 - 10:00',
+                intensity: 'VIGOROUS',
+                location_type: 'FIELD',
+                target_class: 'Class 8',
+                duration_minutes: 45,
+                is_current: false,
+                order: 2,
+              },
+            ],
+          } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.school_id).toBe('school-dhaka-001');
+      expect(body.activities).toHaveLength(2);
+
+      const assemblyAct = body.activities.find((a: any) => a.id === 'assembly');
+      const peAct = body.activities.find((a: any) => a.id === 'pe-football');
+
+      expect(assemblyAct).toBeDefined();
+      expect(peAct).toBeDefined();
+
+      // Per-activity individual decisions:
+      expect(['PROCEED', 'PROCEED_WITH_PRECAUTIONS', 'MODIFY']).toContain(assemblyAct.decision);
+      expect(peAct.decision).toBe('MOVE_INDOORS');
+      expect(peAct.status).toBe('RED');
+      expect(body.current_activity.id).toBe('assembly');
+      expect(body.next_activity.id).toBe('pe-football');
     });
   });
 });

@@ -267,16 +267,32 @@ const ORDERED_DECISIONS: PolicyDecision[] = [
   'MOVE_INDOORS',
 ];
 
-// S8 (S-6 Input Validation): Strict JSON Schemas for routines and overrides
-export const RoutineSchema = z.object({
-  intensity: z.enum(['light', 'moderate', 'vigorous', 'LIGHT', 'MODERATE', 'VIGOROUS']),
-  location_type: z.enum(['FIELD', 'COURT', 'SHADED_AREA', 'CLASSROOM', 'INDOOR_GYM', 'OUTDOOR', 'INDOOR']).default('FIELD'),
+// P4 (F-10): Granular Activity Schema for ACTIVITY#<id> model (time, intensity, location, class)
+export const ActivitySchema = z.object({
+  id: z.string().min(1).max(50).optional(),
+  name_bn: z.string().min(1).max(100),
+  name_en: z.string().min(1).max(100),
+  time_slot: z.string().max(50).optional().default(''), // সময়
+  intensity: z.enum(['light', 'moderate', 'vigorous', 'LIGHT', 'MODERATE', 'VIGOROUS']), // তীব্রতা
+  location_type: z.enum(['FIELD', 'COURT', 'COURTYARD', 'SHADED_AREA', 'CLASSROOM', 'INDOOR_GYM', 'OUTDOOR', 'INDOOR']).default('FIELD'), // স্থান
+  target_class: z.string().max(50).optional().nullable(), // ক্লাস
   duration_minutes: z.number().int('duration_minutes must be an integer').min(1, 'Duration must be at least 1 minute').max(480, 'Duration cannot exceed 480 minutes').default(45),
+  is_current: z.boolean().optional().default(false),
+  order: z.number().int().optional(),
+});
+
+// S8 (S-6 Input Validation) & P4: Strict JSON Schemas for routines, overrides, and multi-activity routines
+export const RoutineSchema = z.object({
+  intensity: z.enum(['light', 'moderate', 'vigorous', 'LIGHT', 'MODERATE', 'VIGOROUS']).optional().default('MODERATE'),
+  location_type: z.enum(['FIELD', 'COURT', 'COURTYARD', 'SHADED_AREA', 'CLASSROOM', 'INDOOR_GYM', 'OUTDOOR', 'INDOOR']).default('FIELD'),
+  duration_minutes: z.number().int('duration_minutes must be an integer').min(1, 'Duration must be at least 1 minute').max(480, 'Duration cannot exceed 480 minutes').default(45),
+  time_slot: z.string().max(50).optional().nullable(),
   activity_name_bn: z.string().max(100).optional().nullable(),
   activity_name_en: z.string().max(100).optional().nullable(),
   next_activity_bn: z.string().max(100).optional().nullable(),
   next_activity_en: z.string().max(100).optional().nullable(),
   target_class: z.string().max(50).optional().nullable(),
+  activities: z.array(ActivitySchema).optional(),
 });
 
 export const OverrideSchema = z.object({
@@ -549,6 +565,191 @@ export function evaluatePolicyFloor(params: {
     requiresShade: res.requiresShade,
     reasons: res.reasons,
     reasonCodes: res.reasonCodes,
+  };
+}
+
+// P4 & F-10: Evaluate decision for an individual activity based on its intensity, duration, and conditions
+export function evaluateDecisionForActivity(params: {
+  activity: {
+    id?: string;
+    activity_id?: string;
+    name_bn: string;
+    name_en: string;
+    time_slot?: string;
+    intensity: string;
+    location_type?: string;
+    target_class?: string | null;
+    duration_minutes?: number;
+    is_current?: boolean;
+    order?: number;
+  };
+  currentAqi: number | null | undefined;
+  currentHeatIndexC: number | null | undefined;
+  hourlyForecast?: any[];
+  isModeled?: boolean;
+  isStale?: boolean;
+  hasRespiratoryCondition?: boolean;
+  activeOverride?: any;
+}) {
+  const duration = params.activity.duration_minutes ?? 45;
+  const worstCase = getWorstCaseConditionsForActivity({
+    currentAqi: params.currentAqi,
+    currentHeatIndexC: params.currentHeatIndexC,
+    durationMinutes: duration,
+    hourlyForecast: params.hourlyForecast,
+  });
+
+  const rawInt = String(params.activity.intensity || 'MODERATE').toUpperCase();
+  const intensity: SharedActivityIntensity =
+    rawInt === 'VIGOROUS' ? 'VIGOROUS' : rawInt === 'LIGHT' ? 'LIGHT' : 'MODERATE';
+
+  const evalResult = evaluatePolicyFloor({
+    heatIndexC: worstCase.worstHeatIndexC,
+    aqi: worstCase.worstAqi,
+    intensity,
+    isModeled: Boolean(params.isModeled),
+    isStale: Boolean(params.isStale),
+    hasRespiratoryCondition: Boolean(params.hasRespiratoryCondition),
+  });
+
+  if (worstCase.isForecastWorse && worstCase.forecastPeakReason) {
+    evalResult.reasons.push(worstCase.forecastPeakReason);
+    evalResult.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
+  }
+
+  let decision = evalResult.decision;
+  let status = evalResult.status;
+
+  if (params.activeOverride?.requested_decision) {
+    const reqDec = params.activeOverride.requested_decision as PolicyDecision;
+    if (ORDERED_DECISIONS.includes(reqDec) && STRICTNESS_ORDER[reqDec] > STRICTNESS_ORDER[decision]) {
+      decision = reqDec;
+      const statusMap: Record<PolicyDecision, 'GREEN' | 'YELLOW' | 'ORANGE' | 'RED' | 'UNKNOWN'> = {
+        PROCEED: 'GREEN',
+        PROCEED_WITH_PRECAUTIONS: 'YELLOW',
+        MODIFY: 'ORANGE',
+        MOVE_INDOORS: 'RED',
+        UNKNOWN: 'UNKNOWN',
+      };
+      status = statusMap[decision] || status;
+    }
+  }
+
+  const actId = params.activity.id || (params.activity.activity_id ? params.activity.activity_id.replace(/^ACTIVITY#/, '') : 'activity');
+
+  return {
+    id: actId,
+    activity_id: `ACTIVITY#${actId}`,
+    name_bn: params.activity.name_bn,
+    name_en: params.activity.name_en,
+    time_slot: params.activity.time_slot || '',
+    intensity,
+    location_type: params.activity.location_type || 'FIELD',
+    target_class: params.activity.target_class || null,
+    duration_minutes: duration,
+    is_current: Boolean(params.activity.is_current),
+    order: params.activity.order ?? 1,
+    decision,
+    status,
+    policy_floor_decision: evalResult.decision,
+    worst_case_aqi: worstCase.worstAqi,
+    worst_case_heat_index_c: worstCase.worstHeatIndexC,
+    primary_reason: evalResult.reasons[0] || 'Evaluated against policy',
+    reasons: evalResult.reasons,
+    reason_codes: evalResult.reasonCodes,
+    max_duration_minutes: evalResult.maxDurationMinutes,
+    requires_shade: evalResult.requiresShade,
+  };
+}
+
+// P4 & F-10: Fetch and evaluate decisions for all activities under a school tenant
+export async function getEvaluatedActivitiesForSchool(params: {
+  schoolId: string;
+  docClient: any;
+  decisionsTableName: string;
+  currentAqi: number | null | undefined;
+  currentHeatIndexC: number | null | undefined;
+  hourlyForecast?: any[];
+  isModeled?: boolean;
+  isStale?: boolean;
+  hasRespiratoryCondition?: boolean;
+  activeOverride?: any;
+  cachedRoutineItem?: any;
+}) {
+  let activityItems: any[] = [];
+  try {
+    const actRes = await params.docClient.send(
+      new QueryCommand({
+        TableName: params.decisionsTableName,
+        KeyConditionExpression: 'school_id = :sid AND begins_with(activity_id, :prefix)',
+        ExpressionAttributeValues: {
+          ':sid': params.schoolId,
+          ':prefix': 'ACTIVITY#',
+        },
+      })
+    );
+    activityItems = actRes.Items || [];
+  } catch (err) {
+    console.warn('[Activities Query Warning] Could not fetch ACTIVITY# records:', err);
+  }
+
+  if (activityItems.length === 0) {
+    const routine = params.cachedRoutineItem;
+    if (routine) {
+      const currentRawInt = String(routine.intensity || 'moderate').toUpperCase();
+      activityItems.push({
+        id: 'current',
+        activity_id: 'ACTIVITY#current',
+        name_bn: routine.activity_name_bn || 'বর্তমান অ্যাক্টিভিটি',
+        name_en: routine.activity_name_en || 'Current Activity',
+        time_slot: routine.time_slot || '09:00 - 09:45',
+        intensity: currentRawInt,
+        location_type: routine.location_type || 'FIELD',
+        target_class: routine.target_class || 'All Classes',
+        duration_minutes: routine.duration_minutes ?? 45,
+        is_current: true,
+        order: 1,
+      });
+      if (routine.next_activity_bn || routine.next_activity_en) {
+        activityItems.push({
+          id: 'next',
+          activity_id: 'ACTIVITY#next',
+          name_bn: routine.next_activity_bn || 'পরবর্তী অ্যাক্টিভিটি',
+          name_en: routine.next_activity_en || 'Next Activity',
+          time_slot: '09:50 - 10:35',
+          intensity: 'MODERATE',
+          location_type: 'FIELD',
+          target_class: routine.target_class || 'All Classes',
+          duration_minutes: 45,
+          is_current: false,
+          order: 2,
+        });
+      }
+    }
+  }
+
+  activityItems.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const evaluatedActivities = activityItems.map((act) =>
+    evaluateDecisionForActivity({
+      activity: act,
+      currentAqi: params.currentAqi,
+      currentHeatIndexC: params.currentHeatIndexC,
+      hourlyForecast: params.hourlyForecast,
+      isModeled: params.isModeled,
+      isStale: params.isStale,
+      hasRespiratoryCondition: params.hasRespiratoryCondition,
+      activeOverride: params.activeOverride,
+    })
+  );
+
+  const currentActivity = evaluatedActivities.find((a) => a.is_current) || evaluatedActivities[0] || null;
+  const nextActivity = evaluatedActivities.find((a) => !a.is_current && a.id !== currentActivity?.id) || evaluatedActivities[1] || null;
+
+  return {
+    activities: evaluatedActivities,
+    current_activity: currentActivity,
+    next_activity: nextActivity,
   };
 }
 
@@ -852,8 +1053,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   const schoolId = auth.schoolId;
 
   try {
-    // Route: POST /schools/{schoolId}/routines (F-10 — Coordinator Only)
-    if (path.endsWith('/routines') && event.httpMethod === 'POST') {
+    // Route: POST /schools/{schoolId}/routines or POST /schools/{schoolId}/activities (F-10 / P4 — Coordinator Only)
+    if ((path.endsWith('/routines') || path.endsWith('/activities')) && event.httpMethod === 'POST') {
       if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
         return {
           statusCode: 403,
@@ -872,6 +1073,76 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
 
+      // Check if multi-activity payload is provided
+      const rawActivities = Array.isArray(body) ? body : Array.isArray(body.activities) ? body.activities : null;
+      const nowIso = new Date().toISOString();
+
+      if (rawActivities) {
+        const validatedActivities: any[] = [];
+        for (let i = 0; i < rawActivities.length; i++) {
+          const parseResult = ActivitySchema.safeParse(rawActivities[i]);
+          if (!parseResult.success) {
+            return {
+              statusCode: 400,
+              headers: getCorsHeaders(event),
+              body: JSON.stringify({
+                error: `Validation failed: Invalid activity at index ${i} (S-6 / P4)`,
+                details: parseResult.error.issues,
+              }),
+            };
+          }
+          validatedActivities.push(parseResult.data);
+        }
+
+        const savedActivities = [];
+        for (let i = 0; i < validatedActivities.length; i++) {
+          const act = validatedActivities[i];
+          const actId = act.id || `act-${i + 1}`;
+          const activityItem = {
+            school_id: schoolId,
+            activity_id: `ACTIVITY#${actId}`,
+            id: actId,
+            name_bn: act.name_bn,
+            name_en: act.name_en,
+            time_slot: act.time_slot || '',
+            intensity: act.intensity.toUpperCase(),
+            location_type: act.location_type || 'FIELD',
+            target_class: act.target_class || null,
+            duration_minutes: act.duration_minutes ?? 45,
+            is_current: Boolean(act.is_current),
+            order: act.order ?? (i + 1),
+            updated_by: auth.email,
+            updated_at: nowIso,
+          };
+          await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: activityItem }));
+          savedActivities.push(activityItem);
+        }
+
+        const currentAct = savedActivities.find((a) => a.is_current) || savedActivities[0];
+        const nextAct = savedActivities.find((a) => !a.is_current && a.id !== currentAct?.id) || savedActivities[1];
+        const routineItem = {
+          school_id: schoolId,
+          activity_id: 'ROUTINE#current',
+          activity_name_bn: currentAct?.name_bn || null,
+          activity_name_en: currentAct?.name_en || null,
+          next_activity_bn: nextAct?.name_bn || null,
+          next_activity_en: nextAct?.name_en || null,
+          intensity: (currentAct?.intensity || 'MODERATE').toLowerCase() as ActivityIntensity,
+          location_type: currentAct?.location_type || 'FIELD',
+          duration_minutes: currentAct?.duration_minutes ?? 45,
+          target_class: currentAct?.target_class || null,
+          updated_by: auth.email,
+          updated_at: nowIso,
+        };
+        await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: routineItem }));
+
+        return {
+          statusCode: 200,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ status: 'UPDATED', routine: routineItem, activities: savedActivities }),
+        };
+      }
+
       // S8 (S-6): Validate payload with RoutineSchema
       const routineParse = RoutineSchema.safeParse(body);
       if (!routineParse.success) {
@@ -886,7 +1157,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const validData = routineParse.data;
-      const intensityRaw = validData.intensity.toLowerCase();
+      const intensityRaw = (validData.intensity || 'moderate').toLowerCase();
       const intensity: ActivityIntensity =
         intensityRaw === 'vigorous' ? 'vigorous' : intensityRaw === 'light' ? 'light' : 'moderate';
       const routineItem = {
@@ -901,13 +1172,114 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         duration_minutes: validData.duration_minutes,
         target_class: validData.target_class ? String(validData.target_class).trim() : null,
         updated_by: auth.email,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       };
       await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: routineItem }));
+
+      // Model and persist ACTIVITY#current and ACTIVITY#next (P4 / F-10)
+      const currentActItem = {
+        school_id: schoolId,
+        activity_id: 'ACTIVITY#current',
+        id: 'current',
+        name_bn: validData.activity_name_bn ? String(validData.activity_name_bn).trim() : 'বর্তমান অ্যাক্টিভিটি',
+        name_en: validData.activity_name_en ? String(validData.activity_name_en).trim() : 'Current Activity',
+        time_slot: validData.time_slot || '',
+        intensity: intensity.toUpperCase(),
+        location_type: validData.location_type,
+        target_class: validData.target_class ? String(validData.target_class).trim() : null,
+        duration_minutes: validData.duration_minutes,
+        is_current: true,
+        order: 1,
+        updated_by: auth.email,
+        updated_at: nowIso,
+      };
+      await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: currentActItem }));
+
+      if (validData.next_activity_bn || validData.next_activity_en) {
+        const nextActItem = {
+          school_id: schoolId,
+          activity_id: 'ACTIVITY#next',
+          id: 'next',
+          name_bn: validData.next_activity_bn ? String(validData.next_activity_bn).trim() : 'পরবর্তী অ্যাক্টিভিটি',
+          name_en: validData.next_activity_en ? String(validData.next_activity_en).trim() : 'Next Activity',
+          time_slot: '',
+          intensity: 'MODERATE',
+          location_type: 'FIELD',
+          target_class: null,
+          duration_minutes: 45,
+          is_current: false,
+          order: 2,
+          updated_by: auth.email,
+          updated_at: nowIso,
+        };
+        await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: nextActItem }));
+      }
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
         body: JSON.stringify({ status: 'UPDATED', routine: routineItem }),
+      };
+    }
+
+    // Route: GET /schools/{schoolId}/routines or GET /schools/{schoolId}/activities (F-10 / P4)
+    if ((path.endsWith('/routines') || path.endsWith('/activities')) && event.httpMethod === 'GET') {
+      let routineItem: any = null;
+      let activeOverride: any = null;
+      try {
+        const [routineRes, overrideRes] = await Promise.all([
+          docClient.send(new GetCommand({ TableName: DECISIONS_TABLE_NAME, Key: { school_id: schoolId, activity_id: 'ROUTINE#current' } })),
+          docClient.send(new GetCommand({ TableName: DECISIONS_TABLE_NAME, Key: { school_id: schoolId, activity_id: 'OVERRIDE#active' } })),
+        ]);
+        routineItem = routineRes.Item || null;
+        activeOverride = overrideRes.Item || null;
+      } catch (_e) {}
+
+      let latestReading: any = null;
+      try {
+        const latestRes = await docClient.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid',
+            ExpressionAttributeValues: { ':sid': schoolId },
+            ScanIndexForward: false,
+            Limit: 1,
+          })
+        );
+        latestReading = latestRes.Items?.[0];
+      } catch (_e) {}
+
+      const readings = latestReading?.readings || {};
+      const heatIndexC = readings.heat_index_c ?? readings.temperature_c ?? null;
+      const aqi = readings.aqi ?? null;
+      const readingTimeMs = latestReading?.timestamp ? Date.parse(latestReading.timestamp) : NaN;
+      const ageMinutes = Number.isFinite(readingTimeMs) ? (Date.now() - readingTimeMs) / (1000 * 60) : 999;
+      const isStale = Boolean(latestReading?.evaluation?.isStale) || ageMinutes > 90;
+      const isModeled = Boolean(latestReading?.is_modeled);
+
+      const evaluated = await getEvaluatedActivitiesForSchool({
+        schoolId,
+        docClient,
+        decisionsTableName: DECISIONS_TABLE_NAME,
+        currentAqi: aqi,
+        currentHeatIndexC: heatIndexC,
+        hourlyForecast: latestReading?.hourly_forecast,
+        isModeled,
+        isStale,
+        activeOverride,
+        cachedRoutineItem: routineItem,
+      });
+
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({
+          school_id: schoolId,
+          routine: routineItem,
+          activities: evaluated.activities,
+          current_activity: evaluated.current_activity,
+          next_activity: evaluated.next_activity,
+        }),
       };
     }
 
@@ -1493,6 +1865,28 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Optional metadata query failed; continue with deterministic evaluation
       }
 
+      // Fetch and evaluate decisions for all activities (P4 / F-10)
+      const evaluatedActs = await getEvaluatedActivitiesForSchool({
+        schoolId,
+        docClient,
+        decisionsTableName: DECISIONS_TABLE_NAME,
+        currentAqi: aqi,
+        currentHeatIndexC: hi,
+        hourlyForecast: item.hourly_forecast,
+        isModeled,
+        isStale,
+        hasRespiratoryCondition,
+        activeOverride,
+        cachedRoutineItem: {
+          intensity: activeIntensity,
+          duration_minutes: routineDuration,
+          activity_name_bn: routineNameBn,
+          activity_name_en: routineNameEn,
+          next_activity_bn: nextActivityBn,
+          next_activity_en: nextActivityEn,
+        },
+      });
+
       // Evaluate deterministic Policy Floor using worst-case conditions across activity duration (P2)
       const activityDuration = routineDuration;
       const worstCase = getWorstCaseConditionsForActivity({
@@ -1558,6 +1952,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           aqi,
           routine_intensity: routineNameBn ? activeIntensity : null,
           current_activity_bn: routineNameBn,
+          activities: evaluatedActs.activities,
+          current_activity: evaluatedActs.current_activity,
+          next_activity: evaluatedActs.next_activity,
           current_activity_en: routineNameEn,
           next_activity_bn: nextActivityBn,
           next_activity_en: nextActivityEn,
@@ -1670,6 +2067,28 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const isStale = Boolean(latestItem.evaluation?.isStale) || ageMinutes > 90;
     const isModeled = Boolean(latestItem.is_modeled);
 
+    // Fetch and evaluate decisions for all activities (P4 / F-10)
+    const evaluatedActs = await getEvaluatedActivitiesForSchool({
+      schoolId,
+      docClient,
+      decisionsTableName: DECISIONS_TABLE_NAME,
+      currentAqi: aqi,
+      currentHeatIndexC: heatIndexC,
+      hourlyForecast: latestItem.hourly_forecast,
+      isModeled,
+      isStale,
+      hasRespiratoryCondition,
+      activeOverride,
+      cachedRoutineItem: {
+        intensity: activeIntensity,
+        duration_minutes: routineDuration,
+        activity_name_bn: currentActivityBn,
+        activity_name_en: currentActivityEn,
+        next_activity_bn: nextActivityBn,
+        next_activity_en: nextActivityEn,
+      },
+    });
+
     // Evaluate deterministically against Policy v1.2 using worst-case forecast across activity (P2)
     const activityDuration = routineDuration;
     const worstCase = getWorstCaseConditionsForActivity({
@@ -1752,6 +2171,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         active_override: activeOverride
           ? `${activeOverride.requested_decision}: ${activeOverride.reason}`
           : null,
+        activities: evaluatedActs.activities,
+        current_activity: evaluatedActs.current_activity,
+        next_activity: evaluatedActs.next_activity,
       }),
     };
   } catch (error: any) {
