@@ -390,6 +390,45 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(body.answer).toContain('বিকেলের ফুটবল');
     expect(body.answer).toContain('vigorous');
     expect(body.answer).toContain('শ্বাসকষ্ট');
+    expect(body.suggested_follow_ups).toBeDefined();
+    expect(body.suggested_follow_ups.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('POST /schools/{schoolId}/assistant/chat with stream=true returns Server-Sent Events stream (F-05)', async () => {
+    jest
+      .spyOn(docClient, 'send')
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            school_id: 'school-dhaka-001',
+            school_name: 'Dhaka Model School',
+            timestamp: new Date().toISOString(),
+            is_modeled: false,
+            readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+          },
+        ],
+      } as never)
+      .mockResolvedValueOnce({ Item: null } as never)
+      .mockResolvedValueOnce({ Item: null } as never)
+      .mockResolvedValueOnce({ Item: null } as never);
+
+    const res = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/assistant/chat',
+        headers: {
+          Authorization: `Bearer ${teacherToken}`,
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({ query: 'হালকা শরীরচর্চা কি বাইরে সম্ভব?', stream: true }),
+      })
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers?.['Content-Type']).toBe('text/event-stream');
+    expect(res.body).toContain('event: token\n');
+    expect(res.body).toContain('event: completion\n');
+    expect(res.body).toContain('suggested_follow_ups');
   });
 
   test('GET /schools/{schoolId}/staff returns real staff directory from DynamoDB', async () => {
