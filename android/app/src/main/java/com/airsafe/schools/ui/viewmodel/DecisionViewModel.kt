@@ -63,6 +63,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private val _trendData = MutableStateFlow<List<TrendPoint>>(emptyList())
     val trendData: StateFlow<List<TrendPoint>> = _trendData.asStateFlow()
 
+    private val _selectedTrendRange = MutableStateFlow("24h")
+    val selectedTrendRange: StateFlow<String> = _selectedTrendRange.asStateFlow()
+
+    private val _compareSiteId = MutableStateFlow<String?>(null)
+    val compareSiteId: StateFlow<String?> = _compareSiteId.asStateFlow()
+
+    private val _trendPeriodLabel = MutableStateFlow("আজকের ২৪ ঘণ্টার ট্রেন্ড")
+    val trendPeriodLabel: StateFlow<String> = _trendPeriodLabel.asStateFlow()
+
     // F-08: Activity Notes added by teacher
     private val _activityNotes = MutableStateFlow<List<String>>(emptyList())
     val activityNotes: StateFlow<List<String>> = _activityNotes.asStateFlow()
@@ -318,6 +327,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         loadSensorSites(schoolId)
         loadAnalytics(schoolId)
         loadStaff(schoolId)
+        loadTrends(schoolId)
     }
 
     /**
@@ -806,6 +816,56 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 if (_sensorSites.value.isEmpty()) {
                     _sensorSites.value = getSeedSensorSites(schoolId)
                 }
+            }
+        }
+    }
+
+    fun setTrendRange(range: String) {
+        _selectedTrendRange.value = range
+        val currentSchool = _selectedSchoolId.value
+        loadTrends(currentSchool, range, null, _compareSiteId.value)
+    }
+
+    fun setComparisonSite(siteId: String?) {
+        _compareSiteId.value = siteId
+        val currentSchool = _selectedSchoolId.value
+        loadTrends(currentSchool, _selectedTrendRange.value, null, siteId)
+    }
+
+    fun loadTrends(
+        schoolId: String = _selectedSchoolId.value,
+        range: String = _selectedTrendRange.value,
+        siteId: String? = null,
+        compareSiteId: String? = _compareSiteId.value
+    ) {
+        viewModelScope.launch {
+            try {
+                AppLog.d(TAG, "Loading trends from schools/" + schoolId + "/trends?range=" + range + "&compare_site_id=" + compareSiteId)
+                val resp = AirSafeApiClient.service.getTrends(schoolId, range, siteId, compareSiteId)
+                _trendPeriodLabel.value = if (_isBengali.value) resp.periodBn ?: "২৪ ঘণ্টার ট্রেন্ড" else resp.periodEn ?: "24-Hour Trend"
+                if (resp.points.isNotEmpty()) {
+                    _trendData.value = resp.points.map { p ->
+                        TrendPoint(
+                            timeLabelBn = p.timeLabelBn ?: "",
+                            timeLabelEn = p.timeLabelEn ?: "",
+                            heatIndexC = p.heatIndexC ?: 30.0,
+                            aqi = p.aqi ?: 50,
+                            isDangerous = p.isDangerous ?: false,
+                            isSchoolHours = p.isSchoolHours ?: false,
+                            isShaded = p.isShaded ?: false,
+                            comparisonHeatIndexC = p.comparisonHeatIndexC,
+                            comparisonAqi = p.comparisonAqi,
+                            deltaHeatIndexC = p.deltaHeatIndexC,
+                            deltaAqi = p.deltaAqi
+                        )
+                    }
+                } else {
+                    _trendData.value = getSeedTrends()
+                }
+                AppLog.d(TAG, "Trends loaded successfully (" + _trendData.value.size + " points)")
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Error in loadTrends: " + e.message, e)
+                _trendData.value = getSeedTrends()
             }
         }
     }

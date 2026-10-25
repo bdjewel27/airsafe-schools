@@ -1678,4 +1678,178 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.override_days_count).toBe(2);
     });
   });
+
+  describe('F-04: Trends API (24h/7d/30d, School Hours Shading & Multi-Site Comparison)', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+      resetRateLimits();
+    });
+
+    test('GET /trends defaults to 24h, formats bilingual labels, and shades school hours (08:00 - 16:00 Asia/Dhaka)', async () => {
+      // 03:00 UTC = 09:00 AM Asia/Dhaka (School hours!)
+      const schoolHourIso = '2026-10-25T03:00:00.000Z';
+      // 13:00 UTC = 19:00 PM Asia/Dhaka (After school hours / evening)
+      const afterSchoolIso = '2026-10-25T13:00:00.000Z';
+
+      const mockItems = [
+        {
+          timestamp: schoolHourIso,
+          readings: { temperature_c: 32.5, heat_index_c: 36.8, aqi: 115, pm25_ugm3: 40 },
+          evaluation: { decision: 'MODIFY' },
+          location_type: 'FIELD',
+          sensor_id: 'dhk-001-field-1',
+        },
+        {
+          timestamp: afterSchoolIso,
+          readings: { temperature_c: 28.0, heat_index_c: 31.0, aqi: 85, pm25_ugm3: 30 },
+          evaluation: { decision: 'PROCEED' },
+          location_type: 'FIELD',
+          sensor_id: 'dhk-001-field-1',
+        },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return { Items: mockItems } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/trends',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      expect(body.range).toBe('24h');
+      expect(body.period_bn).toContain('২৪ ঘণ্টা');
+      expect(body.school_hours.is_shaded).toBe(true);
+      expect(body.school_hours.start).toBe('08:00');
+      expect(body.school_hours.end).toBe('16:00');
+      expect(body.points).toHaveLength(2);
+
+      // Point 1: 03:00 UTC = 9:00 AM BST -> School hours shaded!
+      const p1 = body.points[0];
+      expect(p1.is_school_hours).toBe(true);
+      expect(p1.is_shaded).toBe(true);
+      expect(p1.time_label_en).toContain('9:00 AM');
+      expect(p1.time_label_bn).toContain('সকাল ৯:০০');
+      expect(p1.heat_index_c).toBe(36.8);
+      expect(p1.aqi).toBe(115);
+      expect(p1.is_dangerous).toBe(true);
+
+      // Point 2: 13:00 UTC = 7:00 PM BST -> After school hours
+      const p2 = body.points[1];
+      expect(p2.is_school_hours).toBe(false);
+      expect(p2.is_shaded).toBe(false);
+      expect(p2.time_label_en).toContain('7:00 PM');
+      expect(p2.time_label_bn).toContain('সন্ধ্যা ৭:০০');
+      expect(p2.heat_index_c).toBe(31.0);
+      expect(p2.aqi).toBe(85);
+      expect(p2.is_dangerous).toBe(false);
+    });
+
+    test('GET /trends?range=7d and range=30d supports multi-day ranges', async () => {
+      const mockItems = [
+        {
+          timestamp: '2026-10-20T04:00:00.000Z',
+          readings: { temperature_c: 30.0, heat_index_c: 34.0, aqi: 95 },
+          evaluation: { decision: 'MODIFY' },
+        },
+        {
+          timestamp: '2026-10-25T04:00:00.000Z',
+          readings: { temperature_c: 33.0, heat_index_c: 38.0, aqi: 155 },
+          evaluation: { decision: 'MOVE_INDOORS' },
+        },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async () => ({ Items: mockItems } as never));
+
+      const res7d = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/trends',
+          queryStringParameters: { range: '7d' },
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+      expect(res7d.statusCode).toBe(200);
+      const body7d = JSON.parse(res7d.body);
+      expect(body7d.range).toBe('7d');
+      expect(body7d.period_en).toContain('7 Days');
+      expect(body7d.points).toHaveLength(2);
+
+      const res30d = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/trends',
+          queryStringParameters: { range: '30d' },
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+      expect(res30d.statusCode).toBe(200);
+      const body30d = JSON.parse(res30d.body);
+      expect(body30d.range).toBe('30d');
+      expect(body30d.period_en).toContain('30 Days');
+    });
+
+    test('GET /trends?compare_site_id=dhk-001-courtyard compares two sites and computes deltas', async () => {
+      const ts = '2026-10-25T04:00:00.000Z'; // 10:00 AM BST
+      const mockItems = [
+        // Primary Field sensor (hotter, dusty)
+        {
+          timestamp: ts,
+          sensor_id: 'dhk-001-field-1',
+          location_type: 'FIELD',
+          readings: { temperature_c: 33.0, heat_index_c: 38.5, aqi: 140 },
+          evaluation: { decision: 'MOVE_INDOORS' },
+        },
+        // Comparison Courtyard sensor (shaded, cooler)
+        {
+          timestamp: ts,
+          sensor_id: 'dhk-001-courtyard-1',
+          location_type: 'COURTYARD',
+          readings: { temperature_c: 29.5, heat_index_c: 32.0, aqi: 90 },
+          evaluation: { decision: 'PROCEED' },
+        },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async () => ({ Items: mockItems } as never));
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/trends',
+          queryStringParameters: {
+            site_id: 'dhk-001-field-1',
+            compare_site_id: 'dhk-001-courtyard-1',
+          },
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      expect(body.sites_compared).toEqual(['dhk-001-field-1', 'dhk-001-courtyard-1']);
+      expect(body.points).toHaveLength(1);
+      expect(body.comparison_points).toHaveLength(1);
+
+      const fieldPoint = body.points[0];
+      expect(fieldPoint.heat_index_c).toBe(38.5);
+      expect(fieldPoint.aqi).toBe(140);
+      expect(fieldPoint.comparison_heat_index_c).toBe(32.0);
+      expect(fieldPoint.comparison_aqi).toBe(90);
+
+      // Delta: 38.5 - 32.0 = 6.5°C difference!
+      expect(fieldPoint.delta_heat_index_c).toBe(6.5);
+      // Delta: 140 - 90 = 50 AQI difference!
+      expect(fieldPoint.delta_aqi).toBe(50);
+    });
+  });
 });
