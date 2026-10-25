@@ -178,7 +178,7 @@ export function evaluateAQIDecision(
   evaluationDate?: Date | string | number
 ): { decision: PolicyDecision; maxMinutes?: number; reasonCode: string } {
   if (!Number.isFinite(aqi)) {
-    return { decision: 'MOVE_INDOORS', reasonCode: 'INVALID_AQI_VALUE' };
+    return { decision: 'UNKNOWN', reasonCode: 'INVALID_AQI_VALUE' };
   }
 
   const config = getActivePolicyConfig(evaluationDate);
@@ -211,7 +211,7 @@ export function evaluateHeatDecision(
   evaluationDate?: Date | string | number
 ): { decision: PolicyDecision; maxMinutes?: number; requiresShade: boolean; reasonCode: string } {
   if (!Number.isFinite(heatIndexC)) {
-    return { decision: 'MOVE_INDOORS', requiresShade: true, reasonCode: 'INVALID_HEAT_VALUE' };
+    return { decision: 'UNKNOWN', requiresShade: true, reasonCode: 'INVALID_HEAT_VALUE' };
   }
 
   const config = getActivePolicyConfig(evaluationDate);
@@ -254,13 +254,13 @@ export function evaluatePolicy(
 ): DecisionEvaluationResult {
   const config = getActivePolicyConfig(evaluationDate);
 
-  // Input Validation Guard (P-4: fail-closed with clear reason)
+  // Input Validation Guard (P5: Standardized fail-closed to UNKNOWN for non-finite telemetry per Policy v1.2 §4)
   if (!Number.isFinite(aqi) || !Number.isFinite(heatIndexC)) {
     return {
-      decision: 'MOVE_INDOORS',
-      aqiDecision: 'MOVE_INDOORS',
-      heatDecision: 'MOVE_INDOORS',
-      reasons: ['Invalid sensor readings (non-finite value): defaulting to MOVE_INDOORS for safety'],
+      decision: 'UNKNOWN',
+      aqiDecision: 'UNKNOWN',
+      heatDecision: 'UNKNOWN',
+      reasons: ['Invalid sensor readings (non-finite value): defaulting to UNKNOWN for safety (Policy v1.2 §4)'],
       reasonCodes: ['INVALID_SENSOR_INPUT'],
       requiresShade: true,
       isStale,
