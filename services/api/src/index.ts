@@ -400,6 +400,90 @@ export function authenticateRequest(event: APIGatewayProxyEvent): AuthContext {
  * Deterministic Policy v1.2 Evaluator for API Layer (Hard Gate 4)
  * Delegates directly to the shared, dynamic policy engine (v1.2.json).
  */
+/**
+ * P2 (Policy Rule 2 - Worst-Case Environmental Value Invariance):
+ * Resolves the peak/worst-case AQI and Heat Index across the entire activity duration
+ * by combining current telemetry with the hourly forecast window [now, now + durationMinutes].
+ */
+export function getWorstCaseConditionsForActivity(params: {
+  currentAqi: number | null | undefined;
+  currentHeatIndexC: number | null | undefined;
+  durationMinutes?: number | null;
+  hourlyForecast?: Array<{
+    time?: string;
+    aqi?: number;
+    usAqi?: number;
+    heat_index_c?: number;
+    heatIndexC?: number;
+    temperature_c?: number;
+    temperatureC?: number;
+  }> | null;
+  startTime?: Date | string | number;
+}): {
+  worstAqi: number | null;
+  worstHeatIndexC: number | null;
+  isForecastWorse: boolean;
+  forecastPeakReason?: string;
+} {
+  const currentAqi = typeof params.currentAqi === 'number' && Number.isFinite(params.currentAqi) ? params.currentAqi : null;
+  const currentHeatIndex = typeof params.currentHeatIndexC === 'number' && Number.isFinite(params.currentHeatIndexC) ? params.currentHeatIndexC : null;
+
+  if (currentAqi === null || currentHeatIndex === null) {
+    return {
+      worstAqi: currentAqi,
+      worstHeatIndexC: currentHeatIndex,
+      isForecastWorse: false,
+    };
+  }
+
+  let worstAqi = currentAqi;
+  let worstHeatIndexC = currentHeatIndex;
+
+  const startMs = params.startTime ? new Date(params.startTime).getTime() : Date.now();
+  const durationMs = (params.durationMinutes && params.durationMinutes > 0 ? params.durationMinutes : 45) * 60 * 1000;
+  const endMs = startMs + durationMs;
+
+  const forecast = Array.isArray(params.hourlyForecast) ? params.hourlyForecast : [];
+
+  for (const pt of forecast) {
+    if (!pt.time) continue;
+    const ptMs = new Date(pt.time).getTime();
+    if (!Number.isFinite(ptMs)) continue;
+    // Check if forecast timestamp falls within or overlaps with the activity window
+    if (ptMs >= startMs - 30 * 60 * 1000 && ptMs <= endMs + 30 * 60 * 1000) {
+      const ptAqi = pt.usAqi ?? pt.aqi;
+      const ptHeat = pt.heatIndexC ?? pt.heat_index_c ?? pt.temperatureC ?? pt.temperature_c;
+
+      if (typeof ptAqi === 'number' && Number.isFinite(ptAqi) && ptAqi > worstAqi) {
+        worstAqi = ptAqi;
+      }
+      if (typeof ptHeat === 'number' && Number.isFinite(ptHeat) && ptHeat > worstHeatIndexC) {
+        worstHeatIndexC = ptHeat;
+      }
+    }
+  }
+
+  const isForecastWorse = worstAqi > currentAqi || worstHeatIndexC > currentHeatIndex;
+  let forecastPeakReason: string | undefined;
+  if (isForecastWorse) {
+    const reasons: string[] = [];
+    if (worstAqi > currentAqi) {
+      reasons.push(`পূর্বাভাসে সর্বোচ্চ AQI ${worstAqi} (বর্তমান ${currentAqi})`);
+    }
+    if (worstHeatIndexC > currentHeatIndex) {
+      reasons.push(`পূর্বাভাসে সর্বোচ্চ হিট ইনডেক্স ${worstHeatIndexC}°C (বর্তমান ${currentHeatIndex}°C)`);
+    }
+    forecastPeakReason = `অ্যাক্টিভিটির সময়সীমার পূর্বাভাস পিক (Rule 2): ${reasons.join(', ')}`;
+  }
+
+  return {
+    worstAqi,
+    worstHeatIndexC,
+    isForecastWorse,
+    forecastPeakReason,
+  };
+}
+
 export function evaluatePolicyFloor(params: {
   heatIndexC: number | null | undefined;
   aqi: number | null | undefined;
@@ -914,16 +998,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
 
-      // 3. Compute baseline deterministic floor with school's actual activity intensity
-      const hi = latestReading.readings.heat_index_c ?? latestReading.readings.temperature_c;
-      const aqi = latestReading.readings.aqi;
+      // 3. Compute baseline deterministic floor with school's actual activity intensity and worst-case forecast (P2)
+      const currentHi = latestReading.readings.heat_index_c ?? latestReading.readings.temperature_c;
+      const currentAqi = latestReading.readings.aqi;
+      const worstCase = getWorstCaseConditionsForActivity({
+        currentAqi,
+        currentHeatIndexC: currentHi,
+        durationMinutes: 45,
+        hourlyForecast: latestReading.hourly_forecast,
+      });
+
       const floorEval = evaluatePolicyFloor({
-        heatIndexC: hi,
-        aqi,
+        heatIndexC: worstCase.worstHeatIndexC,
+        aqi: worstCase.worstAqi,
         intensity: activeIntensity,
         isModeled: Boolean(latestReading.is_modeled),
         isStale: Boolean(latestReading.evaluation?.isStale),
       });
+      if (worstCase.isForecastWorse && worstCase.forecastPeakReason) {
+        floorEval.reasons.push(worstCase.forecastPeakReason);
+        floorEval.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
+      }
       const floor = floorEval.decision;
       const relaxesFloor = STRICTNESS_ORDER[requestedDecision] < STRICTNESS_ORDER[floor];
 
@@ -1356,6 +1451,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       let nextActivityEn: string | null = null;
       let hasRespiratoryCondition = false;
       let activeOverride: any = null;
+      let routineDuration = 45;
 
       try {
         const [routineRes, noteRes, overrideRes] = await Promise.all([
@@ -1381,6 +1477,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
         if (routineRes.Item) {
           activeIntensity = routineRes.Item.intensity || 'moderate';
+          routineDuration = routineRes.Item.duration_minutes ?? 45;
           routineNameBn = routineRes.Item.activity_name_bn || null;
           routineNameEn = routineRes.Item.activity_name_en || null;
           nextActivityBn = routineRes.Item.next_activity_bn || null;
@@ -1396,15 +1493,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         // Optional metadata query failed; continue with deterministic evaluation
       }
 
-      // Evaluate deterministic Policy Floor
+      // Evaluate deterministic Policy Floor using worst-case conditions across activity duration (P2)
+      const activityDuration = routineDuration;
+      const worstCase = getWorstCaseConditionsForActivity({
+        currentAqi: aqi,
+        currentHeatIndexC: hi,
+        durationMinutes: activityDuration,
+        hourlyForecast: item.hourly_forecast,
+      });
+
       const evalResult = evaluatePolicyFloor({
-        heatIndexC: hi,
-        aqi,
+        heatIndexC: worstCase.worstHeatIndexC,
+        aqi: worstCase.worstAqi,
         intensity: activeIntensity,
         isModeled,
         isStale,
         hasRespiratoryCondition,
       });
+      if (worstCase.isForecastWorse && worstCase.forecastPeakReason) {
+        evalResult.reasons.push(worstCase.forecastPeakReason);
+        evalResult.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
+      }
 
       // Enforce Hard Gate 4: Coordinator override can only tighten policy floor, never relax it
       let finalDecision = evalResult.decision;
@@ -1509,6 +1618,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let nextActivityEn: string | null = null;
     let hasRespiratoryCondition = false;
     let activeOverride: any = null;
+    let routineDuration = 45;
 
     try {
       const [routineRes, noteRes, overrideRes] = await Promise.all([
@@ -1534,6 +1644,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       if (routineRes.Item) {
         activeIntensity = routineRes.Item.intensity || 'moderate';
+        routineDuration = routineRes.Item.duration_minutes ?? 45;
         currentActivityBn = routineRes.Item.activity_name_bn || null;
         currentActivityEn = routineRes.Item.activity_name_en || null;
         nextActivityBn = routineRes.Item.next_activity_bn || null;
@@ -1559,15 +1670,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const isStale = Boolean(latestItem.evaluation?.isStale) || ageMinutes > 90;
     const isModeled = Boolean(latestItem.is_modeled);
 
-    // Evaluate deterministically against Policy v1.2
+    // Evaluate deterministically against Policy v1.2 using worst-case forecast across activity (P2)
+    const activityDuration = routineDuration;
+    const worstCase = getWorstCaseConditionsForActivity({
+      currentAqi: aqi,
+      currentHeatIndexC: heatIndexC,
+      durationMinutes: activityDuration,
+      hourlyForecast: latestItem.hourly_forecast,
+    });
+
     const policyEval = evaluatePolicyFloor({
-      heatIndexC,
-      aqi,
+      heatIndexC: worstCase.worstHeatIndexC,
+      aqi: worstCase.worstAqi,
       intensity: activeIntensity,
       isModeled,
       isStale,
       hasRespiratoryCondition,
     });
+    if (worstCase.isForecastWorse && worstCase.forecastPeakReason) {
+      policyEval.reasons.push(worstCase.forecastPeakReason);
+      policyEval.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
+    }
 
     // Appendix A / F-11 & Hard Gate 4: Coordinator override with mandatory justification and audit trail
     let effectiveDecision = policyEval.decision;
@@ -1618,6 +1741,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         requires_shade: policyEval.requiresShade,
         is_stale: isStale,
         is_modeled: isModeled,
+        hourly_forecast: latestItem.hourly_forecast || [],
         last_updated: latestItem.timestamp || null,
         current_activity_bn: currentActivityBn,
         current_activity_en: currentActivityEn,
