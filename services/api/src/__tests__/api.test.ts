@@ -17,6 +17,7 @@ import {
   resetSecretsCache,
   ActivitySchema,
   evaluateDecisionForActivity,
+  evaluatePolicy,
 } from '../index';
 
 describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
@@ -921,6 +922,32 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(worst.isForecastWorse).toBe(false);
     });
   });
+  describe('P5 (Fail-Closed Telemetry Standardization): Unified UNKNOWN on non-finite input', () => {
+    test('P5: Both evaluatePolicy and evaluatePolicyFloor consistently fail closed to UNKNOWN on non-finite input', () => {
+      // 1. evaluatePolicy with NaN / Infinity
+      const nanPolicyRes = evaluatePolicy(NaN, 30.0, 'VIGOROUS');
+      expect(nanPolicyRes.decision).toBe('UNKNOWN');
+      expect(nanPolicyRes.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+
+      const infPolicyRes = evaluatePolicy(60, Infinity, 'LIGHT');
+      expect(infPolicyRes.decision).toBe('UNKNOWN');
+      expect(infPolicyRes.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+
+      const negInfPolicyRes = evaluatePolicy(-Infinity, 30.0, 'MODERATE');
+      expect(negInfPolicyRes.decision).toBe('UNKNOWN');
+      expect(negInfPolicyRes.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+
+      // 2. evaluatePolicyFloor with NaN / Infinity
+      const nanFloorRes = evaluatePolicyFloor({ heatIndexC: NaN, aqi: 50, intensity: 'VIGOROUS' });
+      expect(nanFloorRes.decision).toBe('UNKNOWN');
+      expect(nanFloorRes.status).toBe('UNKNOWN');
+
+      const infFloorRes = evaluatePolicyFloor({ heatIndexC: 30, aqi: Infinity, intensity: 'LIGHT' });
+      expect(infFloorRes.decision).toBe('UNKNOWN');
+      expect(infFloorRes.status).toBe('UNKNOWN');
+    });
+  });
+
   describe('P4 (F-10 Routine & Activity Modeling): Granular ACTIVITY#<id> and per-activity policy decisions', () => {
     test('ActivitySchema validates valid activity and rejects invalid intensity / duration', () => {
       const validActivity = {
