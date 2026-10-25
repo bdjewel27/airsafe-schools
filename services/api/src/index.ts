@@ -208,6 +208,7 @@ import {
   PolicyDecision as SharedPolicyDecision,
   ActivityIntensity as SharedActivityIntensity,
 } from './policy';
+export { evaluatePolicy } from './policy';
 
 export type PolicyDecision = SharedPolicyDecision;
 export type ActivityIntensity = 'light' | 'moderate' | 'vigorous';
