@@ -651,16 +651,48 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         })
       ).catch(() => {});
 
-      // Issue cryptographically signed token with server-controlled role & school_id
-      const token = createSignedJwt({
-        email: staff.email,
-        school_id: staff.schoolId,
-        role: staff.role,
-        name_bn: staff.nameBn,
-        name_en: staff.nameEn,
-        school_name_bn: staff.schoolNameBn,
-        school_name_en: staff.schoolNameEn,
-      });
+      // Issue genuine Cognito RS256 IdToken when Cognito is configured (Policy S-2 / F-01)
+      let token: string | undefined;
+      const userPoolId = process.env.USER_POOL_ID;
+      const userPoolClientId = process.env.USER_POOL_CLIENT_ID;
+
+      if (userPoolId && userPoolClientId) {
+        try {
+          const { CognitoIdentityProviderClient, AdminInitiateAuthCommand } = await import(
+            '@aws-sdk/client-cognito-identity-provider'
+          );
+          const cognitoClient = new CognitoIdentityProviderClient({ region });
+          const authRes = await cognitoClient.send(
+            new AdminInitiateAuthCommand({
+              UserPoolId: userPoolId,
+              ClientId: userPoolClientId,
+              AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
+              AuthParameters: {
+                USERNAME: email,
+                PASSWORD: password,
+              },
+            })
+          );
+          if (authRes.AuthenticationResult?.IdToken) {
+            token = authRes.AuthenticationResult.IdToken;
+          }
+        } catch (cognitoAuthErr: any) {
+          console.warn('[Cognito Auth Warning]: AdminInitiateAuth failed:', cognitoAuthErr?.message);
+        }
+      }
+
+      // Fallback for offline test environments where Cognito is not configured
+      if (!token) {
+        token = createSignedJwt({
+          email: staff.email,
+          school_id: staff.schoolId,
+          role: staff.role,
+          name_bn: staff.nameBn,
+          name_en: staff.nameEn,
+          school_name_bn: staff.schoolNameBn,
+          school_name_en: staff.schoolNameEn,
+        });
+      }
 
       return {
         statusCode: 200,

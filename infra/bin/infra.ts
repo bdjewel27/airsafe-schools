@@ -45,6 +45,7 @@ const apiStack = new ApiStack(app, 'AirSafe-Api-Dev', {
   readingsTable: storageStack.readingsTable,
   decisionsTable: storageStack.decisionsTable,
   userPool: authStack.userPool,
+  userPoolClient: authStack.userPoolClient,
   description: 'AirSafe Schools REST API Gateway & Handlers',
 });
 
