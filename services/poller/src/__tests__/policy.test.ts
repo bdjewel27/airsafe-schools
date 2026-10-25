@@ -1,4 +1,4 @@
-import { evaluatePolicy, evaluateAQIDecision, evaluateHeatDecision } from '../policy';
+import { evaluatePolicy, evaluateAQIDecision, evaluateHeatDecision, calculateAqiFromPm25 } from '../policy';
 import { calculateHeatIndex } from '../heatindex';
 
 describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
@@ -123,6 +123,34 @@ describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
       const nanHeat = evaluatePolicy(50, NaN, 'LIGHT');
       expect(nanHeat.decision).toBe('MOVE_INDOORS');
       expect(nanHeat.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+    });
+  });
+describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix)', () => {
+    test('Calculates AQI 50 at PM2.5 = 9.0 ug/m3', () => {
+      expect(calculateAqiFromPm25(9.0)).toBe(50);
+    });
+
+    test('Calculates AQI 100 at PM2.5 = 35.4 ug/m3', () => {
+      expect(calculateAqiFromPm25(35.4)).toBe(100);
+    });
+
+    test('Calculates AQI 150 at PM2.5 = 55.4 ug/m3', () => {
+      expect(calculateAqiFromPm25(55.4)).toBe(150);
+    });
+
+    test('Calculates AQI ~152 at PM2.5 = 58.2 ug/m3 and enforces MOVE_INDOORS for vigorous activity', () => {
+      const aqi = calculateAqiFromPm25(58.2);
+      expect(aqi).toBe(152);
+      const evalResult = evaluatePolicy(aqi, 25.0, 'VIGOROUS');
+      expect(evalResult.decision).toBe('MOVE_INDOORS');
+    });
+
+    test('Gracefully handles edge cases and extremes', () => {
+      expect(calculateAqiFromPm25(0)).toBe(0);
+      expect(calculateAqiFromPm25(-5)).toBe(0);
+      expect(calculateAqiFromPm25(500.4)).toBe(500);
+      expect(calculateAqiFromPm25(600)).toBe(500);
+      expect(calculateAqiFromPm25(NaN)).toBe(0);
     });
   });
 });

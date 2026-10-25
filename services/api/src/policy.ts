@@ -37,6 +37,47 @@ export interface DecisionEvaluationResult {
   hasRespiratoryCondition?: boolean;
 }
 
+/**
+ * US EPA PM2.5 to AQI Piecewise-Linear Interpolation (Appendix B & EPA NowCast standard)
+ * Formula: Ip = ((I_high - I_low) / (BP_high - BP_low)) * (Cp - BP_low) + I_low
+ */
+export function calculateAqiFromPm25(pm25: number): number {
+  if (!Number.isFinite(pm25) || pm25 < 0) {
+    return 0;
+  }
+  const c = Math.round(pm25 * 10) / 10;
+  const breakpoints = (policyConfig as any).pm25Breakpoints || [
+    { cLow: 0.0, cHigh: 9.0, iLow: 0, iHigh: 50 },
+    { cLow: 9.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 },
+  ];
+
+  if (c >= 500.4) {
+    return 500;
+  }
+
+  for (const bp of breakpoints) {
+    if (c >= bp.cLow && c <= bp.cHigh) {
+      const aqi = ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow;
+      return Math.round(aqi);
+    }
+  }
+
+  for (let i = 0; i < breakpoints.length - 1; i++) {
+    if (c > breakpoints[i].cHigh && c < breakpoints[i + 1].cLow) {
+      const bp = breakpoints[i];
+      const aqi = ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow;
+      return Math.round(aqi);
+    }
+  }
+
+  return 500;
+}
+
 export function evaluateAQIDecision(
   aqi: number,
   intensity: ActivityIntensity,
