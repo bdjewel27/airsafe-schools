@@ -13,9 +13,28 @@ export interface DistrictSeed {
   baselineHeatIndexC: number;
 }
 
-export const DEMO_SCHOOLS = [
+export interface DemoSchoolSite {
+  id: string;
+  nameEn: string;
+  nameBn: string;
+  type: string;
+}
+
+export interface DemoSchool {
+  id: string;
+  aliases?: string[];
+  name: string;
+  nameBn: string;
+  districtId: string;
+  lat: number;
+  lon: number;
+  sites: DemoSchoolSite[];
+}
+
+export const DEMO_SCHOOLS: DemoSchool[] = [
   {
     id: 'school-dhaka-001',
+    aliases: [],
     name: 'Dhaka Model School',
     nameBn: 'ঢাকা মডেল স্কুল',
     districtId: 'bd-dhaka',
@@ -28,27 +47,29 @@ export const DEMO_SCHOOLS = [
     ],
   },
   {
-    id: 'school-ctg-002',
+    id: 'school-chattogram-001',
+    aliases: ['school-ctg-002'],
     name: 'Chittagong Hills School',
     nameBn: 'চট্টগ্রাম হিলস স্কুল',
     districtId: 'bd-chattogram',
     lat: 22.3569,
     lon: 91.7832,
     sites: [
-      { id: 'ctg-002-field', nameEn: 'Hilltop Field', nameBn: 'পাহাড়ি মাঠ', type: 'FIELD' },
-      { id: 'ctg-002-courtyard', nameEn: 'Assembly Ground', nameBn: 'সমাবেশ প্রাঙ্গণ', type: 'COURTYARD' },
+      { id: 'ctg-001-field', nameEn: 'Hilltop Field', nameBn: 'পাহাড়ি মাঠ', type: 'FIELD' },
+      { id: 'ctg-001-courtyard', nameEn: 'Assembly Ground', nameBn: 'সমাবেশ প্রাঙ্গণ', type: 'COURTYARD' },
     ],
   },
   {
-    id: 'school-raj-003',
+    id: 'school-rajshahi-001',
+    aliases: ['school-raj-003'],
     name: 'Rajshahi Padma School',
     nameBn: 'রাজশাহী পদ্মা স্কুল',
     districtId: 'bd-rajshahi',
     lat: 24.3636,
     lon: 88.6241,
     sites: [
-      { id: 'raj-003-field', nameEn: 'Padma Sports Ground', nameBn: 'পদ্মা খেলার মাঠ', type: 'FIELD' },
-      { id: 'raj-003-courtyard', nameEn: 'Main Veranda', nameBn: 'মূল বারান্দা', type: 'COURTYARD' },
+      { id: 'raj-001-field', nameEn: 'Padma Sports Ground', nameBn: 'পদ্মা খেলার মাঠ', type: 'FIELD' },
+      { id: 'raj-001-courtyard', nameEn: 'Main Veranda', nameBn: 'মূল বারান্দা', type: 'COURTYARD' },
     ],
   },
 ];
