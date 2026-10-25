@@ -241,6 +241,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(inviteRes.statusCode).toBe(200);
     expect(capturedItem.role).toBe('TEACHER');
     expect(capturedItem.school_id).toBe('school-dhaka-001');
+    expect(JSON.parse(inviteRes.body).temporary_password).toBeUndefined();
   });
 
   test('Hard Gate 2: mintMcpTokenForChat produces short-lived token (<= 5m) with airsafe-chat issuer', () => {

@@ -28,6 +28,8 @@ export class AuthStack extends cdk.Stack {
       },
       customAttributes: {
         school_id: new cognito.StringAttribute({ mutable: false }),
+        // Note: AWS Cognito prohibits deleting existing schema attributes from deployed User Pools.
+        // Role is strictly server-governed via cognito:groups; custom:role is excluded from client writeAttributes.
         role: new cognito.StringAttribute({ mutable: false }),
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
@@ -41,15 +43,15 @@ export class AuthStack extends cdk.Stack {
       generateSecret: false, // Public mobile client
       authFlows: {
         userSrp: true,
-        custom: false,
-        adminUserPassword: false,
+        userPassword: true,
+        adminUserPassword: true,
       },
       preventUserExistenceErrors: true,
       // Hard Gate 3: Empty writeAttributes prevents client from writing custom:school_id or custom:role
       writeAttributes: new cognito.ClientAttributes(),
       readAttributes: new cognito.ClientAttributes()
         .withStandardAttributes({ email: true, emailVerified: true })
-        .withCustomAttributes('school_id', 'role'),
+        .withCustomAttributes('school_id'),
     });
 
     // Create groups: teacher, coordinator, platform-admin
