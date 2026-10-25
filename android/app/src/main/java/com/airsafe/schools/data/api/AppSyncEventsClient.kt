@@ -1,7 +1,7 @@
 package com.airsafe.schools.data.api
 
-import android.util.Log
 import com.airsafe.schools.data.model.DecisionResponse
+import com.airsafe.schools.util.AppLog
 import com.google.gson.Gson
 import okhttp3.*
 import java.util.concurrent.TimeUnit
@@ -58,47 +58,47 @@ class AppSyncEventsClient(
 
         val wsUrl = "$wsScheme$hostPart/schools/$schoolId/events"
         val token = AirSafeApiClient.authToken
-        val wsUrlWithToken = if (!token.isNullOrBlank()) "$wsUrl?token=$token" else wsUrl
-        Log.d(TAG, "Subscribing to AWS AppSync Events channel: $wsUrl (authenticated: ${!token.isNullOrBlank()})")
+        AppLog.d(TAG, "Subscribing to AppSync Events channel for school: $schoolId (authenticated: ${!token.isNullOrBlank()})")
 
-        val reqBuilder = Request.Builder().url(wsUrlWithToken)
+        // S6: Token is strictly sent via HTTP Authorization header during handshake, NEVER in query string (?token=)
+        val reqBuilder = Request.Builder().url(wsUrl)
         if (!token.isNullOrBlank()) {
             reqBuilder.header("Authorization", "Bearer $token")
         }
 
         webSocket = okHttpClient.newWebSocket(reqBuilder.build(), object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                Log.d(TAG, "Connected to AppSync Events channel for school: $schoolId")
+                AppLog.d(TAG, "Connected to AppSync Events channel for school: $schoolId")
                 isConnected = true
                 onConnectionStatusChanged(true)
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
-                Log.d(TAG, "Received real-time event frame (${text.length} chars)")
+                AppLog.d(TAG, "Received real-time event frame (${text.length} chars)")
                 try {
                     val parsed = gson.fromJson(text, DecisionResponse::class.java)?.sanitized()
                     if (parsed != null && !parsed.decision.isNullOrBlank()) {
                         onDecisionUpdated(parsed)
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error deserializing AppSync event: ${e.message}")
+                    AppLog.w(TAG, "Error deserializing AppSync event: ${e.message}")
                 }
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "AppSync WebSocket closing: $code / $reason")
+                AppLog.d(TAG, "AppSync WebSocket closing: $code / $reason")
                 isConnected = false
                 onConnectionStatusChanged(false)
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "AppSync WebSocket closed: $code / $reason")
+                AppLog.d(TAG, "AppSync WebSocket closed: $code / $reason")
                 isConnected = false
                 onConnectionStatusChanged(false)
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                Log.w(TAG, "AppSync WebSocket connection failure: ${t.message}")
+                AppLog.w(TAG, "AppSync WebSocket connection failure: ${t.message}")
                 isConnected = false
                 onConnectionStatusChanged(false)
             }
@@ -115,7 +115,7 @@ class AppSyncEventsClient(
         try {
             webSocket?.close(1000, "Foreground exited / clean close")
         } catch (e: Exception) {
-            Log.e(TAG, "Error during WebSocket clean close: ${e.message}")
+            AppLog.e(TAG, "Error during WebSocket clean close: ${e.message}")
         }
         webSocket = null
         onConnectionStatusChanged(false)
