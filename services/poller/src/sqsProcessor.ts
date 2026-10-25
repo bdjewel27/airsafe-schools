@@ -53,7 +53,13 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       // US EPA Standard Piecewise-Linear AQI from PM2.5 calculation per Appendix B
       const aqi = calculateAqiFromPm25(pm25);
 
-      const evaluation = evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', false);
+      // P4: Multi-intensity evaluations across LIGHT, MODERATE, VIGOROUS
+      const evaluations = {
+        LIGHT: evaluatePolicy(aqi, heatIndexC, 'LIGHT', false),
+        MODERATE: evaluatePolicy(aqi, heatIndexC, 'MODERATE', false),
+        VIGOROUS: evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', false),
+      };
+      const evaluation = evaluations.VIGOROUS;
       const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
       const fetchedAt = new Date().toISOString();
 
@@ -90,6 +96,7 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
                 values: { temperature_c: tempC, relative_humidity_pct: rhPct, heat_index_c: heatIndexC },
               },
             },
+            evaluations,
             evaluation,
             source: 'Simulator Sensor Telemetry (SQS)',
             is_modeled: false,

@@ -189,6 +189,12 @@ export class ApiStack extends cdk.Stack {
 
     const routines = school.addResource('routines');
     routines.addMethod('POST', lambdaIntegration, methodOptions);
+    routines.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // F-10 & P4: Activities Resource for per-activity routine modeling (ACTIVITY#<id>)
+    const activities = school.addResource('activities');
+    activities.addMethod('GET', lambdaIntegration, methodOptions);
+    activities.addMethod('POST', lambdaIntegration, methodOptions);
 
     const overrides = school.addResource('overrides');
     overrides.addMethod('POST', lambdaIntegration, methodOptions);
