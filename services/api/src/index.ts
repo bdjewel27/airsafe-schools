@@ -941,7 +941,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
                 { Name: 'email', Value: inviteEmail },
                 { Name: 'email_verified', Value: 'true' },
                 { Name: 'custom:school_id', Value: schoolId },
-                { Name: 'custom:role', Value: inviteRole },
               ],
               DesiredDeliveryMediums: ['EMAIL'],
             })
@@ -995,8 +994,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({
           status: 'INVITED',
           staff: sanitizedStaff,
-          temporary_password: initialPassword,
-          instructions: 'Secure initial credentials generated. Transmit out-of-band to invited staff member (Policy S-2).',
+          instructions: 'Invitation sent via email with temporary credentials from Cognito (Policy S-2).',
         }),
       };
     }
