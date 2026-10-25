@@ -53,10 +53,37 @@ export class ApiStack extends cdk.Stack {
       logGroup,
     });
 
-    // Grant least-privilege permissions to DynamoDB tables (S-4)
+    // Grant least-privilege permissions to DynamoDB tables (S-4, S7)
     props.readingsTable.grantReadData(this.apiFunction);
     if (props.decisionsTable) {
-      props.decisionsTable.grantReadWriteData(this.apiFunction);
+      // S7 (Least-Privilege S-4): Replace wildcard grantReadWriteData with scoped IAM policy using dynamodb:LeadingKeys.
+      // Prohibits full-table Scan and DeleteItem, and strictly restricts operations to known partition keys:
+      // - School tenant data, overrides, routines, notes, and audits: school-*
+      // - Staff lookup fast-path index: STAFF_LOOKUP
+      // - Login rate-limiting counters: RATELIMIT#*
+      this.apiFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          sid: 'ScopedDecisionsTableAccessWithLeadingKeys',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:PutItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:Query',
+            'dynamodb:BatchGetItem',
+          ],
+          resources: [props.decisionsTable.tableArn],
+          conditions: {
+            'ForAllValues:StringLike': {
+              'dynamodb:LeadingKeys': [
+                'school-*',
+                'STAFF_LOOKUP',
+                'RATELIMIT#*',
+              ],
+            },
+          },
+        })
+      );
     }
 
     // Grant Cognito User Pool administrative access for staff invites (F-12 & S-2)
