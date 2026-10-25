@@ -299,7 +299,53 @@ export const RoutineSchema = z.object({
 export const OverrideSchema = z.object({
   decision: z.enum(['PROCEED', 'PROCEED_WITH_PRECAUTIONS', 'MODIFY', 'MOVE_INDOORS']),
   reason: z.string().min(5, 'Override reason is mandatory and must be at least 5 characters (F-11)').max(1000),
+  activity_id: z.string().max(100).optional().nullable(),
+  date: z.string().max(50).optional().nullable(),
+  duration_minutes: z.number().int().min(1).max(1440).optional().default(120),
+  expires_at: z.string().optional().nullable(),
 });
+
+export function isOverrideActive(
+  override: any,
+  activity?: { id?: string; activity_id?: string; is_current?: boolean }
+): boolean {
+  if (!override || !override.requested_decision) {
+    return false;
+  }
+
+  // 1. Expiration check (P7: expires_at ensures overrides do not persist indefinitely)
+  if (override.expires_at) {
+    const expMs = Date.parse(override.expires_at);
+    if (Number.isFinite(expMs) && Date.now() >= expMs) {
+      return false;
+    }
+  }
+
+  // 2. Date binding check (P7: override bound to specific calendar date)
+  if (override.date) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (override.date !== today) {
+      return false;
+    }
+  }
+
+  // 3. Activity binding check (P7: override bound to activity ID)
+  if (activity && override.target_activity_id && override.target_activity_id !== 'all') {
+    const target = String(override.target_activity_id).trim();
+    const actId =
+      activity.id ||
+      (activity.activity_id ? activity.activity_id.replace(/^ACTIVITY#/, '') : undefined);
+    if (target === 'current') {
+      if (!activity.is_current) {
+        return false;
+      }
+    } else if (actId && target !== actId) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export function createSignedJwt(payload: {
   email: string;
@@ -621,7 +667,7 @@ export function evaluateDecisionForActivity(params: {
   let decision = evalResult.decision;
   let status = evalResult.status;
 
-  if (params.activeOverride?.requested_decision) {
+  if (params.activeOverride && isOverrideActive(params.activeOverride, params.activity)) {
     const reqDec = params.activeOverride.requested_decision as PolicyDecision;
     if (ORDERED_DECISIONS.includes(reqDec) && STRICTNESS_ORDER[reqDec] > STRICTNESS_ORDER[decision]) {
       decision = reqDec;
@@ -1136,6 +1182,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           updated_at: nowIso,
         };
         await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: routineItem }));
+        await docClient.send(
+          new PutCommand({
+            TableName: DECISIONS_TABLE_NAME,
+            Item: { ...routineItem, activity_id: `ROUTINE#${nowIso}` },
+          })
+        );
 
         return {
           statusCode: 200,
@@ -1176,6 +1228,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         updated_at: nowIso,
       };
       await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: routineItem }));
+      await docClient.send(
+        new PutCommand({
+          TableName: DECISIONS_TABLE_NAME,
+          Item: { ...routineItem, activity_id: `ROUTINE#${nowIso}` },
+        })
+      );
 
       // Model and persist ACTIVITY#current and ACTIVITY#next (P4 / F-10)
       const currentActItem = {
@@ -1319,14 +1377,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       const reason = overrideParse.data.reason.trim();
       const requestedDecision = overrideParse.data.decision as PolicyDecision;
+      const targetActivityId = (overrideParse.data.activity_id || 'current').trim();
+      const nowIso = new Date().toISOString();
+      const targetDate = overrideParse.data.date || nowIso.slice(0, 10);
+      const durationMinutes = overrideParse.data.duration_minutes ?? 120;
+      const expiresAt =
+        overrideParse.data.expires_at ||
+        new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
 
-      // 1. Fetch current active routine from DECISIONS_TABLE_NAME to determine real activity intensity (S4)
+      // 1. Fetch current target activity from DECISIONS_TABLE_NAME to determine real activity intensity (S4 / P4 / P7)
       let activeIntensity: ActivityIntensity = 'moderate';
       try {
         const routineRes = await docClient.send(
           new GetCommand({
             TableName: DECISIONS_TABLE_NAME,
-            Key: { school_id: schoolId, activity_id: 'ROUTINE#current' },
+            Key: {
+              school_id: schoolId,
+              activity_id: targetActivityId !== 'current' ? `ACTIVITY#${targetActivityId}` : 'ROUTINE#current',
+            },
           })
         );
         if (routineRes.Item?.intensity) {
@@ -1395,11 +1463,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const floor = floorEval.decision;
       const relaxesFloor = STRICTNESS_ORDER[requestedDecision] < STRICTNESS_ORDER[floor];
 
-      // 4. Record override and audit trail (Appendix A / F-11)
-      const nowIso = new Date().toISOString();
-      const overrideRecord = {
+      // 4. Record override and audit trail (Appendix A / F-11 & P7: bound to activity and date with expires_at)
+      const baseOverrideData = {
         school_id: schoolId,
-        activity_id: 'OVERRIDE#active',
         requested_decision: requestedDecision,
         reason,
         coordinator_email: auth.email,
@@ -1407,20 +1473,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         relaxes_floor: relaxesFloor,
         intensity: activeIntensity,
         timestamp: nowIso,
+        date: targetDate,
+        target_activity_id: targetActivityId,
+        duration_minutes: durationMinutes,
+        expires_at: expiresAt,
+      };
+
+      const boundRecord = {
+        ...baseOverrideData,
+        activity_id: `OVERRIDE#${targetDate}#${targetActivityId}`,
+      };
+      const overrideRecord = {
+        ...baseOverrideData,
+        activity_id: 'OVERRIDE#active',
       };
       const auditRecord = {
-        school_id: schoolId,
+        ...baseOverrideData,
         activity_id: `OVERRIDE_AUDIT#${nowIso}`,
-        requested_decision: requestedDecision,
-        reason,
-        coordinator_email: auth.email,
-        policy_floor: floor,
-        relaxes_floor: relaxesFloor,
-        intensity: activeIntensity,
-        timestamp: nowIso,
       };
-      await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: overrideRecord }));
-      await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: auditRecord }));
+
+      await Promise.all([
+        docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: boundRecord })),
+        docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: overrideRecord })),
+        docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: auditRecord })),
+      ]);
 
       return {
         statusCode: 200,
@@ -1430,6 +1506,33 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           override: overrideRecord,
           policy_floor: floor,
           relaxes_floor: relaxesFloor,
+          date: targetDate,
+          target_activity_id: targetActivityId,
+          expires_at: expiresAt,
+        }),
+      };
+    }
+
+    // Route: GET /schools/{schoolId}/overrides (F-11 & P7 — Retrieve active override and status)
+    if (path.endsWith('/overrides') && event.httpMethod === 'GET') {
+      const overrideRes = await docClient.send(
+        new GetCommand({
+          TableName: DECISIONS_TABLE_NAME,
+          Key: { school_id: schoolId, activity_id: 'OVERRIDE#active' },
+        })
+      );
+      const activeOverride = overrideRes.Item || null;
+      const isActive = isOverrideActive(activeOverride);
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({
+          schoolId,
+          activeOverride,
+          isActive,
+          expires_at: activeOverride?.expires_at || null,
+          target_activity_id: activeOverride?.target_activity_id || null,
+          date: activeOverride?.date || null,
         }),
       };
     }
@@ -1477,7 +1580,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         author_email: auth.email,
         timestamp: nowIso,
       };
-      await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: noteItem }));
+      const noteHistoryItem = {
+        school_id: schoolId,
+        activity_id: `NOTE#${nowIso}`,
+        note,
+        has_respiratory_condition: hasRespiratory,
+        author_email: auth.email,
+        timestamp: nowIso,
+      };
+      await Promise.all([
+        docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: noteItem })),
+        docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: noteHistoryItem })),
+      ]);
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -1947,9 +2061,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         evalResult.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
       }
 
-      // Enforce Hard Gate 4: Coordinator override can only tighten policy floor, never relax it
+      // Enforce Hard Gate 4: Coordinator override can only tighten policy floor, never relax it (P7: only if valid/not expired)
       let finalDecision = evalResult.decision;
-      if (activeOverride && activeOverride.requested_decision) {
+      const isOverrideValid = isOverrideActive(activeOverride, evaluatedActs.current_activity || undefined);
+      if (isOverrideValid && activeOverride?.requested_decision) {
         const reqDec = activeOverride.requested_decision as PolicyDecision;
         if (
           ORDERED_DECISIONS.includes(reqDec) &&
@@ -1959,8 +2074,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       }
 
-      const overrideNote = activeOverride ? ` [ওভাররাইড কার্যকর: ${activeOverride.requested_decision}]` : '';
-      const overrideNoteEn = activeOverride ? ` [Active Override: ${activeOverride.requested_decision}]` : '';
+      const overrideNote = isOverrideValid ? ` [ওভাররাইড কার্যকর: ${activeOverride.requested_decision}]` : '';
+      const overrideNoteEn = isOverrideValid ? ` [Active Override: ${activeOverride.requested_decision}]` : '';
       const respNote = hasRespiratoryCondition ? ' (শ্বাসকষ্ট/অ্যাজমা নোট সক্রিয় — নিরাপত্তা স্তর ১ ধাপ বাড়ানো হয়েছে)' : '';
       const respNoteEn = hasRespiratoryCondition ? ' (Respiratory condition active: stepped up 1 tier)' : '';
       const staleNote = isStale ? ' (সতর্কতা: ডেটা ৯০ মিনিটের বেশি পুরোনো)' : '';
@@ -2149,12 +2264,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       policyEval.reasonCodes.push('FORECAST_WORST_CASE_PEAK');
     }
 
-    // Appendix A / F-11 & Hard Gate 4: Coordinator override with mandatory justification and audit trail
+    // Appendix A / F-11 & Hard Gate 4: Coordinator override with mandatory justification and audit trail (P7)
     let effectiveDecision = policyEval.decision;
     let effectiveStatus = policyEval.status;
     const reasons = [...policyEval.reasons];
 
-    if (activeOverride && activeOverride.requested_decision) {
+    const isOverrideValid = isOverrideActive(activeOverride, evaluatedActs.current_activity || undefined);
+    if (isOverrideValid && activeOverride?.requested_decision) {
       const reqDec = activeOverride.requested_decision as PolicyDecision;
       if (
         ORDERED_DECISIONS.includes(reqDec) &&
@@ -2206,7 +2322,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         next_activity_bn: nextActivityBn,
         next_activity_en: nextActivityEn,
         routine_intensity: currentActivityBn ? activeIntensity : null,
-        active_override: activeOverride
+        active_override: isOverrideValid && activeOverride
           ? `${activeOverride.requested_decision}: ${activeOverride.reason}`
           : null,
         activities: evaluatedActs.activities,

@@ -18,6 +18,7 @@ import {
   ActivitySchema,
   evaluateDecisionForActivity,
   evaluatePolicy,
+  isOverrideActive,
 } from '../index';
 
 describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
@@ -1223,6 +1224,236 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(classroomSite.is_online).toBe(false);
       expect(classroomSite.last_updated_bn).toBe('ডেটা নেই');
       expect(classroomSite.last_updated_en).toBe('No data');
+    });
+  });
+
+  describe('P7: Override activity and date binding, expires_at, and historical retention', () => {
+    const coordinatorToken = createSignedJwt({
+      email: 'rafiq.principal@dms.edu.bd',
+      school_id: 'school-dhaka-001',
+      role: 'COORDINATOR',
+    });
+
+    test('isOverrideActive accurately checks expiration, date matching, and activity binding', () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const pastTime = new Date(Date.now() - 3600 * 1000).toISOString();
+      const futureTime = new Date(Date.now() + 3600 * 1000).toISOString();
+
+      // 1. Missing override or decision
+      expect(isOverrideActive(null)).toBe(false);
+      expect(isOverrideActive({})).toBe(false);
+
+      // 2. Expired override
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', expires_at: pastTime })).toBe(false);
+
+      // 3. Active future override
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', expires_at: futureTime })).toBe(true);
+
+      // 4. Date matching
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', date: '2020-01-01' })).toBe(false);
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', date: today })).toBe(true);
+
+      // 5. Activity binding
+      const act1 = { id: 'pe-football', is_current: false };
+      const act2 = { id: 'assembly', is_current: true };
+
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', target_activity_id: 'pe-football' }, act1)).toBe(true);
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', target_activity_id: 'pe-football' }, act2)).toBe(false);
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', target_activity_id: 'current' }, act1)).toBe(false);
+      expect(isOverrideActive({ requested_decision: 'MOVE_INDOORS', target_activity_id: 'current' }, act2)).toBe(true);
+    });
+
+    test('POST /overrides binds to activity and date, sets expires_at, and saves bound item', async () => {
+      let savedBoundItem: any = null;
+      let savedActiveItem: any = null;
+      let savedAuditItem: any = null;
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.Key?.activity_id === 'ACTIVITY#pe-football') {
+          return { Item: { intensity: 'VIGOROUS' } } as never;
+        }
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { heat_index_c: 24.0, aqi: 45 },
+              },
+            ],
+          } as never;
+        }
+        if (command.input?.Item?.activity_id?.startsWith('OVERRIDE#2026-')) {
+          savedBoundItem = command.input.Item;
+        }
+        if (command.input?.Item?.activity_id === 'OVERRIDE#active') {
+          savedActiveItem = command.input.Item;
+        }
+        if (command.input?.Item?.activity_id?.startsWith('OVERRIDE_AUDIT#')) {
+          savedAuditItem = command.input.Item;
+        }
+        return {} as never;
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            decision: 'MOVE_INDOORS',
+            reason: 'Heavy localized dust and smoke near football field',
+            activity_id: 'pe-football',
+            date: today,
+            duration_minutes: 90,
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('RECORDED');
+      expect(body.date).toBe(today);
+      expect(body.target_activity_id).toBe('pe-football');
+      expect(body.expires_at).toBeDefined();
+
+      expect(savedBoundItem).toBeDefined();
+      expect(savedBoundItem.activity_id).toBe(`OVERRIDE#${today}#pe-football`);
+      expect(savedBoundItem.target_activity_id).toBe('pe-football');
+      expect(savedBoundItem.expires_at).toBe(body.expires_at);
+
+      expect(savedActiveItem).toBeDefined();
+      expect(savedActiveItem.target_activity_id).toBe('pe-football');
+      expect(savedActiveItem.expires_at).toBe(body.expires_at);
+
+      expect(savedAuditItem).toBeDefined();
+      expect(savedAuditItem.target_activity_id).toBe('pe-football');
+    });
+
+    test('Expired override in DynamoDB is ignored by policy evaluation, restoring policy floor', async () => {
+      const pastTime = new Date(Date.now() - 3600 * 1000).toISOString(); // 1 hour ago
+      const today = new Date().toISOString().slice(0, 10);
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { heat_index_c: 24.0, aqi: 45 }, // Mild -> PROCEED
+              },
+            ],
+          } as never;
+        }
+        if (command.input?.Key?.activity_id === 'OVERRIDE#active') {
+          return {
+            Item: {
+              activity_id: 'OVERRIDE#active',
+              requested_decision: 'MOVE_INDOORS',
+              reason: 'Old expired dust storm override',
+              expires_at: pastTime,
+              date: today,
+              target_activity_id: 'current',
+            },
+          } as never;
+        }
+        return { Items: [] } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/current-decision',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      // Because override is expired, policy decision remains at policy floor (PROCEED), NOT MOVE_INDOORS
+      expect(body.decision).toBe('PROCEED');
+      expect(body.policy_floor_decision).toBe('PROCEED');
+      expect(body.active_override).toBeNull();
+    });
+
+    test('POST /notes and POST /routines preserve history without overwriting previous items', async () => {
+      const savedItems: any[] = [];
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.Item) {
+          savedItems.push(command.input.Item);
+        }
+        return {} as never;
+      });
+
+      // Save a note
+      const noteRes = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/notes',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ note: 'Student reported asthma difficulty in courtyard' }),
+        })
+      );
+      expect(noteRes.statusCode).toBe(200);
+      expect(savedItems.some((item) => item.activity_id === 'NOTE#latest')).toBe(true);
+      expect(savedItems.some((item) => item.activity_id.startsWith('NOTE#2026-'))).toBe(true);
+
+      // Save a routine
+      const routineRes = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            activity_name_bn: 'ফুটবল অনুশীলন',
+            activity_name_en: 'Football Practice',
+            intensity: 'vigorous',
+            location_type: 'FIELD',
+            duration_minutes: 60,
+          }),
+        })
+      );
+      expect(routineRes.statusCode).toBe(200);
+      expect(savedItems.some((item) => item.activity_id === 'ROUTINE#current')).toBe(true);
+      expect(savedItems.some((item) => item.activity_id.startsWith('ROUTINE#2026-'))).toBe(true);
+    });
+
+    test('GET /overrides returns active status, date, and expires_at', async () => {
+      const futureTime = new Date(Date.now() + 3600 * 1000).toISOString();
+      const today = new Date().toISOString().slice(0, 10);
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.Key?.activity_id === 'OVERRIDE#active') {
+          return {
+            Item: {
+              activity_id: 'OVERRIDE#active',
+              requested_decision: 'MOVE_INDOORS',
+              reason: 'Ongoing campus construction dust',
+              expires_at: futureTime,
+              date: today,
+              target_activity_id: 'current',
+            },
+          } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.isActive).toBe(true);
+      expect(body.expires_at).toBe(futureTime);
+      expect(body.target_activity_id).toBe('current');
+      expect(body.date).toBe(today);
     });
   });
 });
