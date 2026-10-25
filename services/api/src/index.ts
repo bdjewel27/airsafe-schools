@@ -2026,10 +2026,78 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       });
 
+      // Restore District Baseline Site (F-03 & 2c9de6b restoration)
+      const SCHOOL_DISTRICT_MAP: Record<string, { id: string; nameBn: string; nameEn: string }> = {
+        'school-dhaka-001': { id: 'bd-dhaka', nameBn: 'জেলা পাবলিক স্টেশন (ঢাকা)', nameEn: 'District Public Baseline (Dhaka)' },
+        'school-chattogram-001': { id: 'bd-chattogram', nameBn: 'জেলা পাবলিক স্টেশন (চট্টগ্রাম)', nameEn: 'District Public Baseline (Chattogram)' },
+        'school-ctg-002': { id: 'bd-chattogram', nameBn: 'জেলা পাবলিক স্টেশন (চট্টগ্রাম)', nameEn: 'District Public Baseline (Chattogram)' },
+        'school-rajshahi-001': { id: 'bd-rajshahi', nameBn: 'জেলা পাবলিক স্টেশন (রাজশাহী)', nameEn: 'District Public Baseline (Rajshahi)' },
+      };
+
+      const districtInfo = SCHOOL_DISTRICT_MAP[schoolId];
+      let districtBaseline: any = null;
+      if (districtInfo) {
+        try {
+          const distRes = await docClient.send(
+            new QueryCommand({
+              TableName: TABLE_NAME,
+              KeyConditionExpression: 'school_id = :did',
+              ExpressionAttributeValues: { ':did': districtInfo.id },
+              ScanIndexForward: false,
+              Limit: 5,
+            })
+          );
+          const distItems = distRes.Items || [];
+          const distItem = distItems.find((i: any) => String(i.timestamp).startsWith('LATEST#')) || distItems[0] || null;
+          if (distItem?.readings) {
+            const dr = distItem.readings;
+            const dFresh = formatFreshness(distItem.observed_at || distItem.timestamp);
+            districtBaseline = {
+              id: `${schoolId}-district-baseline`,
+              name_bn: districtInfo.nameBn,
+              name_en: districtInfo.nameEn,
+              location_type: 'DISTRICT',
+              temp_c: typeof dr.temperature_c === 'number' && Number.isFinite(dr.temperature_c) ? dr.temperature_c : null,
+              rh_pct: typeof dr.relative_humidity_pct === 'number' && Number.isFinite(dr.relative_humidity_pct) ? dr.relative_humidity_pct : null,
+              pm25_ugm3: typeof dr.pm25_ugm3 === 'number' && Number.isFinite(dr.pm25_ugm3) ? dr.pm25_ugm3 : null,
+              heat_index_c: typeof dr.heat_index_c === 'number' && Number.isFinite(dr.heat_index_c) ? dr.heat_index_c : null,
+              is_online: Boolean(dFresh.isFresh),
+              last_updated_bn: dFresh.ageBn,
+              last_updated_en: dFresh.ageEn,
+            };
+          } else {
+            districtBaseline = {
+              id: `${schoolId}-district-baseline`,
+              name_bn: districtInfo.nameBn,
+              name_en: districtInfo.nameEn,
+              location_type: 'DISTRICT',
+              temp_c: null,
+              rh_pct: null,
+              pm25_ugm3: null,
+              heat_index_c: null,
+              is_online: false,
+              last_updated_bn: 'ডেটা নেই',
+              last_updated_en: 'No data',
+            };
+          }
+        } catch (_dErr) {
+          // optional district baseline
+        }
+      }
+
+      const returnSites = [...sites];
+      const includeDistrict = event.queryStringParameters?.include_district === 'true' || event.queryStringParameters?.all === 'true';
+      if (includeDistrict && districtBaseline) {
+        returnSites.push(districtBaseline);
+      }
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
-        body: JSON.stringify({ sites }),
+        body: JSON.stringify({
+          sites: returnSites,
+          district_baseline: districtBaseline,
+        }),
       };
     }
 
@@ -2771,26 +2839,46 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Hard Gate 4: Fail-Closed when DynamoDB has no data for the school (NEVER return GREEN/PROCEED!)
     if (!latestItem) {
+      const failClosedPayload = {
+        school_id: schoolId,
+        school_name: `${auth.schoolNameBn} (${auth.schoolNameEn})`,
+        status: 'UNKNOWN',
+        decision: 'UNKNOWN',
+        heat_index_c: null,
+        aqi: null,
+        pm25_ugm3: null,
+        primary_reason:
+          'সেন্সর বা আবহাওয়া ডেটা পাওয়া যায়নি — অনুগ্রহ করে কোঅর্ডিনেটরের সাথে যোগাযোগ করুন (No sensor data available — fail-closed)',
+        reasons: ['DATA_UNAVAILABLE'],
+        max_duration_minutes: null,
+        requires_shade: true,
+        is_stale: true,
+        is_modeled: true,
+        last_updated: null,
+      };
+
+      const isEventsRoute = path.endsWith('/events');
+      const isSse =
+        isEventsRoute &&
+        ((event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream') ||
+          event.queryStringParameters?.stream === 'sse');
+      if (isSse) {
+        return {
+          statusCode: 200,
+          headers: {
+            ...getCorsHeaders(event),
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+          body: `event: decision\ndata: ${JSON.stringify(failClosedPayload)}\n\n`,
+        };
+      }
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
-        body: JSON.stringify({
-          school_id: schoolId,
-          school_name: `${auth.schoolNameBn} (${auth.schoolNameEn})`,
-          status: 'UNKNOWN',
-          decision: 'UNKNOWN',
-          heat_index_c: null,
-          aqi: null,
-          pm25_ugm3: null,
-          primary_reason:
-            'সেন্সর বা আবহাওয়া ডেটা পাওয়া যায়নি — অনুগ্রহ করে কোঅর্ডিনেটরের সাথে যোগাযোগ করুন (No sensor data available — fail-closed)',
-          reasons: ['DATA_UNAVAILABLE'],
-          max_duration_minutes: null,
-          requires_shade: true,
-          is_stale: true,
-          is_modeled: true,
-          last_updated: null,
-        }),
+        body: JSON.stringify(failClosedPayload),
       };
     }
 
@@ -2929,40 +3017,60 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    const isEventsRoute = path.endsWith('/events');
+    const isSse =
+      isEventsRoute &&
+      ((event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream') ||
+        event.queryStringParameters?.stream === 'sse');
+
+    const decisionPayload = {
+      school_id: latestItem.school_id,
+      school_name: latestItem.school_name || `${auth.schoolNameBn} (${auth.schoolNameEn})`,
+      status: effectiveStatus,
+      decision: effectiveDecision,
+      policy_floor_decision: policyEval.decision,
+      heat_index_c: policyEval.decision === 'UNKNOWN' ? null : heatIndexC,
+      aqi: policyEval.decision === 'UNKNOWN' ? null : aqi,
+      pm25_ugm3: policyEval.decision === 'UNKNOWN' ? null : readings.pm25_ugm3 ?? null,
+      primary_reason: reasons[0],
+      reasons,
+      reason_codes: policyEval.reasonCodes,
+      max_duration_minutes: policyEval.maxDurationMinutes,
+      requires_shade: policyEval.requiresShade,
+      is_stale: isStale,
+      is_modeled: isModeled,
+      provenance: latestItem.provenance || null,
+      hourly_forecast: latestItem.hourly_forecast || [],
+      last_updated: latestItem.timestamp || null,
+      current_activity_bn: currentActivityBn,
+      current_activity_en: currentActivityEn,
+      next_activity_bn: nextActivityBn,
+      next_activity_en: nextActivityEn,
+      routine_intensity: currentActivityBn ? activeIntensity : null,
+      active_override:
+        isOverrideValid && activeOverride ? `${activeOverride.requested_decision}: ${activeOverride.reason}` : null,
+      activities: evaluatedActs.activities,
+      current_activity: evaluatedActs.current_activity,
+      next_activity: evaluatedActs.next_activity,
+    };
+
+    if (isSse) {
+      return {
+        statusCode: 200,
+        headers: {
+          ...getCorsHeaders(event),
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+        body: `event: decision\ndata: ${JSON.stringify(decisionPayload)}\n\n`,
+      };
+    }
+
     return {
       statusCode: 200,
       headers: getCorsHeaders(event),
-      body: JSON.stringify({
-        school_id: latestItem.school_id,
-        school_name: latestItem.school_name || `${auth.schoolNameBn} (${auth.schoolNameEn})`,
-        status: effectiveStatus,
-        decision: effectiveDecision,
-        policy_floor_decision: policyEval.decision,
-        heat_index_c: policyEval.decision === 'UNKNOWN' ? null : heatIndexC,
-        aqi: policyEval.decision === 'UNKNOWN' ? null : aqi,
-        pm25_ugm3: policyEval.decision === 'UNKNOWN' ? null : readings.pm25_ugm3 ?? null,
-        primary_reason: reasons[0],
-        reasons,
-        reason_codes: policyEval.reasonCodes,
-        max_duration_minutes: policyEval.maxDurationMinutes,
-        requires_shade: policyEval.requiresShade,
-        is_stale: isStale,
-        is_modeled: isModeled,
-        provenance: latestItem.provenance || null,
-        hourly_forecast: latestItem.hourly_forecast || [],
-        last_updated: latestItem.timestamp || null,
-        current_activity_bn: currentActivityBn,
-        current_activity_en: currentActivityEn,
-        next_activity_bn: nextActivityBn,
-        next_activity_en: nextActivityEn,
-        routine_intensity: currentActivityBn ? activeIntensity : null,
-        active_override: isOverrideValid && activeOverride
-          ? `${activeOverride.requested_decision}: ${activeOverride.reason}`
-          : null,
-        activities: evaluatedActs.activities,
-        current_activity: evaluatedActs.current_activity,
-        next_activity: evaluatedActs.next_activity,
-      }),
+      body: JSON.stringify(decisionPayload),
     };
   } catch (error: any) {
     console.error('API Handler Error:', error);

@@ -791,8 +791,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             try {
                 AppLog.d(TAG, "Loading sensor sites from schools/$schoolId/sensor-sites")
                 val resp = AirSafeApiClient.service.getSensorSites(schoolId)
-                if (resp.sites.isNotEmpty()) {
-                    _sensorSites.value = resp.sites.map { siteDto ->
+                val allSites = resp.sites.toMutableList()
+                if (resp.districtBaseline != null && allSites.none { it.locationType == "DISTRICT" || it.id == resp.districtBaseline.id }) {
+                    allSites.add(resp.districtBaseline)
+                }
+                if (allSites.isNotEmpty()) {
+                    _sensorSites.value = allSites.map { siteDto ->
                         SensorSite(
                             id = siteDto.id,
                             nameBn = siteDto.nameBn,
@@ -807,7 +811,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                             lastUpdatedEn = siteDto.lastUpdatedEn ?: "Just now"
                         )
                     }
-                    AppLog.d(TAG, "Sensor sites loaded: ${_sensorSites.value.size} sites")
+                    AppLog.d(TAG, "Sensor sites loaded: ${_sensorSites.value.size} sites (including district baseline: ${resp.districtBaseline != null})")
                 } else {
                     _sensorSites.value = emptyList()
                 }
@@ -1112,6 +1116,19 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 isOnline = true,
                 lastUpdatedBn = "২ মিনিট আগে",
                 lastUpdatedEn = "2 mins ago"
+            ),
+            SensorSite(
+                id = "$schoolId-district-baseline",
+                nameBn = "জেলা পাবলিক স্টেশন",
+                nameEn = "District Baseline Station",
+                locationType = "DISTRICT",
+                tempC = 33.0,
+                rhPct = 65.0,
+                pm25Ugm3 = 48.0,
+                heatIndexC = 37.5,
+                isOnline = true,
+                lastUpdatedBn = "৪ মিনিট আগে",
+                lastUpdatedEn = "4 mins ago"
             )
         )
     }
