@@ -34,6 +34,9 @@ We enforce a fully integrated, cloud-native Amazon Cognito authentication and au
 5. **In-Lambda Fail-Closed Verification:**
    The API Lambda's `authenticateRequest()` maintains fail-closed checks on `requestContext.authorizer.claims`, verifying tenant matching against `custom:school_id` and role authorization from `cognito:groups`.
 
+6. **Native Cognito Token Issuance on `/auth/login`:**
+   `USER_POOL_CLIENT_ID` is passed to the API Lambda in `infra/lib/api-stack.ts`, enabling `POST /auth/login` to authenticate against Cognito via `ADMIN_USER_PASSWORD_AUTH` and issue real Cognito `RS256` `IdTokens` matching API Gateway authorizer requirements. A transparent fallback to internal HMAC tokens is maintained for offline unit tests.
+
 ## Consequences
 - **Security:** Zero plaintext passwords or temporary passwords appear in HTTP responses, logs, or client-side storage.
 - **Compliance:** Full compliance with Hard Gates 1, 2, and 3; Policy S-2 (invite-only access); and Section 16 architectural standards.
