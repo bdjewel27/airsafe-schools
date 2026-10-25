@@ -16,6 +16,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LAN_BASE_URL", "\"\"")
+        buildConfigField("String", "USB_BASE_URL", "\"\"")
     }
 
     val keystorePassword = System.getenv("AIRSAFE_KEYSTORE_PASSWORD")
@@ -40,7 +42,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "LAN_BASE_URL", "\"http://192.168.31.37:3000/\"")
+            buildConfigField("String", "USB_BASE_URL", "\"http://127.0.0.1:3000/\"")
+        }
         release {
+            buildConfigField("String", "LAN_BASE_URL", "\"\"")
+            buildConfigField("String", "USB_BASE_URL", "\"\"")
             isMinifyEnabled = false
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
@@ -77,6 +85,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
