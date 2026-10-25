@@ -125,25 +125,44 @@ describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
       expect(nanHeat.reasonCodes).toContain('INVALID_SENSOR_INPUT');
     });
   });
-describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix)', () => {
-    test('Calculates AQI 50 at PM2.5 = 9.0 ug/m3', () => {
-      expect(calculateAqiFromPm25(9.0)).toBe(50);
-    });
+describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Driven EPA Examples)', () => {
+    const epaPublishedTable: Array<{
+      pm25: number;
+      expectedAqi: number;
+      category: string;
+      expectedVigorous: string;
+    }> = [
+      { pm25: 0.0,   expectedAqi: 0,   category: 'Good (Lower)',                      expectedVigorous: 'PROCEED' },
+      { pm25: 4.5,   expectedAqi: 25,  category: 'Good (Midpoint)',                   expectedVigorous: 'PROCEED' },
+      { pm25: 9.0,   expectedAqi: 50,  category: 'Good (Upper Breakpoint)',           expectedVigorous: 'PROCEED' },
+      { pm25: 9.1,   expectedAqi: 51,  category: 'Moderate (Lower Breakpoint)',       expectedVigorous: 'PROCEED_WITH_PRECAUTIONS' },
+      { pm25: 22.2,  expectedAqi: 75,  category: 'Moderate (Midpoint)',               expectedVigorous: 'PROCEED_WITH_PRECAUTIONS' },
+      { pm25: 35.4,  expectedAqi: 100, category: 'Moderate (Upper Breakpoint)',       expectedVigorous: 'PROCEED_WITH_PRECAUTIONS' },
+      { pm25: 35.5,  expectedAqi: 101, category: 'USG (Lower Breakpoint)',            expectedVigorous: 'MODIFY' },
+      { pm25: 45.5,  expectedAqi: 126, category: 'USG (Midpoint)',                    expectedVigorous: 'MODIFY' },
+      { pm25: 55.4,  expectedAqi: 150, category: 'USG (Upper Breakpoint)',            expectedVigorous: 'MODIFY' },
+      { pm25: 55.5,  expectedAqi: 151, category: 'Unhealthy (Lower Breakpoint)',      expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 58.2,  expectedAqi: 152, category: 'Appendix B Example (58.2 ug/m3)',   expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 102.9, expectedAqi: 175, category: 'Unhealthy (Midpoint)',              expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 150.4, expectedAqi: 200, category: 'Unhealthy (Upper Breakpoint)',      expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 150.5, expectedAqi: 201, category: 'Very Unhealthy (Lower Breakpoint)', expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 200.4, expectedAqi: 250, category: 'Very Unhealthy (Midpoint)',         expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 250.4, expectedAqi: 300, category: 'Very Unhealthy (Upper Breakpoint)', expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 250.5, expectedAqi: 301, category: 'Hazardous Tier 1 (Lower)',          expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 350.4, expectedAqi: 400, category: 'Hazardous Tier 1 (Upper)',          expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 350.5, expectedAqi: 401, category: 'Hazardous Tier 2 (Lower)',          expectedVigorous: 'MOVE_INDOORS' },
+      { pm25: 500.4, expectedAqi: 500, category: 'Hazardous Tier 2 (Upper Cap)',      expectedVigorous: 'MOVE_INDOORS' },
+    ];
 
-    test('Calculates AQI 100 at PM2.5 = 35.4 ug/m3', () => {
-      expect(calculateAqiFromPm25(35.4)).toBe(100);
-    });
-
-    test('Calculates AQI 150 at PM2.5 = 55.4 ug/m3', () => {
-      expect(calculateAqiFromPm25(55.4)).toBe(150);
-    });
-
-    test('Calculates AQI ~152 at PM2.5 = 58.2 ug/m3 and enforces MOVE_INDOORS for vigorous activity', () => {
-      const aqi = calculateAqiFromPm25(58.2);
-      expect(aqi).toBe(152);
-      const evalResult = evaluatePolicy(aqi, 25.0, 'VIGOROUS');
-      expect(evalResult.decision).toBe('MOVE_INDOORS');
-    });
+    test.each(epaPublishedTable)(
+      'EPA Example: PM2.5 $pm25 ug/m3 ($category) -> AQI $expectedAqi -> Vigorous: $expectedVigorous',
+      ({ pm25, expectedAqi, expectedVigorous }) => {
+        const aqi = calculateAqiFromPm25(pm25);
+        expect(aqi).toBe(expectedAqi);
+        const evalResult = evaluatePolicy(aqi, 24.0, 'VIGOROUS');
+        expect(evalResult.decision).toBe(expectedVigorous);
+      }
+    );
 
     test('Gracefully handles edge cases and extremes', () => {
       expect(calculateAqiFromPm25(0)).toBe(0);
