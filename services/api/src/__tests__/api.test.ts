@@ -66,6 +66,28 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(res.headers?.['Access-Control-Allow-Origin']).toBe('http://localhost:3000');
   });
 
+  test('S11: Unified CORS headers dynamically reflect allowed origin list for both OPTIONS and API routes', async () => {
+    // OPTIONS with internal domain
+    const resInternal = await handler(makeEvent({ httpMethod: 'OPTIONS', headers: { origin: 'https://airsafe.schools.internal' } }));
+    expect(resInternal.statusCode).toBe(200);
+    expect(resInternal.headers?.['Access-Control-Allow-Origin']).toBe('https://airsafe.schools.internal');
+
+    // GET /policies/current with .gov.bd
+    const resGov = await handler(makeEvent({ httpMethod: 'GET', path: '/policies/current', headers: { origin: 'https://airsafe.schools.gov.bd' } }));
+    expect(resGov.statusCode).toBe(200);
+    expect(resGov.headers?.['Access-Control-Allow-Origin']).toBe('https://airsafe.schools.gov.bd');
+
+    // GET /policies/current with mobile Capacitor origin
+    const resCap = await handler(makeEvent({ httpMethod: 'GET', path: '/policies/current', headers: { origin: 'capacitor://localhost' } }));
+    expect(resCap.statusCode).toBe(200);
+    expect(resCap.headers?.['Access-Control-Allow-Origin']).toBe('capacitor://localhost');
+
+    // Untrusted origin falls back safely to default official origin
+    const resUntrusted = await handler(makeEvent({ httpMethod: 'OPTIONS', headers: { origin: 'https://untrusted-site.com' } }));
+    expect(resUntrusted.statusCode).toBe(200);
+    expect(resUntrusted.headers?.['Access-Control-Allow-Origin']).toBe('https://airsafe.schools.gov.bd');
+  });
+
   test('Hard Gate 2: Rejects unauthenticated requests with 401 (Fail-Closed)', async () => {
     const res = await handler(makeEvent({ headers: {} }));
     expect(res.statusCode).toBe(401);
