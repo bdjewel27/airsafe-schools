@@ -334,5 +334,14 @@ describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Dri
       expect(resolved.provenance.sources_raw.openaq_measured).toBeNull();
       expect(resolved.provenance.sources_raw.open_meteo_modeled?.aqi).toBe(100);
     });
+
+    test('P8: Reason text contains °C cleanly encoded in UTF-8 without Â corruption', () => {
+      const result = evaluatePolicy(45, 40, 'VIGOROUS');
+      const hiReason = result.reasons.find((r: string) => r.includes('Heat Index'));
+      expect(hiReason).toBeDefined();
+      expect(hiReason).toContain('°C');
+      expect(hiReason).not.toContain('Â');
+      expect(hiReason).toBe('Heat Index 40°C triggers MOVE_INDOORS');
+    });
   });
 });

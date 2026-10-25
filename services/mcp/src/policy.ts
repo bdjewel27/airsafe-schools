@@ -287,7 +287,7 @@ export function evaluatePolicy(
     reasonCodes.push(aqiResult.reasonCode);
   }
   if (finalDecision === heatResult.decision) {
-    reasons.push(`Heat Index ${heatIndexC}°C triggers ${heatResult.decision}`);
+    reasons.push(`Heat Index ${heatIndexC}\u00B0C triggers ${heatResult.decision}`);
     reasonCodes.push(heatResult.reasonCode);
   }
   if (hasRespiratoryCondition) {
