@@ -809,7 +809,26 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: `Invalid target decision for override: '${requestedDecision}'. Must be one of: ${ORDERED_DECISIONS.join(', ')}` }),
         };
       }
-      // Hard Gate 4: Immediate rejection if requested override relaxes current policy floor
+
+      // 1. Fetch current active routine from DECISIONS_TABLE_NAME to determine real activity intensity (S4)
+      let activeIntensity: ActivityIntensity = 'moderate';
+      try {
+        const routineRes = await docClient.send(
+          new GetCommand({
+            TableName: DECISIONS_TABLE_NAME,
+            Key: { school_id: schoolId, activity_id: 'ROUTINE#current' },
+          })
+        );
+        if (routineRes.Item?.intensity) {
+          const rawInt = String(routineRes.Item.intensity).toLowerCase();
+          activeIntensity = rawInt === 'vigorous' ? 'vigorous' : rawInt === 'light' ? 'light' : 'moderate';
+        }
+      } catch (routineErr) {
+        console.warn('[Override Warning] Could not fetch active routine intensity, defaulting to moderate:', routineErr);
+      }
+
+      // 2. Fetch latest sensor telemetry from TABLE_NAME — Fail-closed with 503 if unavailable (Hard Gate 4 / S4)
+      let latestReading: any = null;
       try {
         const latestReadingRes = await docClient.send(
           new QueryCommand({
@@ -820,31 +839,42 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             Limit: 1,
           })
         );
-        const latestReading = latestReadingRes.Items?.[0];
-        if (latestReading?.readings) {
-          const hi = latestReading.readings.heat_index_c ?? latestReading.readings.temperature_c;
-          const aqi = latestReading.readings.aqi;
-          const floor = evaluatePolicyFloor({
-            heatIndexC: hi,
-            aqi,
-            intensity: 'MODERATE',
-            isModeled: Boolean(latestReading.is_modeled),
-            isStale: Boolean(latestReading.evaluation?.isStale),
-          }).decision;
-          if (STRICTNESS_ORDER[requestedDecision] < STRICTNESS_ORDER[floor]) {
-            return {
-              statusCode: 400,
-              headers: CORS_HEADERS,
-              body: JSON.stringify({
-                error: `Override rejected: Cannot relax deterministic policy floor (${floor} -> ${requestedDecision}). Overrides may only tighten restrictions (Hard Gate 4).`,
-              }),
-            };
-          }
-        }
-      } catch {
-        // Continue if reading table unavailable
+        latestReading = latestReadingRes.Items?.[0];
+      } catch (readErr: any) {
+        console.error('[Override Error] Failed to read sensor telemetry table:', readErr);
+        return {
+          statusCode: 503,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({
+            error: 'Service Unavailable: Unable to retrieve sensor telemetry to verify policy floor (Hard Gate 4 / S4)',
+          }),
+        };
       }
 
+      if (!latestReading || !latestReading.readings) {
+        return {
+          statusCode: 503,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({
+            error: 'Service Unavailable: No sensor telemetry available for school to verify policy floor (Hard Gate 4 / S4)',
+          }),
+        };
+      }
+
+      // 3. Compute baseline deterministic floor with school's actual activity intensity
+      const hi = latestReading.readings.heat_index_c ?? latestReading.readings.temperature_c;
+      const aqi = latestReading.readings.aqi;
+      const floorEval = evaluatePolicyFloor({
+        heatIndexC: hi,
+        aqi,
+        intensity: activeIntensity,
+        isModeled: Boolean(latestReading.is_modeled),
+        isStale: Boolean(latestReading.evaluation?.isStale),
+      });
+      const floor = floorEval.decision;
+      const relaxesFloor = STRICTNESS_ORDER[requestedDecision] < STRICTNESS_ORDER[floor];
+
+      // 4. Record override and audit trail (Appendix A / F-11)
       const nowIso = new Date().toISOString();
       const overrideRecord = {
         school_id: schoolId,
@@ -852,6 +882,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         requested_decision: requestedDecision,
         reason,
         coordinator_email: auth.email,
+        policy_floor: floor,
+        relaxes_floor: relaxesFloor,
+        intensity: activeIntensity,
         timestamp: nowIso,
       };
       const auditRecord = {
@@ -860,6 +893,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         requested_decision: requestedDecision,
         reason,
         coordinator_email: auth.email,
+        policy_floor: floor,
+        relaxes_floor: relaxesFloor,
+        intensity: activeIntensity,
         timestamp: nowIso,
       };
       await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: overrideRecord }));
@@ -868,7 +904,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 200,
         headers: CORS_HEADERS,
-        body: JSON.stringify({ status: 'RECORDED', override: overrideRecord }),
+        body: JSON.stringify({
+          status: 'RECORDED',
+          override: overrideRecord,
+          policy_floor: floor,
+          relaxes_floor: relaxesFloor,
+        }),
       };
     }
 
@@ -1475,7 +1516,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       hasRespiratoryCondition,
     });
 
-    // Hard Gate 4: Coordinator override can NEVER relax the Policy v1.2 floor!
+    // Appendix A / F-11 & Hard Gate 4: Coordinator override with mandatory justification and audit trail
     let effectiveDecision = policyEval.decision;
     let effectiveStatus = policyEval.status;
     const reasons = [...policyEval.reasons];
@@ -1494,9 +1535,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           MOVE_INDOORS: 'RED',
           UNKNOWN: 'UNKNOWN',
         };
-        effectiveStatus = statusMap[effectiveDecision];
+        effectiveStatus = statusMap[effectiveDecision] || effectiveStatus;
       }
-      reasons.push(`কোঅর্ডিনেটর ওভাররাইড (${activeOverride.requested_decision}): ${activeOverride.reason}`);
+      if (activeOverride.relaxes_floor) {
+        reasons.unshift(
+          `কোঅর্ডিনেটর ওভাররাইড (নীতি শিথিলকরণ): ${activeOverride.reason} [পলিসি ফ্লোর: ${activeOverride.policy_floor || policyEval.decision}]`
+        );
+      } else {
+        reasons.unshift(`কোঅর্ডিনেটর ওভাররাইড (${activeOverride.requested_decision}): ${activeOverride.reason}`);
+      }
     }
 
     return {

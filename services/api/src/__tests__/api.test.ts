@@ -523,4 +523,78 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(getBody.activeNote).toBeDefined();
     expect(getBody.hasRespiratoryCondition).toBe(true);
   });
+test('S4: Coordinator Override fails-closed with 503 when telemetry table is unavailable or empty', async () => {
+    // Force QueryCommand for telemetry table to return empty items
+    jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+      if (command.input?.TableName === 'AirSafe-Readings-dev') {
+        return { Items: [] } as never;
+      }
+      return {} as never;
+    });
+
+    const res = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/overrides',
+        headers: { Authorization: `Bearer ${coordinatorToken}` },
+        body: JSON.stringify({ decision: 'PROCEED', reason: 'Principal special event exemption' }),
+      })
+    );
+    expect(res.statusCode).toBe(503);
+    const body = JSON.parse(res.body);
+    expect(body.error).toContain('Service Unavailable');
+  });
+
+  test('S4: Coordinator Override successfully records with dynamic routine intensity and relaxes_floor flag', async () => {
+    let savedOverrideItem: any = null;
+    let savedAuditItem: any = null;
+
+    jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+      // Return vigorous active routine
+      if (command.input?.Key?.activity_id === 'ROUTINE#current') {
+        return { Item: { intensity: 'VIGOROUS' } } as never;
+      }
+      // Return high heat/AQI reading that creates MOVE_INDOORS floor
+      if (command.input?.TableName === 'AirSafe-Readings-dev') {
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              timestamp: new Date().toISOString(),
+              readings: { heat_index_c: 42.0, aqi: 170 },
+            },
+          ],
+        } as never;
+      }
+      if (command.input?.Item?.activity_id === 'OVERRIDE#active') {
+        savedOverrideItem = command.input.Item;
+      }
+      if (command.input?.Item?.activity_id?.startsWith('OVERRIDE_AUDIT#')) {
+        savedAuditItem = command.input.Item;
+      }
+      return {} as never;
+    });
+
+    // Coordinator requests MODIFY while floor for VIGOROUS at AQI 170 is MOVE_INDOORS
+    const res = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/overrides',
+        headers: { Authorization: `Bearer ${coordinatorToken}` },
+        body: JSON.stringify({
+          decision: 'MODIFY',
+          reason: 'Indoor ventilation upgraded with HEPA filters for graduation',
+        }),
+      })
+    );
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.status).toBe('RECORDED');
+    expect(body.relaxes_floor).toBe(true);
+    expect(body.policy_floor).toBe('MOVE_INDOORS');
+    expect(savedOverrideItem.relaxes_floor).toBe(true);
+    expect(savedOverrideItem.intensity).toBe('vigorous');
+    expect(savedAuditItem.relaxes_floor).toBe(true);
+    expect(savedAuditItem.coordinator_email).toBe('rafiq.principal@dms.edu.bd');
+  });
 });
