@@ -1160,4 +1160,69 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.next_activity.id).toBe('pe-football');
     });
   });
+  describe('P6 & U-5 (Real Per-Sensor Telemetry & Anti-Fabrication)', () => {
+    test('P6 & U-5: GET /sensor-sites reads genuine LATEST#<sensor_id> items and returns "ডেটা নেই" / null for unmeasured sites', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        // Mock Query for sensor items
+        if (command?.input?.KeyConditionExpression && command.input.KeyConditionExpression.includes('school_id')) {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: 'LATEST#dhk-001-field-1',
+                sensor_id: 'dhk-001-field-1',
+                location_type: 'FIELD',
+                observed_at: new Date().toISOString(),
+                readings: { temperature_c: 32.1, relative_humidity_pct: 64, heat_index_c: 36.2, pm25_ugm3: 40.5 },
+                is_online: true,
+              },
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: 'LATEST#dhk-001-courtyard-1',
+                sensor_id: 'dhk-001-courtyard-1',
+                location_type: 'COURTYARD',
+                observed_at: new Date().toISOString(),
+                readings: { temperature_c: 29.8, relative_humidity_pct: 70, heat_index_c: 33.1, pm25_ugm3: 35.0 },
+                is_online: true,
+              },
+              // NOTE: dhk-001-classroom-101 is NOT returned (simulating unmeasured / uninstalled classroom sensor)
+            ],
+          } as never;
+        }
+        return { Items: [] } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/sensor-sites',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.sites).toHaveLength(3);
+
+      const fieldSite = body.sites.find((s: any) => s.location_type === 'FIELD');
+      const courtyardSite = body.sites.find((s: any) => s.location_type === 'COURTYARD');
+      const classroomSite = body.sites.find((s: any) => s.location_type === 'CLASSROOM');
+
+      // Genuine measured readings from LATEST# items
+      expect(fieldSite.temp_c).toBe(32.1);
+      expect(fieldSite.is_online).toBe(true);
+
+      expect(courtyardSite.temp_c).toBe(29.8);
+      expect(courtyardSite.is_online).toBe(true);
+
+      // Unmeasured classroom sensor: MUST NOT fabricate values (-1.9°C, 60%, etc.)
+      expect(classroomSite.temp_c).toBeNull();
+      expect(classroomSite.rh_pct).toBeNull();
+      expect(classroomSite.pm25_ugm3).toBeNull();
+      expect(classroomSite.heat_index_c).toBeNull();
+      expect(classroomSite.is_online).toBe(false);
+      expect(classroomSite.last_updated_bn).toBe('ডেটা নেই');
+      expect(classroomSite.last_updated_en).toBe('No data');
+    });
+  });
 });

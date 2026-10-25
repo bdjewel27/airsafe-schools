@@ -63,6 +63,7 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
       const fetchedAt = new Date().toISOString();
 
+      // 1. Save historical time-series reading
       await docClient.send(
         new PutCommand({
           TableName: TABLE_NAME,
@@ -100,6 +101,32 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
             evaluation,
             source: 'Simulator Sensor Telemetry (SQS)',
             is_modeled: false,
+            ttl,
+          },
+        })
+      );
+
+      // 2. P6: Persist dedicated latest reading for sensor station (LATEST#<sensor_id>)
+      await docClient.send(
+        new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            school_id,
+            timestamp: `LATEST#${sensor_id}`,
+            sensor_id,
+            observed_at: ts,
+            readings: {
+              temperature_c: tempC,
+              relative_humidity_pct: rhPct,
+              heat_index_c: heatIndexC,
+              pm25_ugm3: pm25,
+              aqi,
+            },
+            evaluations,
+            evaluation,
+            source: 'Campus IoT Sensor (measured)',
+            is_modeled: false,
+            is_online: true,
             ttl,
           },
         })
