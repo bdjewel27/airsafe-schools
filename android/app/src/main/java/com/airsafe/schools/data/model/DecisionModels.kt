@@ -146,7 +146,8 @@ data class SensorSiteDto(
 )
 
 data class SensorSitesResponse(
-    @SerializedName("sites") val sites: List<SensorSiteDto>
+    @SerializedName("sites") val sites: List<SensorSiteDto>,
+    @SerializedName(value = "district_baseline", alternate = ["districtBaseline"]) val districtBaseline: SensorSiteDto? = null
 )
 
 data class AnalyticsResponseDto(

@@ -1852,4 +1852,110 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(fieldPoint.delta_aqi).toBe(50);
     });
   });
+
+  describe('F-03 (Restored District Baseline and Real-Time Events Fallback)', () => {
+    test('GET /sensor-sites restores district public baseline telemetry', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command?.input?.ExpressionAttributeValues?.[':did'] === 'bd-dhaka') {
+          return {
+            Items: [
+              {
+                school_id: 'bd-dhaka',
+                timestamp: 'LATEST#bd-dhaka',
+                readings: { temperature_c: 34.0, relative_humidity_pct: 65, heat_index_c: 38.0, pm25_ugm3: 55.0 },
+              },
+            ],
+          } as never;
+        }
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              timestamp: new Date().toISOString(),
+              readings: { temperature_c: 31.0, relative_humidity_pct: 65, heat_index_c: 35.5, pm25_ugm3: 38.0 },
+            },
+          ],
+        } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/sensor-sites',
+          queryStringParameters: { include_district: 'true' },
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.district_baseline).toBeDefined();
+      expect(body.district_baseline.location_type).toBe('DISTRICT');
+      expect(body.district_baseline.temp_c).toBe(34.0);
+      expect(body.sites.find((s: any) => s.location_type === 'DISTRICT')).toBeDefined();
+    });
+
+    test('GET /events returns 200 JSON decision frame by default', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command?.input?.TableName?.includes('Readings')) {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { temperature_c: 31.0, relative_humidity_pct: 65, heat_index_c: 35.5, aqi: 75 },
+              },
+            ],
+          } as never;
+        }
+        return { Item: null } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/events',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.school_id).toBe('school-dhaka-001');
+      expect(body.decision).toBeDefined();
+    });
+
+    test('GET /events with text/event-stream returns Server-Sent Events stream format', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command?.input?.TableName?.includes('Readings')) {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { temperature_c: 31.0, relative_humidity_pct: 65, heat_index_c: 35.5, aqi: 75 },
+              },
+            ],
+          } as never;
+        }
+        return { Item: null } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/events',
+          headers: {
+            Authorization: `Bearer ${teacherToken}`,
+            Accept: 'text/event-stream',
+          },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers?.['Content-Type']).toBe('text/event-stream');
+      expect(res.body).toContain('event: decision\n');
+      expect(res.body).toContain('data: {');
+    });
+  });
 });

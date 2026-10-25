@@ -211,6 +211,14 @@ export class ApiStack extends cdk.Stack {
     const sensorSites = school.addResource('sensor-sites');
     sensorSites.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // F-04: Historical trends endpoint (24h, 7d, 30d, multi-site comparison)
+    const trends = school.addResource('trends');
+    trends.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // F-03: Real-time decision events streaming / AppSync HTTP fallback endpoint
+    const eventsResource = school.addResource('events');
+    eventsResource.addMethod('GET', lambdaIntegration, methodOptions);
+
     const analytics = school.addResource('analytics');
     analytics.addMethod('GET', lambdaIntegration, methodOptions);
 
