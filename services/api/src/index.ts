@@ -87,13 +87,21 @@ export function getMcpJwtSecret(): string {
   return secret;
 }
 
-export const ALLOWED_ORIGINS = new Set([
+// S11: Single Source of Truth for allowed origins across API Gateway and Lambda
+export const ALLOWED_ORIGIN_LIST: readonly string[] = [
   'https://airsafe.schools.gov.bd',
+  'https://airsafe.schools.internal',
   'https://dms.edu.bd',
   'http://localhost:3000',
   'http://localhost:5173',
   'capacitor://localhost',
-]);
+];
+
+export const ALLOWED_ORIGINS = new Set<string>(
+  process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : ALLOWED_ORIGIN_LIST
+);
 
 export function getCorsHeaders(event?: APIGatewayProxyEvent): Record<string, string> {
   const reqOrigin = event?.headers?.origin || event?.headers?.Origin || '';
@@ -107,13 +115,8 @@ export function getCorsHeaders(event?: APIGatewayProxyEvent): Record<string, str
   };
 }
 
-export const CORS_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': 'https://airsafe.schools.gov.bd',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-school-id',
-  'Vary': 'Origin',
-};
+// S11: Unified CORS headers export for backward compatibility
+export const CORS_HEADERS = getCorsHeaders();
 
 // Rate limiting state for login (Hard Gate 3 & Section 08/09)
 const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
@@ -714,7 +717,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           token,
           user: {
@@ -731,7 +734,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     } catch {
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({ error: 'Malformed login request body' }),
       };
     }
@@ -744,7 +747,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   } catch (err: any) {
     return {
       statusCode: err.statusCode || 401,
-      headers: CORS_HEADERS,
+      headers: getCorsHeaders(event),
       body: JSON.stringify({ error: err.message || 'Unauthorized' }),
     };
   }
@@ -754,7 +757,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (requestedSchoolId && requestedSchoolId !== auth.schoolId && auth.role !== 'PLATFORM_ADMIN') {
     return {
       statusCode: 403,
-      headers: CORS_HEADERS,
+      headers: getCorsHeaders(event),
       body: JSON.stringify({
         error: `Forbidden: Cross-tenant access denied. Token is scoped to ${auth.schoolId}, cannot access ${requestedSchoolId} (Hard Gate 2 / S-3).`,
       }),
@@ -770,7 +773,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
         return {
           statusCode: 403,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Forbidden: Only coordinators can modify school routines (Hard Gate 3 / F-10)' }),
         };
       }
@@ -780,7 +783,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       } catch (_jsonErr) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Validation failed: Invalid JSON request body (S-6 / S8)' }),
         };
       }
@@ -790,7 +793,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!routineParse.success) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             error: 'Validation failed: Invalid routine payload schema (S-6 / S8)',
             details: routineParse.error.issues,
@@ -819,7 +822,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: routineItem }));
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({ status: 'UPDATED', routine: routineItem }),
       };
     }
@@ -829,7 +832,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
         return {
           statusCode: 403,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Forbidden: Only coordinators can record decision overrides (Hard Gate 3 / F-11)' }),
         };
       }
@@ -839,7 +842,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       } catch (_jsonErr) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Validation failed: Invalid JSON request body (S-6 / S8)' }),
         };
       }
@@ -849,7 +852,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!overrideParse.success) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             error: 'Validation failed: Invalid override payload schema (S-6 / S8)',
             details: overrideParse.error.issues,
@@ -894,7 +897,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         console.error('[Override Error] Failed to read sensor telemetry table:', readErr);
         return {
           statusCode: 503,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             error: 'Service Unavailable: Unable to retrieve sensor telemetry to verify policy floor (Hard Gate 4 / S4)',
           }),
@@ -904,7 +907,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!latestReading || !latestReading.readings) {
         return {
           statusCode: 503,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             error: 'Service Unavailable: No sensor telemetry available for school to verify policy floor (Hard Gate 4 / S4)',
           }),
@@ -953,7 +956,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           status: 'RECORDED',
           override: overrideRecord,
@@ -974,7 +977,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const activeNote = noteRes.Item || null;
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           schoolId,
           activeNote,
@@ -990,7 +993,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!note) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Activity note cannot be empty' }),
         };
       }
@@ -1009,7 +1012,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       await docClient.send(new PutCommand({ TableName: DECISIONS_TABLE_NAME, Item: noteItem }));
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           status: 'SAVED',
           note: noteItem,
@@ -1030,7 +1033,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (auth.role !== 'COORDINATOR' && auth.role !== 'PLATFORM_ADMIN') {
         return {
           statusCode: 403,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({ error: 'Forbidden: Only coordinators can invite staff (Hard Gate 3 / F-12)' }),
         };
       }
@@ -1298,7 +1301,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ) {
         return {
           statusCode: 200,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             answer: isBengali
               ? 'নিরাপত্তা গার্ডরেইল (Policy A-5/S-8): আমি অন্য কোনো স্কুলের ডেটা অ্যাক্সেস করতে বা Model School Outdoor Activity Policy v1.2-এর নিরাপত্তা সীমা শিথিল করতে পারি না।'
@@ -1324,7 +1327,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       if (!item || !item.readings) {
         return {
           statusCode: 200,
-          headers: CORS_HEADERS,
+          headers: getCorsHeaders(event),
           body: JSON.stringify({
             answer: isBengali
               ? 'বর্তমানে আপনার স্কুলের সেন্সর ডেটা পাওয়া যাচ্ছে না (UNKNOWN — Fail-Closed)। নীতিমালা অনুযায়ী ডেটা ছাড়া কোনো আউটডোর কার্যক্রমকে নিরাপদ ঘোষণা করা যাবে না।'
@@ -1437,7 +1440,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           answer,
           decision: finalDecision,
@@ -1477,7 +1480,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!latestItem) {
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: getCorsHeaders(event),
         body: JSON.stringify({
           school_id: schoolId,
           school_name: `${auth.schoolNameBn} (${auth.schoolNameEn})`,
@@ -1598,7 +1601,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     return {
       statusCode: 200,
-      headers: CORS_HEADERS,
+      headers: getCorsHeaders(event),
       body: JSON.stringify({
         school_id: latestItem.school_id,
         school_name: latestItem.school_name || `${auth.schoolNameBn} (${auth.schoolNameEn})`,
@@ -1630,7 +1633,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     console.error('API Handler Error:', error);
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
+      headers: getCorsHeaders(event),
       body: JSON.stringify({ error: 'Internal server error processing school request' }),
     };
   }
