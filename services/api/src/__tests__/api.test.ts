@@ -13,6 +13,7 @@ import {
   mintMcpTokenForChat,
   authenticateRequest,
   hashPassword,
+  resetSecretsCache,
 } from '../index';
 
 describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
@@ -46,15 +47,17 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     };
   }
 
-  test('Hard Gate 1: getJwtSecret and getMcpJwtSecret throw when environment variable is missing (Fail-Closed)', () => {
+  test('Hard Gate 1: getJwtSecret and getMcpJwtSecret throw when environment variable and SSM are missing (Fail-Closed)', () => {
     const origApiSecret = process.env.API_JWT_SECRET;
     const origMcpSecret = process.env.MCP_JWT_SECRET;
     delete process.env.API_JWT_SECRET;
     delete process.env.MCP_JWT_SECRET;
-    expect(() => getJwtSecret()).toThrow(/API_JWT_SECRET environment variable is missing/);
-    expect(() => getMcpJwtSecret()).toThrow(/MCP_JWT_SECRET environment variable is missing/);
+    resetSecretsCache();
+    expect(() => getJwtSecret()).toThrow(/API_JWT_SECRET is missing/);
+    expect(() => getMcpJwtSecret()).toThrow(/MCP_JWT_SECRET is missing/);
     process.env.API_JWT_SECRET = origApiSecret;
     process.env.MCP_JWT_SECRET = origMcpSecret;
+    resetSecretsCache();
   });
 
   test('returns 200 for OPTIONS preflight CORS with narrowed origin', async () => {

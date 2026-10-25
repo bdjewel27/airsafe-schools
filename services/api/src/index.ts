@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, PutCommand, GetCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
 export interface APIGatewayProxyEvent {
   httpMethod: string;
@@ -27,22 +28,60 @@ export interface APIGatewayProxyResult {
 const region = process.env.PROJECT_REGION || process.env.AWS_REGION || 'ap-southeast-2';
 const ddbClient = new DynamoDBClient({ region });
 export const docClient = DynamoDBDocumentClient.from(ddbClient);
+const ssmClient = new SSMClient({ region });
 
 const TABLE_NAME = process.env.TABLE_NAME || 'AirSafe-Readings-dev';
 const DECISIONS_TABLE_NAME = process.env.DECISIONS_TABLE_NAME || 'AirSafe-Decisions-dev';
+const JWT_PARAM_NAME = process.env.JWT_SECRET_PARAM_NAME || '/airsafe/dev/jwt-secret';
+const MCP_PARAM_NAME = process.env.MCP_JWT_SECRET_PARAM_NAME || '/airsafe/dev/mcp-jwt-secret';
+
+let cachedJwtSecret: string | null = null;
+let cachedMcpJwtSecret: string | null = null;
+
+export async function fetchSecretFromSsm(paramName: string): Promise<string | null> {
+  try {
+    const res = await ssmClient.send(new GetParameterCommand({ Name: paramName, WithDecryption: true }));
+    return res.Parameter?.Value?.trim() || null;
+  } catch (err) {
+    console.warn(`[SSM WARN] Could not retrieve SSM parameter ${paramName}:`, err);
+    return null;
+  }
+}
+
+export async function ensureSecretsLoaded(): Promise<void> {
+  if (!cachedJwtSecret) {
+    if (process.env.API_JWT_SECRET && process.env.API_JWT_SECRET.trim() !== '') {
+      cachedJwtSecret = process.env.API_JWT_SECRET.trim();
+    } else {
+      cachedJwtSecret = await fetchSecretFromSsm(JWT_PARAM_NAME);
+    }
+  }
+  if (!cachedMcpJwtSecret) {
+    if (process.env.MCP_JWT_SECRET && process.env.MCP_JWT_SECRET.trim() !== '') {
+      cachedMcpJwtSecret = process.env.MCP_JWT_SECRET.trim();
+    } else {
+      cachedMcpJwtSecret = await fetchSecretFromSsm(MCP_PARAM_NAME);
+    }
+  }
+}
+
+export function resetSecretsCache(): void {
+  cachedJwtSecret = null;
+  cachedMcpJwtSecret = null;
+}
 
 export function getJwtSecret(): string {
-  const secret = process.env.API_JWT_SECRET;
-  if (!secret || secret.trim() === '') {
-    throw new Error('SECURITY FATAL: API_JWT_SECRET environment variable is missing. Fail-closed (Hard Gate 1).');
+  const secret = cachedJwtSecret || (process.env.API_JWT_SECRET && process.env.API_JWT_SECRET.trim() !== '' ? process.env.API_JWT_SECRET.trim() : null);
+  if (!secret) {
+    throw new Error('SECURITY FATAL: API_JWT_SECRET is missing from both SSM and environment. Fail-closed (Hard Gate 1).');
   }
   return secret;
 }
 
 export function getMcpJwtSecret(): string {
-  const secret = process.env.MCP_JWT_SECRET;
-  if (!secret || secret.trim() === '') {
-    throw new Error('SECURITY FATAL: MCP_JWT_SECRET environment variable is missing. Fail-closed (Hard Gate 1 & 2).');
+  const secret = cachedMcpJwtSecret || (process.env.MCP_JWT_SECRET && process.env.MCP_JWT_SECRET.trim() !== '' ? process.env.MCP_JWT_SECRET.trim() : null);
+  if (!secret) {
+    throw new Error('SECURITY FATAL: MCP_JWT_SECRET is missing from both SSM and environment. Fail-closed (Hard Gate 1 & 2).');
   }
   return secret;
 }
@@ -412,6 +451,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: getCorsHeaders(event), body: '' };
   }
+
+  await ensureSecretsLoaded();
 
   const path = event.path || event.resource || '';
 
