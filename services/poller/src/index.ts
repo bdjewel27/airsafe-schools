@@ -271,9 +271,15 @@ export const handler = async (_event: any): Promise<any> => {
           if (typeof pt.heatIndexC === 'number' && pt.heatIndexC > evalHeatIndex) evalHeatIndex = pt.heatIndexC;
         }
       }
-      const evaluation = evaluatePolicy(evalAqi, evalHeatIndex, 'VIGOROUS', isModeled);
+      // P4: Multi-intensity evaluations across LIGHT, MODERATE, VIGOROUS
+      const evaluations = {
+        LIGHT: evaluatePolicy(evalAqi, evalHeatIndex, 'LIGHT', isModeled),
+        MODERATE: evaluatePolicy(evalAqi, evalHeatIndex, 'MODERATE', isModeled),
+        VIGOROUS: evaluatePolicy(evalAqi, evalHeatIndex, 'VIGOROUS', isModeled),
+      };
+      const evaluation = evaluations.VIGOROUS;
 
-      // 4. Save to DynamoDB with full source provenance (P3)
+      // 4. Save to DynamoDB with full source provenance and multi-intensity evaluations (P3, P4)
       const record = {
         school_id: school.id,
         timestamp,
@@ -288,6 +294,7 @@ export const handler = async (_event: any): Promise<any> => {
         },
         provenance,
         hourly_forecast: meteo?.hourlyForecast || [],
+        evaluations,
         evaluation,
         source: primarySource,
         is_modeled: isModeled,
