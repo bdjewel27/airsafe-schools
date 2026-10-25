@@ -125,14 +125,22 @@ describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
       expect(asthmaRes.reasonCodes).toContain('RESPIRATORY_CONDITION_STEPPED_UP');
     });
 
-    test('P-4: Non-finite input guard fails closed to MOVE_INDOORS with INVALID_SENSOR_INPUT', () => {
+    test('P5: Non-finite input guard fails closed to UNKNOWN with INVALID_SENSOR_INPUT per Policy v1.2 §4', () => {
       const nanAqi = evaluatePolicy(NaN, 30.0, 'MODERATE');
-      expect(nanAqi.decision).toBe('MOVE_INDOORS');
+      expect(nanAqi.decision).toBe('UNKNOWN');
       expect(nanAqi.reasonCodes).toContain('INVALID_SENSOR_INPUT');
 
       const nanHeat = evaluatePolicy(50, NaN, 'LIGHT');
-      expect(nanHeat.decision).toBe('MOVE_INDOORS');
+      expect(nanHeat.decision).toBe('UNKNOWN');
       expect(nanHeat.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+
+      const infAqi = evaluatePolicy(Infinity, 30.0, 'MODERATE');
+      expect(infAqi.decision).toBe('UNKNOWN');
+      expect(infAqi.reasonCodes).toContain('INVALID_SENSOR_INPUT');
+
+      const infHeat = evaluatePolicy(45, -Infinity, 'VIGOROUS');
+      expect(infHeat.decision).toBe('UNKNOWN');
+      expect(infHeat.reasonCodes).toContain('INVALID_SENSOR_INPUT');
     });
   });
 describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Driven EPA Examples)', () => {
