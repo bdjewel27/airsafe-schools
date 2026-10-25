@@ -32,8 +32,8 @@ fun LoginScreen(
 ) {
     val isBengali by viewModel.isBengali.collectAsState()
     val loginError by viewModel.loginError.collectAsState()
-    var email by remember { mutableStateOf("fatema.teacher@dms.edu.bd") }
-    var password by remember { mutableStateOf("[REDACTED_PASSWORD]") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     Surface(
@@ -129,15 +129,6 @@ fun LoginScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            Text(
-                text = if (isBengali) "🔑 টেস্ট পাসওয়ার্ড: [REDACTED_PASSWORD]" else "🔑 Test Password: [REDACTED_PASSWORD]",
-                fontSize = 11.sp,
-                color = TextSecondary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, start = 4.dp)
-            )
-
             if (!loginError.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -147,72 +138,6 @@ fun LoginScreen(
                     fontWeight = FontWeight.SemiBold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Demo Credential Quick-Select (Hard Gate 3: Role is determined strictly by server from email)
-            Text(
-                text = if (isBengali)
-                    "আমন্ত্রিত স্টাফ অ্যাকাউন্ট নির্বাচন করুন:"
-                else
-                    "Select Invited Staff Demo Account:",
-                fontSize = 12.sp,
-                color = TextSecondary,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FilterChip(
-                    selected = email.equals("fatema.teacher@dms.edu.bd", ignoreCase = true),
-                    onClick = {
-                        email = "fatema.teacher@dms.edu.bd"
-                        password = "[REDACTED_PASSWORD]"
-                    },
-                    label = {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (isBengali) "শিক্ষক (ফাতিমা)" else "Teacher (Fatema)",
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 48.dp)
-                )
-
-                FilterChip(
-                    selected = email.equals("rafiq.principal@dms.edu.bd", ignoreCase = true),
-                    onClick = {
-                        email = "rafiq.principal@dms.edu.bd"
-                        password = "[REDACTED_PASSWORD]"
-                    },
-                    label = {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (isBengali) "কোঅর্ডিনেটর (রফিক)" else "Coordinator (Rafiq)",
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 48.dp)
                 )
             }
 
