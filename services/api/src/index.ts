@@ -234,6 +234,83 @@ export interface StaffAccount {
   schoolNameEn: string;
 }
 
+export const SCHOOL_METADATA: Record<string, { nameEn: string; nameBn: string }> = {
+  'school-dhaka-001': { nameEn: 'Dhaka Model School', nameBn: 'ঢাকা মডেল স্কুল' },
+  'school-dhaka-002': { nameEn: 'Dhaka Model School Branch 2', nameBn: 'ঢাকা মডেল স্কুল শাখা ২' },
+  'school-chattogram-001': { nameEn: 'Chittagong Hills School', nameBn: 'চট্টগ্রাম হিলস স্কুল' },
+  'school-ctg-002': { nameEn: 'Chittagong Hills School', nameBn: 'চট্টগ্রাম হিলস স্কুল' },
+  'school-rajshahi-001': { nameEn: 'Rajshahi Padma School', nameBn: 'রাজশাহী পদ্মা স্কুল' },
+  'school-raj-003': { nameEn: 'Rajshahi Padma School', nameBn: 'রাজশাহী পদ্মা স্কুল' },
+};
+
+export const SEEDED_DEMO_ACCOUNTS: Record<
+  string,
+  {
+    email: string;
+    role: 'TEACHER' | 'COORDINATOR';
+    schoolId: string;
+    nameBn: string;
+    nameEn: string;
+    schoolNameBn: string;
+    schoolNameEn: string;
+  }
+> = {
+  'rafiq.principal@dms.edu.bd': {
+    email: 'rafiq.principal@dms.edu.bd',
+    role: 'COORDINATOR',
+    schoolId: 'school-dhaka-001',
+    nameBn: 'প্রিন্সিপাল রফিকুল ইসলাম',
+    nameEn: 'Principal Rafiqul Islam',
+    schoolNameBn: 'ঢাকা মডেল স্কুল',
+    schoolNameEn: 'Dhaka Model School',
+  },
+  'fatema.teacher@dms.edu.bd': {
+    email: 'fatema.teacher@dms.edu.bd',
+    role: 'TEACHER',
+    schoolId: 'school-dhaka-001',
+    nameBn: 'সহকারী শিক্ষক ফাতিমা',
+    nameEn: 'Assistant Teacher Fatema',
+    schoolNameBn: 'ঢাকা মডেল স্কুল',
+    schoolNameEn: 'Dhaka Model School',
+  },
+  'kamal.coordinator@chs.edu.bd': {
+    email: 'kamal.coordinator@chs.edu.bd',
+    role: 'COORDINATOR',
+    schoolId: 'school-chattogram-001',
+    nameBn: 'স্কুল কোঅর্ডিনেটর কামাল হোসেন',
+    nameEn: 'Coordinator Kamal Hossain',
+    schoolNameBn: 'চট্টগ্রাম হিলস স্কুল',
+    schoolNameEn: 'Chittagong Hills School',
+  },
+  'nusrat.teacher@chs.edu.bd': {
+    email: 'nusrat.teacher@chs.edu.bd',
+    role: 'TEACHER',
+    schoolId: 'school-chattogram-001',
+    nameBn: 'সহকারী শিক্ষক নুসরাত জাহান',
+    nameEn: 'Assistant Teacher Nusrat Jahan',
+    schoolNameBn: 'চট্টগ্রাম হিলস স্কুল',
+    schoolNameEn: 'Chittagong Hills School',
+  },
+  'salma.coordinator@rps.edu.bd': {
+    email: 'salma.coordinator@rps.edu.bd',
+    role: 'COORDINATOR',
+    schoolId: 'school-rajshahi-001',
+    nameBn: 'স্কুল কোঅর্ডিনেটর সালমা বেগম',
+    nameEn: 'Coordinator Salma Begum',
+    schoolNameBn: 'রাজশাহী পদ্মা স্কুল',
+    schoolNameEn: 'Rajshahi Padma School',
+  },
+  'tareq.teacher@rps.edu.bd': {
+    email: 'tareq.teacher@rps.edu.bd',
+    role: 'TEACHER',
+    schoolId: 'school-rajshahi-001',
+    nameBn: 'সহকারী শিক্ষক তারেক রহমান',
+    nameEn: 'Assistant Teacher Tareq Rahman',
+    schoolNameBn: 'রাজশাহী পদ্মা স্কুল',
+    schoolNameEn: 'Rajshahi Padma School',
+  },
+};
+
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 600000, 32, 'sha256').toString('hex');
@@ -387,14 +464,15 @@ export function authenticateRequest(event: APIGatewayProxyEvent): AuthContext {
       : groups.includes('platform-admin')
       ? 'PLATFORM_ADMIN'
       : 'TEACHER';
+    const meta = SCHOOL_METADATA[schoolId] || { nameBn: 'ঢাকা মডেল স্কুল', nameEn: 'Dhaka Model School' };
     return {
       email: String(authorizerClaims.email || 'user@airsafe.edu.bd'),
       schoolId,
       role,
       nameBn: String(authorizerClaims.name_bn || (role === 'COORDINATOR' ? 'স্কুল কোঅর্ডিনেটর' : 'স্কুল শিক্ষক')),
       nameEn: String(authorizerClaims.name_en || (role === 'COORDINATOR' ? 'School Coordinator' : 'School Teacher')),
-      schoolNameBn: String(authorizerClaims.school_name_bn || 'ঢাকা মডেল স্কুল'),
-      schoolNameEn: String(authorizerClaims.school_name_en || 'Dhaka Model School'),
+      schoolNameBn: String(authorizerClaims.school_name_bn || meta.nameBn),
+      schoolNameEn: String(authorizerClaims.school_name_en || meta.nameEn),
     };
   }
 
@@ -448,14 +526,16 @@ export function authenticateRequest(event: APIGatewayProxyEvent): AuthContext {
   const role: AuthContext['role'] =
     rawRole === 'COORDINATOR' ? 'COORDINATOR' : rawRole === 'PLATFORM_ADMIN' ? 'PLATFORM_ADMIN' : 'TEACHER';
 
+  const schoolMeta = SCHOOL_METADATA[schoolId.trim()] || { nameBn: 'ঢাকা মডেল স্কুল', nameEn: 'Dhaka Model School' };
+
   return {
     email: String(payload.email || 'staff@airsafe.edu.bd'),
     schoolId: schoolId.trim(),
     role,
     nameBn: String(payload.name_bn || (role === 'COORDINATOR' ? 'প্রিন্সিপাল রফিকুল ইসলাম' : 'সহকারী শিক্ষক ফাতিমা')),
     nameEn: String(payload.name_en || (role === 'COORDINATOR' ? 'Principal Rafiqul Islam' : 'Assistant Teacher Fatema')),
-    schoolNameBn: String(payload.school_name_bn || 'ঢাকা মডেল স্কুল'),
-    schoolNameEn: String(payload.school_name_en || 'Dhaka Model School'),
+    schoolNameBn: String(payload.school_name_bn || schoolMeta.nameBn),
+    schoolNameEn: String(payload.school_name_en || schoolMeta.nameEn),
   };
 }
 
@@ -833,6 +913,53 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     };
   }
 
+  // Public Districts Feed Route: GET /districts (F-20 — 64 District Headquarters Public Feed)
+  if ((path.endsWith('/districts') || path.endsWith('/districts/public')) && event.httpMethod === 'GET') {
+    try {
+      const scanRes: any = await docClient.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'begins_with(school_id, :prefix) AND begins_with(#ts, :latest)',
+          ExpressionAttributeNames: { '#ts': 'timestamp' },
+          ExpressionAttributeValues: {
+            ':prefix': 'bd-',
+            ':latest': 'LATEST#',
+          },
+        })
+      ).catch(() => ({ Items: [] }));
+
+      let items = scanRes.Items || [];
+      if (items.length === 0) {
+        const fallbackRes: any = await docClient.send(
+          new ScanCommand({
+            TableName: TABLE_NAME,
+            FilterExpression: 'begins_with(school_id, :prefix)',
+            ExpressionAttributeValues: {
+              ':prefix': 'bd-',
+            },
+            Limit: 64,
+          })
+        ).catch(() => ({ Items: [] }));
+        items = fallbackRes.Items || [];
+      }
+
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({
+          totalDistricts: items.length,
+          districts: items,
+        }),
+      };
+    } catch (_distErr) {
+      return {
+        statusCode: 500,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({ error: 'Failed to retrieve district public feeds' }),
+      };
+    }
+  }
+
   // 1. Public Invite-Only Authentication Endpoint: POST /auth/login (F-01, S-2, Hard Gate 3)
   if (path.endsWith('/auth/login') && event.httpMethod === 'POST') {
     try {
@@ -908,8 +1035,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             'school-dhaka-001',
             'school-dhaka-002',
             'school-chattogram-001',
-            'school-khulna-001',
+            'school-ctg-002',
             'school-rajshahi-001',
+            'school-raj-003',
+            'school-khulna-001',
           ];
 
           const directLookups = await Promise.all(
@@ -926,6 +1055,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const matched = directLookups.find(r => r.Item);
           if (matched?.Item) {
             const item = matched.Item;
+            const meta = SCHOOL_METADATA[item.school_id] || { nameBn: 'ঢাকা মডেল স্কুল', nameEn: 'Dhaka Model School' };
             staff = {
               email: item.email,
               passwordHash: item.password_hash || item.passwordHash,
@@ -933,8 +1063,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               schoolId: item.school_id,
               nameBn: item.name_bn || (item.role === 'COORDINATOR' ? 'স্কুল কোঅর্ডিনেটর' : 'সহকারী শিক্ষক'),
               nameEn: item.name_en || (item.role === 'COORDINATOR' ? 'School Coordinator' : 'Assistant Teacher'),
-              schoolNameBn: item.school_name_bn || 'ঢাকা মডেল স্কুল',
-              schoolNameEn: item.school_name_en || 'Dhaka Model School',
+              schoolNameBn: item.school_name_bn || meta.nameBn,
+              schoolNameEn: item.school_name_en || meta.nameEn,
             };
 
             // Write lookup index for subsequent instant O(1) single-trip logins
@@ -965,6 +1095,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
           if (scanRes.Items && scanRes.Items.length > 0) {
             const item = scanRes.Items[0];
+            const meta = SCHOOL_METADATA[item.school_id] || { nameBn: 'ঢাকা মডেল স্কুল', nameEn: 'Dhaka Model School' };
             staff = {
               email: item.email,
               passwordHash: item.password_hash || item.passwordHash,
@@ -972,10 +1103,53 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               schoolId: item.school_id,
               nameBn: item.name_bn || (item.role === 'COORDINATOR' ? 'স্কুল কোঅর্ডিনেটর' : 'সহকারী শিক্ষক'),
               nameEn: item.name_en || (item.role === 'COORDINATOR' ? 'School Coordinator' : 'Assistant Teacher'),
-              schoolNameBn: item.school_name_bn || 'ঢাকা মডেল স্কুল',
-              schoolNameEn: item.school_name_en || 'Dhaka Model School',
+              schoolNameBn: item.school_name_bn || meta.nameBn,
+              schoolNameEn: item.school_name_en || meta.nameEn,
             };
           }
+        }
+
+        // Step 5: Seeded demo accounts bootstrap fallback (F-20)
+        if (!staff && SEEDED_DEMO_ACCOUNTS[email]) {
+          const seeded = SEEDED_DEMO_ACCOUNTS[email];
+          const demoHash = hashPassword('AirSafe@2026!');
+          staff = {
+            email: seeded.email,
+            passwordHash: demoHash,
+            role: seeded.role,
+            schoolId: seeded.schoolId,
+            nameBn: seeded.nameBn,
+            nameEn: seeded.nameEn,
+            schoolNameBn: seeded.schoolNameBn,
+            schoolNameEn: seeded.schoolNameEn,
+          };
+          docClient.send(
+            new PutCommand({
+              TableName: DECISIONS_TABLE_NAME,
+              Item: {
+                school_id: seeded.schoolId,
+                activity_id: `STAFF#${seeded.email}`,
+                email: seeded.email,
+                role: seeded.role,
+                password_hash: demoHash,
+                name_bn: seeded.nameBn,
+                name_en: seeded.nameEn,
+                school_name_bn: seeded.schoolNameBn,
+                school_name_en: seeded.schoolNameEn,
+                created_at: new Date().toISOString(),
+              },
+            })
+          ).catch(() => {});
+          docClient.send(
+            new PutCommand({
+              TableName: DECISIONS_TABLE_NAME,
+              Item: {
+                school_id: 'STAFF_LOOKUP',
+                activity_id: `EMAIL#${seeded.email}`,
+                target_school_id: seeded.schoolId,
+              },
+            })
+          ).catch(() => {});
         }
       } catch (dbErr) {
         console.error('Error fetching staff from DynamoDB:', dbErr);
