@@ -8,6 +8,16 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as path from 'path';
 import { Construct } from 'constructs';
 
+// S11: Single Source of Truth for allowed CORS origins matching services/api
+export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
+  'https://airsafe.schools.gov.bd',
+  'https://airsafe.schools.internal',
+  'https://dms.edu.bd',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'capacitor://localhost',
+];
+
 export interface ApiStackProps extends cdk.StackProps {
   environmentName: string;
   readingsTable: dynamodb.Table;
@@ -48,7 +58,7 @@ export class ApiStack extends cdk.Stack {
         NODE_OPTIONS: '--enable-source-maps',
         JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/jwt-secret`,
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
-        ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'https://airsafe.schools.internal,http://localhost:3000',
+        ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(','),
       },
       logGroup,
     });
@@ -119,7 +129,7 @@ export class ApiStack extends cdk.Stack {
       restApiName: `AirSafe-Api-${props.environmentName}`,
       description: 'AirSafe Schools REST API for mobile app and web clients',
       defaultCorsPreflightOptions: {
-        allowOrigins: ['https://airsafe.schools.internal', 'http://localhost:3000'],
+        allowOrigins: [...DEFAULT_ALLOWED_ORIGINS],
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowHeaders: ['Content-Type', 'Authorization', 'x-school-id'],
         allowCredentials: true,
