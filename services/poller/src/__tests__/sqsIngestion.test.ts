@@ -1,4 +1,4 @@
-import { processSensorBatch } from '../sqsProcessor';
+const mockSend = jest.fn().mockResolvedValue({});
 
 // Mock DynamoDB DocumentClient
 jest.mock('@aws-sdk/lib-dynamodb', () => {
@@ -7,13 +7,19 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
     ...actual,
     DynamoDBDocumentClient: {
       from: jest.fn(() => ({
-        send: jest.fn().mockResolvedValue({}),
+        send: (...args: any[]) => mockSend(...args),
       })),
     },
   };
 });
 
+import { processSensorBatch } from '../sqsProcessor';
+
 describe('SQS Ingestion Pipeline & Dead Letter Queue (DLQ) Quarantine', () => {
+  beforeEach(() => {
+    mockSend.mockClear();
+  });
+
   test('successfully processes batch of valid sensor events with zero failures', async () => {
     const validRecords = [
       {
@@ -91,5 +97,33 @@ describe('SQS Ingestion Pipeline & Dead Letter Queue (DLQ) Quarantine', () => {
     const result = await processSensorBatch(mixedBatch);
     expect(result.batchItemFailures).toHaveLength(1);
     expect(result.batchItemFailures[0].itemIdentifier).toBe('poison-003');
+  });
+
+  test('P4: processes valid sensor batch and stores multi-intensity evaluations (LIGHT, MODERATE, VIGOROUS)', async () => {
+    const records = [
+      {
+        messageId: 'valid-p4',
+        body: JSON.stringify({
+          event_id: '01ARZ3NDEKTSV4RRFFQ69G5FAZ',
+          sensor_id: 'dhk-001-field-1',
+          school_id: 'school-dhaka-001',
+          ts: '2026-10-18T12:00:00Z',
+          readings: { temp_c: 32.0, rh_pct: 65, pm25_ugm3: 35.0 },
+          battery_pct: 95,
+        }),
+      },
+    ];
+
+    const result = await processSensorBatch(records);
+    expect(result.batchItemFailures).toHaveLength(0);
+    expect(mockSend).toHaveBeenCalled();
+    const putCall = mockSend.mock.calls.find((c: any) => c[0]?.input?.Item?.evaluations);
+    expect(putCall).toBeDefined();
+    const item = putCall[0].input.Item;
+    expect(item.evaluations).toBeDefined();
+    expect(item.evaluations.LIGHT).toBeDefined();
+    expect(item.evaluations.MODERATE).toBeDefined();
+    expect(item.evaluations.VIGOROUS).toBeDefined();
+    expect(item.evaluation).toBe(item.evaluations.VIGOROUS);
   });
 });
