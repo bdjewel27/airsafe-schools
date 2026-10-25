@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import { z } from 'zod';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, PutCommand, GetCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
@@ -262,6 +263,23 @@ const ORDERED_DECISIONS: PolicyDecision[] = [
   'MODIFY',
   'MOVE_INDOORS',
 ];
+
+// S8 (S-6 Input Validation): Strict JSON Schemas for routines and overrides
+export const RoutineSchema = z.object({
+  intensity: z.enum(['light', 'moderate', 'vigorous', 'LIGHT', 'MODERATE', 'VIGOROUS']),
+  location_type: z.enum(['FIELD', 'COURT', 'SHADED_AREA', 'CLASSROOM', 'INDOOR_GYM', 'OUTDOOR', 'INDOOR']).default('FIELD'),
+  duration_minutes: z.number().int('duration_minutes must be an integer').min(1, 'Duration must be at least 1 minute').max(480, 'Duration cannot exceed 480 minutes').default(45),
+  activity_name_bn: z.string().max(100).optional().nullable(),
+  activity_name_en: z.string().max(100).optional().nullable(),
+  next_activity_bn: z.string().max(100).optional().nullable(),
+  next_activity_en: z.string().max(100).optional().nullable(),
+  target_class: z.string().max(50).optional().nullable(),
+});
+
+export const OverrideSchema = z.object({
+  decision: z.enum(['PROCEED', 'PROCEED_WITH_PRECAUTIONS', 'MODIFY', 'MOVE_INDOORS']),
+  reason: z.string().min(5, 'Override reason is mandatory and must be at least 5 characters (F-11)').max(1000),
+});
 
 export function createSignedJwt(payload: {
   email: string;
@@ -756,21 +774,45 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: 'Forbidden: Only coordinators can modify school routines (Hard Gate 3 / F-10)' }),
         };
       }
-      const body = JSON.parse(event.body || '{}');
-      const intensityRaw = String(body.intensity || 'moderate').toLowerCase();
+      let body: any;
+      try {
+        body = JSON.parse(event.body || '{}');
+      } catch (_jsonErr) {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'Validation failed: Invalid JSON request body (S-6 / S8)' }),
+        };
+      }
+
+      // S8 (S-6): Validate payload with RoutineSchema
+      const routineParse = RoutineSchema.safeParse(body);
+      if (!routineParse.success) {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({
+            error: 'Validation failed: Invalid routine payload schema (S-6 / S8)',
+            details: routineParse.error.issues,
+          }),
+        };
+      }
+
+      const validData = routineParse.data;
+      const intensityRaw = validData.intensity.toLowerCase();
       const intensity: ActivityIntensity =
         intensityRaw === 'vigorous' ? 'vigorous' : intensityRaw === 'light' ? 'light' : 'moderate';
       const routineItem = {
         school_id: schoolId,
         activity_id: 'ROUTINE#current',
-        activity_name_bn: body.activity_name_bn ? String(body.activity_name_bn).trim() : null,
-        activity_name_en: body.activity_name_en ? String(body.activity_name_en).trim() : null,
-        next_activity_bn: body.next_activity_bn ? String(body.next_activity_bn).trim() : null,
-        next_activity_en: body.next_activity_en ? String(body.next_activity_en).trim() : null,
+        activity_name_bn: validData.activity_name_bn ? String(validData.activity_name_bn).trim() : null,
+        activity_name_en: validData.activity_name_en ? String(validData.activity_name_en).trim() : null,
+        next_activity_bn: validData.next_activity_bn ? String(validData.next_activity_bn).trim() : null,
+        next_activity_en: validData.next_activity_en ? String(validData.next_activity_en).trim() : null,
         intensity,
-        location_type: String(body.location_type || 'FIELD'),
-        duration_minutes: Number(body.duration_minutes) || 45,
-        target_class: body.target_class ? String(body.target_class).trim() : null,
+        location_type: validData.location_type,
+        duration_minutes: validData.duration_minutes,
+        target_class: validData.target_class ? String(validData.target_class).trim() : null,
         updated_by: auth.email,
         updated_at: new Date().toISOString(),
       };
@@ -791,24 +833,32 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: 'Forbidden: Only coordinators can record decision overrides (Hard Gate 3 / F-11)' }),
         };
       }
-      const body = JSON.parse(event.body || '{}');
-      const reason = String(body.reason || '').trim();
-      const requestedDecision = String(body.decision || '').toUpperCase() as PolicyDecision;
+      let body: any;
+      try {
+        body = JSON.parse(event.body || '{}');
+      } catch (_jsonErr) {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'Validation failed: Invalid JSON request body (S-6 / S8)' }),
+        };
+      }
 
-      if (reason.length < 5) {
+      // S8 (S-6): Validate payload with OverrideSchema
+      const overrideParse = OverrideSchema.safeParse(body);
+      if (!overrideParse.success) {
         return {
           statusCode: 400,
           headers: CORS_HEADERS,
-          body: JSON.stringify({ error: 'Override reason is mandatory and must be at least 5 characters (F-11)' }),
+          body: JSON.stringify({
+            error: 'Validation failed: Invalid override payload schema (S-6 / S8)',
+            details: overrideParse.error.issues,
+          }),
         };
       }
-      if (!ORDERED_DECISIONS.includes(requestedDecision)) {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({ error: `Invalid target decision for override: '${requestedDecision}'. Must be one of: ${ORDERED_DECISIONS.join(', ')}` }),
-        };
-      }
+
+      const reason = overrideParse.data.reason.trim();
+      const requestedDecision = overrideParse.data.decision as PolicyDecision;
 
       // 1. Fetch current active routine from DECISIONS_TABLE_NAME to determine real activity intensity (S4)
       let activeIntensity: ActivityIntensity = 'moderate';
