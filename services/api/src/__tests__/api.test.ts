@@ -1456,4 +1456,80 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.date).toBe(today);
     });
   });
+
+  describe('F-20: 3 Demo Schools ID Alignment & 64 Districts Public Feed', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+      resetRateLimits();
+      jest.spyOn(docClient, 'send').mockImplementation(async () => ({} as never));
+    });
+
+    test('POST /auth/login successfully authenticates Chittagong teacher with school-chattogram-001', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/auth/login',
+          body: JSON.stringify({
+            email: 'nusrat.teacher@chs.edu.bd',
+            password: '[REDACTED_PASSWORD]',
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.user.email).toBe('nusrat.teacher@chs.edu.bd');
+      expect(body.user.school_id).toBe('school-chattogram-001');
+      expect(body.user.role).toBe('TEACHER');
+      expect(body.token).toBeDefined();
+    });
+
+    test('POST /auth/login successfully authenticates Rajshahi teacher with school-rajshahi-001', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/auth/login',
+          body: JSON.stringify({
+            email: 'tareq.teacher@rps.edu.bd',
+            password: '[REDACTED_PASSWORD]',
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.user.email).toBe('tareq.teacher@rps.edu.bd');
+      expect(body.user.school_id).toBe('school-rajshahi-001');
+      expect(body.user.role).toBe('TEACHER');
+      expect(body.token).toBeDefined();
+    });
+
+    test('GET /districts returns 64 districts public feeds from DynamoDB', async () => {
+      const mockDistricts = [
+        { school_id: 'bd-dhaka', timestamp: 'LATEST#bd-dhaka', district_name: 'Dhaka', division: 'Dhaka', readings: { aqi: 155 } },
+        { school_id: 'bd-chattogram', timestamp: 'LATEST#bd-chattogram', district_name: 'Chattogram', division: 'Chattogram', readings: { aqi: 115 } },
+        { school_id: 'bd-rajshahi', timestamp: 'LATEST#bd-rajshahi', district_name: 'Rajshahi', division: 'Rajshahi', readings: { aqi: 118 } },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return { Items: mockDistricts } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/districts',
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.totalDistricts).toBe(3);
+      expect(body.districts).toHaveLength(3);
+      expect(body.districts[0].district_name).toBe('Dhaka');
+    });
+  });
 });

@@ -301,34 +301,40 @@ export const handler = async (_event: any): Promise<any> => {
         ttl,
       };
 
-      await docClient.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: record,
-        })
-      );
-
-      // P6: Persist LATEST#<sensor_id> for primary school playground / field sensor
+      // 4. Save to DynamoDB for school and all aliases with full source provenance and multi-intensity evaluations (F-20, P3, P4)
       const fieldSensorId = provenance?.air_quality?.station_id || `${school.id}-field`;
-      await docClient.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: {
-            school_id: school.id,
-            timestamp: `LATEST#${fieldSensorId}`,
-            sensor_id: fieldSensorId,
-            location_type: 'FIELD',
-            observed_at: timestamp,
-            readings: record.readings,
-            evaluations,
-            evaluation,
-            source: primarySource,
-            is_modeled: isModeled,
-            is_online: true,
-            ttl,
-          },
-        })
-      );
+      const targetSchoolIds = [school.id, ...(school.aliases || [])];
+
+      for (const sId of targetSchoolIds) {
+        await docClient.send(
+          new PutCommand({
+            TableName: TABLE_NAME,
+            Item: { ...record, school_id: sId },
+          })
+        );
+
+        // P6: Persist LATEST#<sensor_id> for primary school playground / field sensor
+        const sensorId = sId === school.id ? fieldSensorId : `${sId}-field`;
+        await docClient.send(
+          new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+              school_id: sId,
+              timestamp: `LATEST#${sensorId}`,
+              sensor_id: sensorId,
+              location_type: 'FIELD',
+              observed_at: timestamp,
+              readings: record.readings,
+              evaluations,
+              evaluation,
+              source: primarySource,
+              is_modeled: isModeled,
+              is_online: true,
+              ttl,
+            },
+          })
+        );
+      }
 
       // 5. Send FCM push notification if decision worsens to MODIFY or MOVE_INDOORS (respecting F-06 Quiet Hours 8 PM - 6 AM BST)
       if (
@@ -348,18 +354,114 @@ export const handler = async (_event: any): Promise<any> => {
         });
       }
 
-      results.push({ schoolId: school.id, decision: evaluation.decision });
+      results.push({ schoolId: school.id, decision: evaluation.decision, aliases: school.aliases || [] });
     } catch (schoolErr) {
       console.error(`Error processing school ${school.id}:`, schoolErr);
     }
   }
 
+  // 6. Poll public feeds for all 64 district headquarters of Bangladesh (F-20)
+  const districtsPolled = await pollDistrictFeeds(BANGLADESH_64_DISTRICTS, docClient, TABLE_NAME, ttl);
+
   return {
     statusCode: 200,
     body: JSON.stringify({
       message: 'Poller finished successfully',
-      districtsSeeded: BANGLADESH_64_DISTRICTS.length,
+      demoSchoolsPolled: results.length,
+      districtsPolled,
+      totalDistricts: BANGLADESH_64_DISTRICTS.length,
       results,
     }),
   };
 };
+
+/**
+ * Poll and persist public feeds for all 64 District Headquarters of Bangladesh (F-20)
+ */
+export async function pollDistrictFeeds(
+  districts: typeof BANGLADESH_64_DISTRICTS,
+  client: any,
+  tableName: string,
+  ttl: number
+): Promise<number> {
+  const timestamp = new Date().toISOString();
+  const chunkSize = 8;
+  let polledCount = 0;
+
+  for (let i = 0; i < districts.length; i += chunkSize) {
+    const chunk = districts.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (district) => {
+        try {
+          const meteo = await fetchOpenMeteoData(district.lat, district.lon).catch(() => null);
+          const tempC = meteo && Number.isFinite(meteo.temperatureC) ? meteo.temperatureC : district.baselineHeatIndexC - 2;
+          const rhPct = meteo && Number.isFinite(meteo.relativeHumidityPct) ? meteo.relativeHumidityPct : 65;
+          const heatIndexC =
+            Number.isFinite(tempC) && Number.isFinite(rhPct)
+              ? calculateHeatIndex(tempC, rhPct)
+              : district.baselineHeatIndexC;
+          const pm25 = meteo && Number.isFinite(meteo.pm25) ? meteo.pm25 : null;
+          const aqi =
+            meteo && Number.isFinite(meteo.usAqi)
+              ? meteo.usAqi
+              : district.baselineAqi;
+
+          const evaluation = evaluatePolicy(aqi, heatIndexC, 'MODERATE', true);
+          const evaluations = {
+            LIGHT: evaluatePolicy(aqi, heatIndexC, 'LIGHT', true),
+            MODERATE: evaluation,
+            VIGOROUS: evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', true),
+          };
+
+          const districtRecord = {
+            school_id: district.id, // e.g. 'bd-dhaka', 'bd-chattogram'
+            timestamp,
+            district_id: district.id,
+            district_name: district.nameEn,
+            district_name_bn: district.nameBn,
+            division: district.division,
+            location: { lat: district.lat, lon: district.lon },
+            readings: {
+              temperature_c: Number.isFinite(tempC) ? tempC : null,
+              relative_humidity_pct: Number.isFinite(rhPct) ? rhPct : null,
+              heat_index_c: Number.isFinite(heatIndexC) ? heatIndexC : null,
+              pm25_ugm3: Number.isFinite(pm25) ? pm25 : null,
+              aqi: Number.isFinite(aqi) ? aqi : null,
+            },
+            hourly_forecast: meteo?.hourlyForecast || [],
+            evaluations,
+            evaluation,
+            source: meteo ? 'Open-Meteo (modeled)' : 'Modeled Baseline',
+            is_modeled: true,
+            is_district_feed: true,
+            ttl,
+          };
+
+          await client.send(
+            new PutCommand({
+              TableName: tableName,
+              Item: districtRecord,
+            })
+          );
+
+          // Persist LATEST#<district.id> item for single-trip query
+          await client.send(
+            new PutCommand({
+              TableName: tableName,
+              Item: {
+                ...districtRecord,
+                timestamp: `LATEST#${district.id}`,
+              },
+            })
+          );
+
+          polledCount++;
+        } catch (err) {
+          console.warn(`[District Poll Warning] Failed to poll ${district.id}:`, err);
+        }
+      })
+    );
+  }
+
+  return polledCount;
+}
