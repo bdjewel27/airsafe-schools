@@ -1,10 +1,12 @@
 /**
- * Model School Outdoor Activity Policy v1.2 Implementation
- * Strictly evaluates activity decisions based on Appendix A.
- * Config-driven thresholds loaded from policy/v1.2.json.
+ * Model School Outdoor Activity Policy Implementation
+ * Multi-version, config-driven thresholds loaded from policy configs.
+ * S9: Supports automatic activation of new versions (e.g. v1.3.json) via effective_from
+ * and dynamic registration from external sources (e.g. AWS S3) without code release.
  */
 
-import policyConfig from './policy/v1.2.json';
+import policyV12 from './policy/v1.2.json';
+import policyV13 from './policy/v1.3.json';
 
 export type ActivityIntensity = 'LIGHT' | 'MODERATE' | 'VIGOROUS';
 
@@ -23,6 +25,43 @@ export const DECISION_SEVERITY_ORDER: Record<PolicyDecision, number> = {
   UNKNOWN: 5,
 };
 
+export interface PolicyBandAQI {
+  max: number;
+  code: string;
+  defaultDecision: string;
+  vigorousDecision: string;
+  defaultMaxMinutes?: number;
+  vigorousMaxMinutes?: number;
+}
+
+export interface PolicyBandHeat {
+  max: number;
+  code: string;
+  lightDecision: string;
+  defaultDecision: string;
+  lightMaxMinutes?: number;
+  defaultMaxMinutes?: number;
+  requiresShade: boolean;
+}
+
+export interface Pm25Breakpoint {
+  cLow: number;
+  cHigh: number;
+  iLow: number;
+  iHigh: number;
+}
+
+export interface PolicyConfig {
+  version: string;
+  name: string;
+  effectiveDate: string;
+  effective_from?: string;
+  authority: string;
+  aqiBands: PolicyBandAQI[];
+  heatBands: PolicyBandHeat[];
+  pm25Breakpoints: Pm25Breakpoint[];
+}
+
 export interface DecisionEvaluationResult {
   decision: PolicyDecision;
   aqiDecision: PolicyDecision;
@@ -37,16 +76,70 @@ export interface DecisionEvaluationResult {
   hasRespiratoryCondition?: boolean;
 }
 
+// In-memory Policy Registry supporting multi-version resolution (S9)
+const POLICY_REGISTRY: Map<string, PolicyConfig> = new Map([
+  ['v1.2', policyV12 as PolicyConfig],
+  ['v1.3', policyV13 as PolicyConfig],
+]);
+
+/**
+ * Register or update a policy configuration at runtime (e.g. hydrated from S3: s3://${POLICY_S3_BUCKET}/policies/*.json)
+ * without requiring application code changes or rebuilds (S9).
+ */
+export function registerPolicyConfig(config: PolicyConfig): void {
+  if (config && config.version) {
+    POLICY_REGISTRY.set(config.version, config);
+  }
+}
+
+/**
+ * Returns all registered policy configurations.
+ */
+export function getAllPolicyConfigs(): PolicyConfig[] {
+  return Array.from(POLICY_REGISTRY.values());
+}
+
+/**
+ * Resolves the active policy configuration based on effective_from date.
+ * If targetDate is omitted, current system time (Date.now()) is used.
+ * The latest policy whose effective_from <= targetDate is returned.
+ */
+export function getActivePolicyConfig(targetDate?: Date | string | number): PolicyConfig {
+  const evalDate = targetDate ? new Date(targetDate) : new Date();
+  const evalTime = evalDate.getTime();
+
+  const sorted = getAllPolicyConfigs().sort((a, b) => {
+    const timeA = new Date(a.effective_from || a.effectiveDate).getTime();
+    const timeB = new Date(b.effective_from || b.effectiveDate).getTime();
+    return timeA - timeB;
+  });
+
+  let activePolicy = sorted[0];
+  for (const policy of sorted) {
+    const policyTime = new Date(policy.effective_from || policy.effectiveDate).getTime();
+    if (policyTime <= evalTime) {
+      activePolicy = policy;
+    }
+  }
+
+  return activePolicy;
+}
+
+// Default export preserving backward-compatibility with direct policyConfig imports
+export const policyConfig = getActivePolicyConfig();
+export default policyConfig;
+
 /**
  * US EPA PM2.5 to AQI Piecewise-Linear Interpolation (Appendix B & EPA NowCast standard)
  * Formula: Ip = ((I_high - I_low) / (BP_high - BP_low)) * (Cp - BP_low) + I_low
  */
-export function calculateAqiFromPm25(pm25: number): number {
+export function calculateAqiFromPm25(pm25: number, evaluationDate?: Date | string | number): number {
   if (!Number.isFinite(pm25) || pm25 < 0) {
     return 0;
   }
+  const config = getActivePolicyConfig(evaluationDate);
   const c = Math.round(pm25 * 10) / 10;
-  const breakpoints = (policyConfig as any).pm25Breakpoints || [
+  const breakpoints = config.pm25Breakpoints || [
     { cLow: 0.0, cHigh: 9.0, iLow: 0, iHigh: 50 },
     { cLow: 9.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
     { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
@@ -81,14 +174,15 @@ export function calculateAqiFromPm25(pm25: number): number {
 export function evaluateAQIDecision(
   aqi: number,
   intensity: ActivityIntensity,
-  hasRespiratoryCondition: boolean = false
+  hasRespiratoryCondition: boolean = false,
+  evaluationDate?: Date | string | number
 ): { decision: PolicyDecision; maxMinutes?: number; reasonCode: string } {
   if (!Number.isFinite(aqi)) {
     return { decision: 'MOVE_INDOORS', reasonCode: 'INVALID_AQI_VALUE' };
   }
 
-  // Appendix A Rule: Sensitive/asthmatic students -> treat AQI category as one tier higher
-  const bands = policyConfig.aqiBands;
+  const config = getActivePolicyConfig(evaluationDate);
+  const bands = config.aqiBands;
   let bandIndex = bands.findIndex(b => aqi <= b.max);
   if (bandIndex === -1) {
     bandIndex = bands.length - 1;
@@ -113,13 +207,15 @@ export function evaluateAQIDecision(
 
 export function evaluateHeatDecision(
   heatIndexC: number,
-  intensity: ActivityIntensity
+  intensity: ActivityIntensity,
+  evaluationDate?: Date | string | number
 ): { decision: PolicyDecision; maxMinutes?: number; requiresShade: boolean; reasonCode: string } {
   if (!Number.isFinite(heatIndexC)) {
     return { decision: 'MOVE_INDOORS', requiresShade: true, reasonCode: 'INVALID_HEAT_VALUE' };
   }
 
-  const bands = policyConfig.heatBands;
+  const config = getActivePolicyConfig(evaluationDate);
+  const bands = config.heatBands;
   let band = bands.find(b => heatIndexC < b.max);
   if (!band) {
     band = bands[bands.length - 1];
@@ -153,8 +249,11 @@ export function evaluatePolicy(
   intensity: ActivityIntensity,
   isModeled: boolean = false,
   isStale: boolean = false,
-  hasRespiratoryCondition: boolean = false
+  hasRespiratoryCondition: boolean = false,
+  evaluationDate?: Date | string | number
 ): DecisionEvaluationResult {
+  const config = getActivePolicyConfig(evaluationDate);
+
   // Input Validation Guard (P-4: fail-closed with clear reason)
   if (!Number.isFinite(aqi) || !Number.isFinite(heatIndexC)) {
     return {
@@ -166,13 +265,13 @@ export function evaluatePolicy(
       requiresShade: true,
       isStale,
       isModeled,
-      policyVersion: policyConfig.version,
+      policyVersion: config.version,
       hasRespiratoryCondition
     };
   }
 
-  const aqiResult = evaluateAQIDecision(aqi, intensity, hasRespiratoryCondition);
-  const heatResult = evaluateHeatDecision(heatIndexC, intensity);
+  const aqiResult = evaluateAQIDecision(aqi, intensity, hasRespiratoryCondition, evaluationDate);
+  const heatResult = evaluateHeatDecision(heatIndexC, intensity, evaluationDate);
 
   // Take the stricter of the two decisions (Dominance / Strictest Outcome)
   let finalDecision: PolicyDecision =
@@ -228,7 +327,7 @@ export function evaluatePolicy(
     requiresShade,
     isStale,
     isModeled,
-    policyVersion: policyConfig.version,
+    policyVersion: config.version,
     hasRespiratoryCondition
   };
 }

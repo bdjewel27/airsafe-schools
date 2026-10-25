@@ -1,4 +1,13 @@
-import { evaluatePolicy, evaluateAQIDecision, evaluateHeatDecision, calculateAqiFromPm25 } from '../policy';
+import {
+  evaluatePolicy,
+  evaluateAQIDecision,
+  evaluateHeatDecision,
+  calculateAqiFromPm25,
+  getActivePolicyConfig,
+  registerPolicyConfig,
+  getAllPolicyConfigs,
+  PolicyConfig
+} from '../policy';
 import { calculateHeatIndex } from '../heatindex';
 
 describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
@@ -170,6 +179,73 @@ describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Dri
       expect(calculateAqiFromPm25(500.4)).toBe(500);
       expect(calculateAqiFromPm25(600)).toBe(500);
       expect(calculateAqiFromPm25(NaN)).toBe(0);
+    });
+  });
+
+  describe('Finding S9: Multi-Version & Effective-From Resolution', () => {
+    test('Resolves v1.2 configuration before effective date 2026-11-01', () => {
+      const active = getActivePolicyConfig('2026-10-25');
+      expect(active.version).toBe('v1.2');
+      expect(active.effective_from).toBe('2026-10-01');
+
+      const result = evaluatePolicy(75, 28, 'MODERATE', false, false, false, '2026-10-25');
+      expect(result.policyVersion).toBe('v1.2');
+    });
+
+    test('Automatically transitions to v1.3 configuration on or after 2026-11-01', () => {
+      const active = getActivePolicyConfig('2026-11-01');
+      expect(active.version).toBe('v1.3');
+      expect(active.effective_from).toBe('2026-11-01');
+
+      const activeFuture = getActivePolicyConfig('2026-12-15');
+      expect(activeFuture.version).toBe('v1.3');
+
+      const result = evaluatePolicy(75, 28, 'MODERATE', false, false, false, '2026-11-05');
+      expect(result.policyVersion).toBe('v1.3');
+    });
+
+    test('Allows runtime hydration (e.g. from S3) without code redeployment', () => {
+      const s3HydratedPolicy: PolicyConfig = {
+        version: 'v1.4',
+        name: 'Model School Outdoor Activity Policy v1.4 (S3 Hydrated)',
+        effectiveDate: '2026-12-01',
+        effective_from: '2026-12-01',
+        authority: 'AirSafe Environmental Taskforce',
+        aqiBands: [
+          { max: 50, code: 'GOOD', defaultDecision: 'PROCEED', vigorousDecision: 'PROCEED' },
+          { max: 100, code: 'MODERATE', defaultDecision: 'PROCEED', vigorousDecision: 'PROCEED_WITH_PRECAUTIONS' },
+          { max: 150, code: 'USG', defaultDecision: 'PROCEED_WITH_PRECAUTIONS', vigorousDecision: 'MODIFY', vigorousMaxMinutes: 30 },
+          { max: 200, code: 'UNHEALTHY', defaultDecision: 'MODIFY', vigorousDecision: 'MOVE_INDOORS', defaultMaxMinutes: 30 },
+          { max: 500, code: 'HAZARDOUS', defaultDecision: 'MOVE_INDOORS', vigorousDecision: 'MOVE_INDOORS' }
+        ],
+        heatBands: [
+          { max: 27, code: 'NORMAL', lightDecision: 'PROCEED', defaultDecision: 'PROCEED', requiresShade: false },
+          { max: 32, code: 'CAUTION', lightDecision: 'PROCEED', defaultDecision: 'PROCEED_WITH_PRECAUTIONS', requiresShade: false },
+          { max: 39, code: 'EXTREME_CAUTION', lightDecision: 'PROCEED_WITH_PRECAUTIONS', defaultDecision: 'MODIFY', defaultMaxMinutes: 30, requiresShade: true },
+          { max: 51, code: 'DANGER', lightDecision: 'MODIFY', defaultDecision: 'MOVE_INDOORS', lightMaxMinutes: 30, requiresShade: true }
+        ],
+        pm25Breakpoints: [
+          { cLow: 0.0, cHigh: 9.0, iLow: 0, iHigh: 50 },
+          { cLow: 9.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+          { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+          { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+          { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+          { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+          { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 }
+        ]
+      };
+
+      registerPolicyConfig(s3HydratedPolicy);
+      const allConfigs = getAllPolicyConfigs();
+      expect(allConfigs.some(c => c.version === 'v1.4')).toBe(true);
+
+      expect(getActivePolicyConfig('2026-11-15').version).toBe('v1.3');
+
+      const activeDec = getActivePolicyConfig('2026-12-05');
+      expect(activeDec.version).toBe('v1.4');
+
+      const evalDec = evaluatePolicy(60, 26, 'LIGHT', false, false, false, '2026-12-05');
+      expect(evalDec.policyVersion).toBe('v1.4');
     });
   });
 });

@@ -4,26 +4,121 @@
   "effectiveDate": "2026-10-01",
   "authority": "AirSafe Schools Environmental Safety Protocol",
   "aqiBands": [
-    { "max": 50, "code": "AQI_BAND_0_50", "defaultDecision": "PROCEED", "vigorousDecision": "PROCEED" },
-    { "max": 100, "code": "AQI_BAND_51_100", "defaultDecision": "PROCEED", "vigorousDecision": "PROCEED_WITH_PRECAUTIONS" },
-    { "max": 150, "code": "AQI_BAND_101_150", "defaultDecision": "PROCEED_WITH_PRECAUTIONS", "vigorousDecision": "MODIFY", "vigorousMaxMinutes": 30 },
-    { "max": 200, "code": "AQI_BAND_151_200", "defaultDecision": "MODIFY", "defaultMaxMinutes": 15, "vigorousDecision": "MOVE_INDOORS" },
-    { "max": 999, "code": "AQI_BAND_201_PLUS", "defaultDecision": "MOVE_INDOORS", "vigorousDecision": "MOVE_INDOORS" }
+    {
+      "max": 50,
+      "code": "AQI_BAND_0_50",
+      "defaultDecision": "PROCEED",
+      "vigorousDecision": "PROCEED"
+    },
+    {
+      "max": 100,
+      "code": "AQI_BAND_51_100",
+      "defaultDecision": "PROCEED",
+      "vigorousDecision": "PROCEED_WITH_PRECAUTIONS"
+    },
+    {
+      "max": 150,
+      "code": "AQI_BAND_101_150",
+      "defaultDecision": "PROCEED_WITH_PRECAUTIONS",
+      "vigorousDecision": "MODIFY",
+      "vigorousMaxMinutes": 30
+    },
+    {
+      "max": 200,
+      "code": "AQI_BAND_151_200",
+      "defaultDecision": "MODIFY",
+      "defaultMaxMinutes": 15,
+      "vigorousDecision": "MOVE_INDOORS"
+    },
+    {
+      "max": 999,
+      "code": "AQI_BAND_201_PLUS",
+      "defaultDecision": "MOVE_INDOORS",
+      "vigorousDecision": "MOVE_INDOORS"
+    }
   ],
   "heatBands": [
-    { "max": 27, "code": "HEAT_UNDER_27", "lightDecision": "PROCEED", "defaultDecision": "PROCEED", "requiresShade": false },
-    { "max": 32, "code": "HEAT_27_32", "lightDecision": "PROCEED", "defaultDecision": "PROCEED_WITH_PRECAUTIONS", "requiresShade": false },
-    { "max": 39, "code": "HEAT_32_39", "lightDecision": "PROCEED_WITH_PRECAUTIONS", "defaultDecision": "MODIFY", "defaultMaxMinutes": 30, "requiresShade": true },
-    { "max": 51, "code": "HEAT_39_51", "lightDecision": "MODIFY", "lightMaxMinutes": 15, "defaultDecision": "MOVE_INDOORS", "requiresShade": true },
-    { "max": 999, "code": "HEAT_51_PLUS", "lightDecision": "MOVE_INDOORS", "defaultDecision": "MOVE_INDOORS", "requiresShade": true }
+    {
+      "max": 27,
+      "code": "HEAT_UNDER_27",
+      "lightDecision": "PROCEED",
+      "defaultDecision": "PROCEED",
+      "requiresShade": false
+    },
+    {
+      "max": 32,
+      "code": "HEAT_27_32",
+      "lightDecision": "PROCEED",
+      "defaultDecision": "PROCEED_WITH_PRECAUTIONS",
+      "requiresShade": false
+    },
+    {
+      "max": 39,
+      "code": "HEAT_32_39",
+      "lightDecision": "PROCEED_WITH_PRECAUTIONS",
+      "defaultDecision": "MODIFY",
+      "defaultMaxMinutes": 30,
+      "requiresShade": true
+    },
+    {
+      "max": 51,
+      "code": "HEAT_39_51",
+      "lightDecision": "MODIFY",
+      "lightMaxMinutes": 15,
+      "defaultDecision": "MOVE_INDOORS",
+      "requiresShade": true
+    },
+    {
+      "max": 999,
+      "code": "HEAT_51_PLUS",
+      "lightDecision": "MOVE_INDOORS",
+      "defaultDecision": "MOVE_INDOORS",
+      "requiresShade": true
+    }
   ],
   "pm25Breakpoints": [
-    { "cLow": 0.0, "cHigh": 9.0, "iLow": 0, "iHigh": 50 },
-    { "cLow": 9.1, "cHigh": 35.4, "iLow": 51, "iHigh": 100 },
-    { "cLow": 35.5, "cHigh": 55.4, "iLow": 101, "iHigh": 150 },
-    { "cLow": 55.5, "cHigh": 150.4, "iLow": 151, "iHigh": 200 },
-    { "cLow": 150.5, "cHigh": 250.4, "iLow": 201, "iHigh": 300 },
-    { "cLow": 250.5, "cHigh": 350.4, "iLow": 301, "iHigh": 400 },
-    { "cLow": 350.5, "cHigh": 500.4, "iLow": 401, "iHigh": 500 }
-  ]
+    {
+      "cLow": 0.0,
+      "cHigh": 9.0,
+      "iLow": 0,
+      "iHigh": 50
+    },
+    {
+      "cLow": 9.1,
+      "cHigh": 35.4,
+      "iLow": 51,
+      "iHigh": 100
+    },
+    {
+      "cLow": 35.5,
+      "cHigh": 55.4,
+      "iLow": 101,
+      "iHigh": 150
+    },
+    {
+      "cLow": 55.5,
+      "cHigh": 150.4,
+      "iLow": 151,
+      "iHigh": 200
+    },
+    {
+      "cLow": 150.5,
+      "cHigh": 250.4,
+      "iLow": 201,
+      "iHigh": 300
+    },
+    {
+      "cLow": 250.5,
+      "cHigh": 350.4,
+      "iLow": 301,
+      "iHigh": 400
+    },
+    {
+      "cLow": 350.5,
+      "cHigh": 500.4,
+      "iLow": 401,
+      "iHigh": 500
+    }
+  ],
+  "effective_from": "2026-10-01"
 }
