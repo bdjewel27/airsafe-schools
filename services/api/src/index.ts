@@ -460,9 +460,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       // Rate Limiting Protection (Hard Gate 3 & Section 08/09 DynamoDB-backed)
       const rateLimitKey = `login:${email}`;
-      const isEvaluationAccount = email === 'fatema.teacher@dms.edu.bd' || email === 'nusrat.teacher@chs.edu.bd' || email === 'rafiq.principal@dms.edu.bd';
-      const rateLimitMax = isEvaluationAccount ? 100 : 5;
-      const isAllowed = await checkRateLimitDynamo(rateLimitKey, rateLimitMax);
+      const isAllowed = await checkRateLimitDynamo(rateLimitKey, 5);
       if (!isAllowed) {
         return {
           statusCode: 429,
@@ -589,22 +587,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         console.error('Error fetching staff from DynamoDB:', dbErr);
       }
 
-      const isSeededDemo = staff && (
-        staff.email === 'fatema.teacher@dms.edu.bd' ||
-        staff.email === 'nusrat.teacher@chs.edu.bd' ||
-        staff.email === 'rafiq.principal@dms.edu.bd'
-      );
       const isPasswordValid = Boolean(
-        staff && password && (
-          verifyPassword(password, staff.passwordHash) ||
-          (isSeededDemo && (
-            password === '[REDACTED_PASSWORD]' ||
-            password === '[REDACTED_PASSWORD]' ||
-            password === '[REDACTED_PASSWORD]' ||
-            password.toLowerCase() === '[REDACTED_PASSWORD]' ||
-            password.toLowerCase() === '[REDACTED_PASSWORD]'
-          ))
-        )
+        staff && password && verifyPassword(password, staff.passwordHash)
       );
 
       if (!staff || !password || !isPasswordValid) {
