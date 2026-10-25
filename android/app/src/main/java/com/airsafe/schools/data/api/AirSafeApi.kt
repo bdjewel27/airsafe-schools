@@ -40,6 +40,14 @@ interface AirSafeApiService {
         @Path("schoolId") schoolId: String
     ): AnalyticsResponseDto
 
+    @GET("schools/{schoolId}/trends")
+    suspend fun getTrends(
+        @Path("schoolId") schoolId: String,
+        @Query("range") range: String = "24h",
+        @Query("site_id") siteId: String? = null,
+        @Query("compare_site_id") compareSiteId: String? = null
+    ): TrendsResponseDto
+
     @POST("schools/{schoolId}/routines")
     suspend fun updateRoutine(
         @Path("schoolId") schoolId: String,
