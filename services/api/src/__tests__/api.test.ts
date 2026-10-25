@@ -163,14 +163,14 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     );
     expect(schemaFailRes.statusCode).toBe(400);
 
-    // Rate limiting: 5 attempts max
+    // Rate limiting: strictly 5 attempts max for all accounts (including fatema.teacher@dms.edu.bd)
     resetRateLimits();
     for (let i = 0; i < 5; i++) {
       await handler(
         makeEvent({
           httpMethod: 'POST',
           path: '/auth/login',
-          body: JSON.stringify({ email: 'spam@dms.edu.bd', password: 'Password123!' }),
+          body: JSON.stringify({ email: 'fatema.teacher@dms.edu.bd', password: 'WrongPassword!' }),
         })
       );
     }
@@ -178,7 +178,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       makeEvent({
         httpMethod: 'POST',
         path: '/auth/login',
-        body: JSON.stringify({ email: 'spam@dms.edu.bd', password: 'Password123!' }),
+        body: JSON.stringify({ email: 'fatema.teacher@dms.edu.bd', password: 'WrongPassword!' }),
       })
     );
     expect(rateLimitRes.statusCode).toBe(429);
