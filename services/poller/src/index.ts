@@ -86,7 +86,21 @@ export const handler = async (_event: any): Promise<any> => {
       const isModeled = !hasMeasured;
 
       // 3. Evaluate Policy v1.2 (returns UNKNOWN if aqi or heatIndexC is NaN)
-      const evaluation = evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', isModeled);
+      // P2: Policy Rule 2 - Consider upcoming worst-case environmental forecast
+      let evalAqi = aqi;
+      let evalHeatIndex = heatIndexC;
+      if (meteo?.hourlyForecast && meteo.hourlyForecast.length > 0) {
+        const nowMs = Date.now();
+        const nextHours = meteo.hourlyForecast.filter(pt => {
+          const t = new Date(pt.time).getTime();
+          return t >= nowMs && t <= nowMs + 2 * 60 * 60 * 1000;
+        });
+        for (const pt of nextHours) {
+          if (typeof pt.usAqi === 'number' && pt.usAqi > evalAqi) evalAqi = pt.usAqi;
+          if (typeof pt.heatIndexC === 'number' && pt.heatIndexC > evalHeatIndex) evalHeatIndex = pt.heatIndexC;
+        }
+      }
+      const evaluation = evaluatePolicy(evalAqi, evalHeatIndex, 'VIGOROUS', isModeled);
 
       const timestamp = new Date().toISOString();
 
@@ -103,6 +117,7 @@ export const handler = async (_event: any): Promise<any> => {
           pm25_ugm3: Number.isFinite(pm25) ? pm25 : null,
           aqi: Number.isFinite(aqi) ? aqi : null,
         },
+        hourly_forecast: meteo?.hourlyForecast || [],
         evaluation,
         source: hasMeasured ? 'OpenAQ (measured)' : hasMeteo ? 'Open-Meteo (modeled)' : 'Unavailable',
         is_modeled: isModeled,
