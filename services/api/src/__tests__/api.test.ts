@@ -5,6 +5,7 @@ import {
   handler,
   createSignedJwt,
   evaluatePolicyFloor,
+  getWorstCaseConditionsForActivity,
   docClient,
   APIGatewayProxyEvent,
   getJwtSecret,
@@ -829,6 +830,93 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       );
       expect(resOverride.statusCode).toBe(400);
       expect(JSON.parse(resOverride.body).error).toContain('Invalid JSON');
+    });
+  });
+
+  describe('P2: Policy Rule 2 - Worst-Case Environmental Forecast Evaluation', () => {
+    test('Resolves peak AQI and Heat Index when forecast worsens during activity window', () => {
+      const now = new Date();
+      const forecastInWindow = new Date(now.getTime() + 20 * 60 * 1000).toISOString();
+      const forecastLater = new Date(now.getTime() + 180 * 60 * 1000).toISOString();
+
+      const worst = getWorstCaseConditionsForActivity({
+        currentAqi: 45,
+        currentHeatIndexC: 25,
+        durationMinutes: 45,
+        hourlyForecast: [
+          {
+            time: forecastInWindow,
+            usAqi: 155, // Spikes to UNHEALTHY during activity
+            heatIndexC: 38.5, // Spikes to EXTREME CAUTION during activity
+          },
+          {
+            time: forecastLater,
+            usAqi: 250, // Much worse, but 3 hours later (outside activity window)
+            heatIndexC: 45,
+          },
+        ],
+        startTime: now,
+      });
+
+      expect(worst.worstAqi).toBe(155);
+      expect(worst.worstHeatIndexC).toBe(38.5);
+      expect(worst.isForecastWorse).toBe(true);
+      expect(worst.forecastPeakReason).toContain('155');
+      expect(worst.forecastPeakReason).toContain('38.5');
+
+      // Policy decision using worst-case forecast should enforce stricter decision (MOVE_INDOORS for vigorous)
+      const currentOnlyEval = evaluatePolicyFloor({ heatIndexC: 25, aqi: 45, intensity: 'VIGOROUS' });
+      expect(currentOnlyEval.decision).toBe('PROCEED');
+
+      const worstCaseEval = evaluatePolicyFloor({ heatIndexC: worst.worstHeatIndexC, aqi: worst.worstAqi, intensity: 'VIGOROUS' });
+      expect(worstCaseEval.decision).toBe('MOVE_INDOORS');
+    });
+
+    test('Retains current readings when forecast conditions are milder or equal', () => {
+      const now = new Date();
+      const forecastTime = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+
+      const worst = getWorstCaseConditionsForActivity({
+        currentAqi: 120,
+        currentHeatIndexC: 35,
+        durationMinutes: 30,
+        hourlyForecast: [
+          {
+            time: forecastTime,
+            usAqi: 60, // Cleaner in forecast
+            heatIndexC: 29, // Cooler in forecast
+          },
+        ],
+        startTime: now,
+      });
+
+      expect(worst.worstAqi).toBe(120);
+      expect(worst.worstHeatIndexC).toBe(35);
+      expect(worst.isForecastWorse).toBe(false);
+    });
+
+    test('Ignores forecast points outside the scheduled activity window', () => {
+      const now = new Date();
+      // Forecast spike is 4 hours into future, whereas activity is only 30 minutes
+      const futureSpikeTime = new Date(now.getTime() + 240 * 60 * 1000).toISOString();
+
+      const worst = getWorstCaseConditionsForActivity({
+        currentAqi: 40,
+        currentHeatIndexC: 25,
+        durationMinutes: 30,
+        hourlyForecast: [
+          {
+            time: futureSpikeTime,
+            usAqi: 220,
+            heatIndexC: 42,
+          },
+        ],
+        startTime: now,
+      });
+
+      expect(worst.worstAqi).toBe(40);
+      expect(worst.worstHeatIndexC).toBe(25);
+      expect(worst.isForecastWorse).toBe(false);
     });
   });
 });
