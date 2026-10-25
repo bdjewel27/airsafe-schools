@@ -195,7 +195,9 @@ data class AssistantChatResponse(
     @SerializedName("answer") val answer: String,
     @SerializedName("citation_id") val citationId: String? = null,
     @SerializedName("citation_excerpt") val citationExcerpt: String? = null,
-    @SerializedName("doc_id") val docId: String? = null
+    @SerializedName("doc_id") val docId: String? = null,
+    @SerializedName(value = "suggested_follow_ups", alternate = ["suggestedFollowUps", "follow_ups", "followUps"]) val suggestedFollowUps: List<String> = emptyList(),
+    @SerializedName(value = "used_bedrock_model", alternate = ["usedBedrockModel"]) val usedBedrockModel: String? = null
 )
 
 sealed class DecisionUiState {

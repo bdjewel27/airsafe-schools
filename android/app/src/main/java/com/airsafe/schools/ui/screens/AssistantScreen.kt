@@ -37,6 +37,7 @@ fun AssistantScreen(
     var responseAnswer by remember { mutableStateOf<String?>(null) }
     var activeCitation by remember { mutableStateOf<PolicyCitation?>(null) }
     var showCitationDialog by remember { mutableStateOf(false) }
+    var followUpSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -196,36 +197,67 @@ fun AssistantScreen(
 
         // Question Input Field with Quick Suggestions
         Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AssistChip(
-                    onClick = {
-                        queryText = if (isBengali) "আজ কি পিই ক্লাস বাইরে নেওয়া যাবে?" else "Can we hold PE class outside today?"
-                    },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
-                    label = {
-                        Text(
-                            text = if (isBengali) "পিই ক্লাস কি বাইরে হবে?" else "Can PE be outside?",
-                            fontSize = 11.sp
+            // Follow-up Suggestions (A-1, A-3) or Default Quick Prompts
+            if (followUpSuggestions.isNotEmpty() && !isThinking) {
+                Text(
+                    text = if (isBengali) "প্রস্তাবিত পরবর্তী প্রশ্ন (Follow-up):" else "Suggested Follow-ups:",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    followUpSuggestions.take(2).forEach { suggestion ->
+                        AssistChip(
+                            onClick = { queryText = suggestion },
+                            modifier = Modifier.defaultMinSize(minHeight = 44.dp),
+                            label = {
+                                Text(
+                                    text = suggestion,
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
                         )
                     }
-                )
-                AssistChip(
-                    onClick = {
-                        queryText = if (isBengali) "হিট ইনডেক্স কত হলে বাইরে যাওয়া নিষেধ?" else "At what heat index must we move indoors?"
-                    },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp),
-                    label = {
-                        Text(
-                            text = if (isBengali) "হিট ইনডেক্স নিয়মাবলী" else "Heat Index Rules",
-                            fontSize = 11.sp
-                        )
-                    }
-                )
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AssistChip(
+                        onClick = {
+                            queryText = if (isBengali) "আজ কি পিই ক্লাস বাইরে নেওয়া যাবে?" else "Can we hold PE class outside today?"
+                        },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                        label = {
+                            Text(
+                                text = if (isBengali) "পিই ক্লাস কি বাইরে হবে?" else "Can PE be outside?",
+                                fontSize = 11.sp
+                            )
+                        }
+                    )
+                    AssistChip(
+                        onClick = {
+                            queryText = if (isBengali) "হিট ইনডেক্স কত হলে বাইরে যাওয়া নিষেধ?" else "At what heat index must we move indoors?"
+                        },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                        label = {
+                            Text(
+                                text = if (isBengali) "হিট ইনডেক্স নিয়মাবলী" else "Heat Index Rules",
+                                fontSize = 11.sp
+                            )
+                        }
+                    )
+                }
             }
 
             Row(
@@ -270,7 +302,7 @@ fun AssistantScreen(
                                         schoolId,
                                         AssistantChatRequest(query = userQ, isBengali = isBengali)
                                     )
-                                    responseAnswer = apiResp.answer
+                                    val fullText = apiResp.answer
                                     activeCitation = PolicyCitation(
                                         policyTitleBn = apiResp.citationId ?: "Model School Outdoor Activity Policy v1.2",
                                         policyTitleEn = apiResp.citationId ?: "Model School Outdoor Activity Policy v1.2",
@@ -278,8 +310,19 @@ fun AssistantScreen(
                                         sectionTextEn = apiResp.citationExcerpt ?: "Policy v1.2 deterministic threshold rules.",
                                         version = "${apiResp.docId ?: "airsafe-policy-v1.2"} (v1.2)"
                                     )
+                                    followUpSuggestions = apiResp.suggestedFollowUps ?: emptyList()
                                     isThinking = false
                                     thinkingStep = null
+
+                                    // Real-time progressive streaming animation effect
+                                    responseAnswer = ""
+                                    val stepSize = 4
+                                    for (i in 0 until fullText.length step stepSize) {
+                                        val end = (i + stepSize).coerceAtMost(fullText.length)
+                                        responseAnswer = fullText.substring(0, end)
+                                        kotlinx.coroutines.delay(10)
+                                    }
+                                    responseAnswer = fullText
                                     return@launch
                                 } catch (_: Exception) {
                                     // Fallback to deterministic local MCP + Policy v1.2 grounding (never fabricates numbers)

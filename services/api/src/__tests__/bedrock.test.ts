@@ -1,4 +1,11 @@
-import { BEDROCK_TOOL_CONFIG, buildAssistantSystemPrompt, routeUserQuery } from '../bedrock';
+import {
+  BEDROCK_TOOL_CONFIG,
+  buildAssistantSystemPrompt,
+  routeUserQuery,
+  generateFollowUpSuggestions,
+  buildContextualAnswer,
+  executeBedrockAssistant,
+} from '../bedrock';
 
 describe('F-05: Bedrock ConverseStream + MCP Tool Calling & Query Routing', () => {
   test('Bedrock tool configuration defines valid get_school_decision and get_outdoor_policy tool specs', () => {
@@ -35,5 +42,75 @@ describe('F-05: Bedrock ConverseStream + MCP Tool Calling & Query Routing', () =
     const promptEn = buildAssistantSystemPrompt('ঢাকা মডেল স্কুল', 'Dhaka Model School', false);
     expect(promptEn).toContain('Dhaka Model School');
     expect(promptEn).toContain('Policy v1.2');
+  });
+
+  test('generateFollowUpSuggestions returns contextual follow-up questions for topics', () => {
+    const heatFollowUpsBn = generateFollowUpSuggestions('HEAT', 'MODIFY', true);
+    expect(heatFollowUpsBn.length).toBeGreaterThanOrEqual(2);
+    expect(heatFollowUpsBn[0]).toContain('পানি পান');
+
+    const aqiFollowUpsEn = generateFollowUpSuggestions('AQI', 'MOVE_INDOORS', false);
+    expect(aqiFollowUpsEn.length).toBeGreaterThanOrEqual(2);
+    expect(aqiFollowUpsEn[0]).toContain('asthma');
+  });
+
+  test('buildContextualAnswer produces specific non-template answer addressing query context', () => {
+    const answer = buildContextualAnswer({
+      query: 'আজকে কি ক্রিকেট বা পিই ক্লাস মাঠে নেওয়া যাবে?',
+      schoolNameBn: 'ঢাকা মডেল স্কুল',
+      schoolNameEn: 'Dhaka Model School',
+      isBengali: true,
+      decision: 'MOVE_INDOORS',
+      policyFloorDecision: 'MOVE_INDOORS',
+      heatIndexC: 40.5,
+      aqi: 165,
+      activeIntensity: 'vigorous',
+      routineNameBn: 'পিই ফুটবল ড্রিল',
+      routineNameEn: 'PE Football Drill',
+      nextActivityBn: 'বিজ্ঞান মেলা',
+      nextActivityEn: 'Science Fair',
+      hasRespiratoryCondition: false,
+      isStale: false,
+      activeOverride: null,
+      primaryReason: 'হিট ইনডেক্স ৪০.৫°C বিপদজনক সীমার উপরে',
+      maxDurationMinutes: 0,
+      requiresShade: true,
+    });
+
+    expect(answer).toContain('পিই ফুটবল ড্রিল');
+    expect(answer).toContain('MOVE_INDOORS');
+    expect(answer).toContain('ইনডোরে স্থানান্তর করতে হবে');
+    expect(answer).toContain('বিজ্ঞান মেলা');
+  });
+
+  test('executeBedrockAssistant returns grounded response with follow-up suggestions', async () => {
+    const res = await executeBedrockAssistant({
+      query: 'Can students go outside for light PE?',
+      schoolId: 'school-dhaka-001',
+      schoolNameBn: 'ঢাকা মডেল স্কুল',
+      schoolNameEn: 'Dhaka Model School',
+      isBengali: false,
+      decision: 'MODIFY',
+      policyFloorDecision: 'MODIFY',
+      heatIndexC: 34.0,
+      aqi: 95,
+      activeIntensity: 'light',
+      routineNameBn: 'পিই ড্রিল',
+      routineNameEn: 'PE Drill',
+      nextActivityBn: null,
+      nextActivityEn: null,
+      hasRespiratoryCondition: false,
+      isStale: false,
+      activeOverride: null,
+      primaryReason: 'Heat Index 34°C requires shaded modification',
+      maxDurationMinutes: 30,
+      requiresShade: true,
+    });
+
+    expect(res.decision).toBe('MODIFY');
+    expect(res.suggestedFollowUps).toBeDefined();
+    expect(res.suggestedFollowUps?.length).toBeGreaterThanOrEqual(2);
+    expect(res.citationId).toBe('Model School Outdoor Activity Policy v1.2, §1–§4');
+    expect(res.usedBedrockModel).toBeDefined();
   });
 });
