@@ -203,6 +203,7 @@ export function mintMcpTokenForChat(schoolId: string, role: string = 'TEACHER'):
 }
 
 import policyConfig from './policy/v1.2.json';
+import { executeBedrockAssistant } from './bedrock';
 import {
   evaluatePolicy,
   PolicyDecision as SharedPolicyDecision,
@@ -2776,35 +2777,76 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       }
 
-      const overrideNote = isOverrideValid ? ` [ওভাররাইড কার্যকর: ${activeOverride.requested_decision}]` : '';
-      const overrideNoteEn = isOverrideValid ? ` [Active Override: ${activeOverride.requested_decision}]` : '';
-      const respNote = hasRespiratoryCondition ? ' (শ্বাসকষ্ট/অ্যাজমা নোট সক্রিয় — নিরাপত্তা স্তর ১ ধাপ বাড়ানো হয়েছে)' : '';
-      const respNoteEn = hasRespiratoryCondition ? ' (Respiratory condition active: stepped up 1 tier)' : '';
-      const staleNote = isStale ? ' (সতর্কতা: ডেটা ৯০ মিনিটের বেশি পুরোনো)' : '';
-      const staleNoteEn = isStale ? ' (Warning: Telemetry is older than 90m)' : '';
+      // Bedrock / Grounded Assistant Execution with Dynamic Follow-up Suggestions (F-05, A-1, A-3)
+      const assistantResp = await executeBedrockAssistant({
+        query,
+        schoolId,
+        schoolNameBn: auth.schoolNameBn,
+        schoolNameEn: auth.schoolNameEn,
+        isBengali,
+        decision: finalDecision,
+        policyFloorDecision: evalResult.decision,
+        heatIndexC: hi,
+        aqi,
+        activeIntensity,
+        routineNameBn,
+        routineNameEn,
+        nextActivityBn,
+        nextActivityEn,
+        hasRespiratoryCondition,
+        isStale,
+        activeOverride: isOverrideValid ? activeOverride : null,
+        primaryReason: evalResult.reasons[0],
+        maxDurationMinutes: evalResult.maxDurationMinutes,
+        requiresShade: evalResult.requiresShade,
+      });
 
-      const routinePartBn = routineNameBn
-        ? `সক্রিয় রুটিন: ${routineNameBn} (তীব্রতা: ${activeIntensity})`
-        : 'কোনো সক্রিয় রুটিন নির্ধারিত নেই';
-      const routinePartEn = routineNameEn
-        ? `Active Routine: ${routineNameEn} (intensity: ${activeIntensity})`
-        : 'No active routine scheduled';
-      const nextPartBn = nextActivityBn ? `। পরবর্তী সেশন: ${nextActivityBn}` : '';
-      const nextPartEn = nextActivityEn ? `. Next session: ${nextActivityEn}` : '';
+      const isSse =
+        body.stream === true ||
+        (event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream');
 
-      const answer = isBengali
-        ? `আপনার স্কুলের (${auth.schoolNameBn}) সর্বশেষ যাচাইকৃত রিডিং অনুযায়ী হিট ইনডেক্স ${hi}°C এবং AQI ${aqi}। ${routinePartBn}${nextPartBn}${respNote}${staleNote}। Model School Outdoor Activity Policy v1.2 অনুসারে বর্তমান সিদ্ধান্ত হলো **${finalDecision}**${overrideNote} (${evalResult.reasons[0]})। নির্ধারিত সময়সীমা: ${evalResult.maxDurationMinutes ?? 0} মিনিট।`
-        : `Based on the latest verified reading for ${auth.schoolNameEn}, Heat Index is ${hi}°C and AQI is ${aqi}. ${routinePartEn}${nextPartEn}${respNoteEn}${staleNoteEn}. Per Model School Outdoor Activity Policy v1.2, the mandatory decision is **${finalDecision}**${overrideNoteEn} (${evalResult.reasons[0]}). Max outdoor duration: ${evalResult.maxDurationMinutes ?? 0} minutes.`;
+      if (isSse) {
+        // Stream tokens in chunked SSE format for real-time progressive typing (F-05)
+        const words = assistantResp.answer.split(' ');
+        let sseBody = '';
+        for (let i = 0; i < words.length; i += 3) {
+          const chunk = words.slice(i, i + 3).join(' ') + (i + 3 < words.length ? ' ' : '');
+          sseBody += `event: token\ndata: ${JSON.stringify({ delta: chunk })}\n\n`;
+        }
+        sseBody += `event: completion\ndata: ${JSON.stringify({
+          answer: assistantResp.answer,
+          decision: assistantResp.decision,
+          policy_floor_decision: assistantResp.policyFloorDecision,
+          heat_index_c: assistantResp.heatIndexC,
+          aqi: assistantResp.aqi,
+          citation_id: assistantResp.citationId,
+          citation_excerpt: assistantResp.citationExcerpt,
+          doc_id: assistantResp.docId,
+          suggested_follow_ups: assistantResp.suggestedFollowUps,
+          used_bedrock_model: assistantResp.usedBedrockModel,
+        })}\n\n`;
+
+        return {
+          statusCode: 200,
+          headers: {
+            ...getCorsHeaders(event),
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+          body: sseBody,
+        };
+      }
 
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
         body: JSON.stringify({
-          answer,
-          decision: finalDecision,
-          policy_floor_decision: evalResult.decision,
-          heat_index_c: hi,
-          aqi,
+          answer: assistantResp.answer,
+          decision: assistantResp.decision,
+          policy_floor_decision: assistantResp.policyFloorDecision,
+          heat_index_c: assistantResp.heatIndexC,
+          aqi: assistantResp.aqi,
           routine_intensity: routineNameBn ? activeIntensity : null,
           current_activity_bn: routineNameBn,
           activities: evaluatedActs.activities,
@@ -2815,10 +2857,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           next_activity_en: nextActivityEn,
           has_respiratory_condition: hasRespiratoryCondition,
           is_stale: isStale,
-          citation_id: 'Model School Outdoor Activity Policy v1.2, §1–§4',
-          citation_excerpt:
-            'Outdoor activity decisions strictly bound by deterministic Policy v1.2 safety floors; AI cannot relax safety limits.',
-          doc_id: 'airsafe-policy-v1.2',
+          citation_id: assistantResp.citationId,
+          citation_excerpt: assistantResp.citationExcerpt,
+          doc_id: assistantResp.docId,
+          suggested_follow_ups: assistantResp.suggestedFollowUps,
+          used_bedrock_model: assistantResp.usedBedrockModel,
         }),
       };
     }
