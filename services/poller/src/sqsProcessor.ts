@@ -55,6 +55,7 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
 
       const evaluation = evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', false);
       const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+      const fetchedAt = new Date().toISOString();
 
       await docClient.send(
         new PutCommand({
@@ -69,6 +70,25 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
               heat_index_c: heatIndexC,
               pm25_ugm3: pm25,
               aqi,
+            },
+            provenance: {
+              fetched_at: fetchedAt,
+              air_quality: {
+                source: 'Campus IoT Sensor (measured)',
+                is_modeled: false,
+                observed_at: ts,
+                fetched_at: fetchedAt,
+                station_id: sensor_id,
+                values: { pm25_ugm3: pm25, aqi },
+              },
+              weather: {
+                source: 'Campus IoT Sensor (measured)',
+                is_modeled: false,
+                observed_at: ts,
+                fetched_at: fetchedAt,
+                station_id: sensor_id,
+                values: { temperature_c: tempC, relative_humidity_pct: rhPct, heat_index_c: heatIndexC },
+              },
             },
             evaluation,
             source: 'Simulator Sensor Telemetry (SQS)',

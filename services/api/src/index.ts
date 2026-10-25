@@ -1741,6 +1741,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         requires_shade: policyEval.requiresShade,
         is_stale: isStale,
         is_modeled: isModeled,
+        provenance: latestItem.provenance || null,
         hourly_forecast: latestItem.hourly_forecast || [],
         last_updated: latestItem.timestamp || null,
         current_activity_bn: currentActivityBn,
