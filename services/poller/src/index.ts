@@ -4,7 +4,7 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { fetchOpenAQReadings } from './openaq';
 import { fetchOpenMeteoData } from './openmeteo';
 import { calculateHeatIndex } from './heatindex';
-import { evaluatePolicy } from './policy';
+import { evaluatePolicy, calculateAqiFromPm25 } from './policy';
 import { initializeFirebase, sendSchoolAlertPushNotification } from './fcm';
 import { DEMO_SCHOOLS, BANGLADESH_64_DISTRICTS } from './districts';
 
@@ -80,7 +80,9 @@ export const handler = async (_event: any): Promise<any> => {
       const rhPct = hasMeteo ? meteo!.relativeHumidityPct : NaN;
       const heatIndexC = Number.isFinite(tempC) && Number.isFinite(rhPct) ? calculateHeatIndex(tempC, rhPct) : NaN;
       const pm25 = hasMeasured ? openAqReadings[0].pm25 : (hasMeteo ? meteo!.pm25 : NaN);
-      const aqi = hasMeteo && typeof meteo!.usAqi === 'number' ? meteo!.usAqi : NaN;
+      const aqi = hasMeteo && typeof meteo!.usAqi === 'number'
+        ? meteo!.usAqi
+        : (Number.isFinite(pm25) ? calculateAqiFromPm25(pm25) : NaN);
       const isModeled = !hasMeasured;
 
       // 3. Evaluate Policy v1.2 (returns UNKNOWN if aqi or heatIndexC is NaN)
