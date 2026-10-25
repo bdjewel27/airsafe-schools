@@ -9,6 +9,7 @@ import {
   PolicyConfig
 } from '../policy';
 import { calculateHeatIndex } from '../heatindex';
+import { resolveTelemetryWithProvenance } from '../index';
 
 describe('Model School Outdoor Activity Policy v1.2 Tests', () => {
   describe('AQI Boundaries (US AQI)', () => {
@@ -246,6 +247,84 @@ describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Dri
 
       const evalDec = evaluatePolicy(60, 26, 'LIGHT', false, false, false, '2026-12-05');
       expect(evalDec.policyVersion).toBe('v1.4');
+    });
+  });
+
+  describe('Finding P3: Policy Rule 3 - Measured vs Modeled Priority & Source Provenance', () => {
+    test('Prioritizes measured OpenAQ PM2.5 to calculate AQI over Open-Meteo modeled AQI and preserves separate provenance', () => {
+      const fetchedAt = '2026-10-25T18:00:00.000Z';
+      const resolved = resolveTelemetryWithProvenance({
+        openAqReadings: [
+          {
+            sensorId: 'openaq-8118',
+            locationId: 8118,
+            locationName: 'US Diplomatic Post: Dhaka',
+            pm25: 58.2, // EPA AQI = 152 (UNHEALTHY)
+            timestamp: '2026-10-25T17:45:00.000Z',
+            isModeled: false,
+          },
+        ],
+        meteo: {
+          temperatureC: 31.0,
+          relativeHumidityPct: 68,
+          apparentTemperatureC: 35.2,
+          pm25: 22.0,
+          usAqi: 65, // Modeled AQI is only 65 (MODERATE)
+          timestamp: '2026-10-25T17:50:00.000Z',
+          isModeled: true,
+        },
+        fetchedAt,
+      });
+
+      // Must compute AQI strictly from measured OpenAQ PM2.5 (58.2 -> 152), NOT Open-Meteo's 65
+      expect(resolved.pm25).toBe(58.2);
+      expect(resolved.aqi).toBe(152);
+      expect(resolved.airQualityIsModeled).toBe(false);
+      expect(resolved.weatherIsModeled).toBe(true);
+      expect(resolved.isModeled).toBe(false);
+
+      // Verify structured provenance for air quality (measured) vs weather (modeled)
+      expect(resolved.provenance.air_quality.source).toBe('OpenAQ (measured)');
+      expect(resolved.provenance.air_quality.is_modeled).toBe(false);
+      expect(resolved.provenance.air_quality.observed_at).toBe('2026-10-25T17:45:00.000Z');
+      expect(resolved.provenance.air_quality.fetched_at).toBe(fetchedAt);
+      expect(resolved.provenance.air_quality.values.aqi).toBe(152);
+
+      expect(resolved.provenance.weather.source).toBe('Open-Meteo (modeled)');
+      expect(resolved.provenance.weather.is_modeled).toBe(true);
+      expect(resolved.provenance.weather.observed_at).toBe('2026-10-25T17:50:00.000Z');
+
+      // Verify both raw sources are retained separately
+      expect(resolved.provenance.sources_raw.openaq_measured?.aqi).toBe(152);
+      expect(resolved.provenance.sources_raw.openaq_measured?.is_modeled).toBe(false);
+      expect(resolved.provenance.sources_raw.open_meteo_modeled?.aqi).toBe(65);
+      expect(resolved.provenance.sources_raw.open_meteo_modeled?.is_modeled).toBe(true);
+    });
+
+    test('Falls back to Open-Meteo modeled AQI and marks is_modeled=true when OpenAQ is unavailable', () => {
+      const fetchedAt = '2026-10-25T18:00:00.000Z';
+      const resolved = resolveTelemetryWithProvenance({
+        openAqReadings: [],
+        meteo: {
+          temperatureC: 29.0,
+          relativeHumidityPct: 60,
+          apparentTemperatureC: 31.0,
+          pm25: 35.4,
+          usAqi: 100,
+          timestamp: '2026-10-25T17:55:00.000Z',
+          isModeled: true,
+        },
+        fetchedAt,
+      });
+
+      expect(resolved.pm25).toBe(35.4);
+      expect(resolved.aqi).toBe(100);
+      expect(resolved.airQualityIsModeled).toBe(true);
+      expect(resolved.isModeled).toBe(true);
+      expect(resolved.provenance.air_quality.source).toBe('Open-Meteo (modeled)');
+      expect(resolved.provenance.air_quality.is_modeled).toBe(true);
+      expect(resolved.provenance.sources_raw.openaq_measured).toBeNull();
+      expect(resolved.provenance.sources_raw.open_meteo_modeled?.aqi).toBe(100);
     });
   });
 });
