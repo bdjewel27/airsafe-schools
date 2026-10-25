@@ -623,4 +623,190 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(savedAuditItem.relaxes_floor).toBe(true);
     expect(savedAuditItem.coordinator_email).toBe('rafiq.principal@dms.edu.bd');
   });
+
+  describe('S8 (S-6 Input Validation): JSON Schema enforcement for routines and overrides', () => {
+    test('POST /routines rejects invalid duration_minutes with 400', async () => {
+      // Test negative duration
+      const resNeg = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'MODERATE',
+            duration_minutes: -10,
+            location_type: 'FIELD',
+          }),
+        })
+      );
+      expect(resNeg.statusCode).toBe(400);
+      const bodyNeg = JSON.parse(resNeg.body);
+      expect(bodyNeg.error).toContain('Validation failed');
+
+      // Test zero duration
+      const resZero = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'MODERATE',
+            duration_minutes: 0,
+            location_type: 'FIELD',
+          }),
+        })
+      );
+      expect(resZero.statusCode).toBe(400);
+
+      // Test duration exceeding 480 minutes
+      const resHigh = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'MODERATE',
+            duration_minutes: 1000,
+            location_type: 'FIELD',
+          }),
+        })
+      );
+      expect(resHigh.statusCode).toBe(400);
+
+      // Test non-integer duration
+      const resString = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'MODERATE',
+            duration_minutes: 'not_a_number',
+            location_type: 'FIELD',
+          }),
+        })
+      );
+      expect(resString.statusCode).toBe(400);
+    });
+
+    test('POST /routines rejects invalid location_type with 400', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'MODERATE',
+            duration_minutes: 45,
+            location_type: 'OUTER_SPACE',
+          }),
+        })
+      );
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Validation failed');
+    });
+
+    test('POST /routines rejects invalid intensity with 400', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            intensity: 'HYPER_INTENSE',
+            duration_minutes: 45,
+            location_type: 'FIELD',
+          }),
+        })
+      );
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Validation failed');
+    });
+
+    test('POST /routines accepts valid payload and persists routine with 200', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => ({} as never));
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            activity_name_bn: 'ফুটবল অনুশীলন',
+            activity_name_en: 'Football Practice',
+            intensity: 'VIGOROUS',
+            duration_minutes: 60,
+            location_type: 'FIELD',
+            target_class: 'Class 8-10',
+          }),
+        })
+      );
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('UPDATED');
+      expect(body.routine.duration_minutes).toBe(60);
+      expect(body.routine.intensity).toBe('vigorous');
+      expect(body.routine.location_type).toBe('FIELD');
+    });
+
+    test('POST /overrides rejects invalid decision enum with 400', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            decision: 'SUPER_SAFE_DECISION',
+            reason: 'Annual school sports day exemption',
+          }),
+        })
+      );
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Validation failed');
+    });
+
+    test('POST /overrides rejects short reason (< 5 characters) with 400', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            decision: 'PROCEED',
+            reason: 'test',
+          }),
+        })
+      );
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Validation failed');
+    });
+
+    test('POST /overrides and /routines reject malformed JSON with 400', async () => {
+      const resRoutine = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/routines',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: '{malformed_json: true, missing_quotes}',
+        })
+      );
+      expect(resRoutine.statusCode).toBe(400);
+      expect(JSON.parse(resRoutine.body).error).toContain('Invalid JSON');
+
+      const resOverride = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: 'NOT_EVEN_JSON',
+        })
+      );
+      expect(resOverride.statusCode).toBe(400);
+      expect(JSON.parse(resOverride.body).error).toContain('Invalid JSON');
+    });
+  });
 });
