@@ -2,7 +2,7 @@ package com.airsafe.schools.ui.viewmodel
 
 import android.app.Application
 import android.content.Context
-import android.util.Log
+import com.airsafe.schools.util.AppLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.airsafe.schools.data.api.AirSafeApiClient
@@ -115,14 +115,14 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             handleRealtimeDecision(realtimeDecision)
         },
         onConnectionStatusChanged = { connected ->
-            Log.d(TAG, "AppSync Events connection status: $connected")
+            AppLog.d(TAG, "AppSync Events connection status: $connected")
         }
     )
 
     init {
         // Initialize Base URL from SharedPreferences
         AirSafeApiClient.init(application)
-        Log.d(TAG, "DecisionViewModel initialized. Target Base URL: ${AirSafeApiClient.getBaseUrl()}")
+        AppLog.d(TAG, "DecisionViewModel initialized.")
 
         try {
             val cached = getCachedDecision(_selectedSchoolId.value)
@@ -131,7 +131,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = DecisionUiState.Success(cached)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading initial cached decision: ", e)
+            AppLog.e(TAG, "Error reading initial cached decision: ", e)
             cachedDecision = null
         }
         _trendData.value = getSeedTrends()
@@ -169,7 +169,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             val json = gson.toJson(response)
             prefs.edit().putString("cached_decision_${response.schoolId}", json).apply()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to persist decision to cache: ", e)
+            AppLog.e(TAG, "Failed to persist decision to cache: ", e)
         }
     }
 
@@ -178,7 +178,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             val json = gson.toJson(session)
             prefs.edit().putString("cached_user_session_${session.email}", json).apply()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to persist user session to cache: ", e)
+            AppLog.e(TAG, "Failed to persist user session to cache: ", e)
         }
     }
 
@@ -210,12 +210,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     .build()
                 cm.registerNetworkCallback(req, object : android.net.ConnectivityManager.NetworkCallback() {
                     override fun onAvailable(network: android.net.Network) {
-                        Log.d(TAG, "Network connection became available.")
+                        AppLog.d(TAG, "Network connection became available.")
                         setOfflineMode(false)
                     }
 
                     override fun onLost(network: android.net.Network) {
-                        Log.d(TAG, "Network connection lost.")
+                        AppLog.d(TAG, "Network connection lost.")
                         setOfflineMode(true)
                     }
                 })
@@ -228,7 +228,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Network monitoring setup exception: ", e)
+            AppLog.e(TAG, "Network monitoring setup exception: ", e)
         }
     }
 
@@ -247,13 +247,13 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun authenticateStaff(emailInput: String, passwordInput: String) {
         val normalizedEmail = emailInput.trim().lowercase()
         _loginError.value = null
-        Log.d(TAG, "Attempting login for $normalizedEmail at ${AirSafeApiClient.getBaseUrl()}")
+        AppLog.d(TAG, "Attempting authentication...")
 
         viewModelScope.launch {
             try {
                 // Attempt backend /auth/login first
                 val loginResp = AirSafeApiClient.service.login(LoginRequest(normalizedEmail, passwordInput))
-                Log.d(TAG, "Login successful: role=${loginResp.user.role}, school=${loginResp.user.schoolId}")
+                AppLog.d(TAG, "Login successful: role=${loginResp.user.role}, school=${loginResp.user.schoolId}")
                 val resolvedRole = when (loginResp.user.role.uppercase()) {
                     "COORDINATOR" -> UserRole.COORDINATOR
                     "PLATFORM_ADMIN" -> UserRole.PLATFORM_ADMIN
@@ -277,12 +277,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 _selectedSchoolId.value = resolvedSchoolId
                 loadSchoolData(resolvedSchoolId)
             } catch (apiEx: Exception) {
-                Log.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
+                AppLog.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
 
                 // Hard Gate 3 & Gate 1: Only restore previously authenticated server sessions during offline mode
                 val cachedSession = getCachedUserSession(normalizedEmail)
                 if (cachedSession != null) {
-                    Log.d(TAG, "Restoring verified cached server session for $normalizedEmail")
+                    AppLog.d(TAG, "Restoring verified cached server session")
                     AirSafeApiClient.authToken = cachedSession.token
                     _userSession.value = cachedSession
                     _selectedSchoolId.value = cachedSession.schoolId
@@ -331,7 +331,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         val now = System.currentTimeMillis()
         // U-4: Enforce <= 1 update per second rate limit
         if (now - lastRealtimeUpdateMs < 1000L) {
-            Log.d(TAG, "U-4 Throttle: Live decision update rate-limited (< 1 sec)")
+            AppLog.d(TAG, "U-4 Throttle: Live decision update rate-limited (< 1 sec)")
             return
         }
         lastRealtimeUpdateMs = now
@@ -349,7 +349,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         } else if (sanitized.status != "RED") {
             lastAlertedStatus = sanitized.status
         }
-        Log.d(TAG, "Live decision updated smoothly via AppSync: ${sanitized.decision} (${sanitized.status})")
+        AppLog.d(TAG, "Live decision updated smoothly via AppSync: ${sanitized.decision} (${sanitized.status})")
     }
 
     /**
@@ -395,13 +395,13 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         if (_isOffline.value) return
         viewModelScope.launch {
             try {
-                Log.d(TAG, "[AUTO-RECALC] Running silent <= 60s recalculation for $schoolId...")
+                AppLog.d(TAG, "[AUTO-RECALC] Running silent <= 60s recalculation for $schoolId...")
                 val resp = AirSafeApiClient.service.getCurrentDecision(schoolId).sanitized()
                 saveDecisionToCache(resp)
                 _uiState.value = DecisionUiState.Success(resp)
-                Log.d(TAG, "[AUTO-RECALC] Successfully updated decision in-place: ${resp.decision}")
+                AppLog.d(TAG, "[AUTO-RECALC] Successfully updated decision in-place: ${resp.decision}")
             } catch (e: Exception) {
-                Log.d(TAG, "[AUTO-RECALC] Silent recalculation skipped or failed: ${e.message}")
+                AppLog.d(TAG, "[AUTO-RECALC] Silent recalculation skipped or failed: ${e.message}")
             }
         }
     }
@@ -417,7 +417,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "loadNotes skipped or failed: ${e.message}")
+                AppLog.d(TAG, "loadNotes skipped or failed: ${e.message}")
             }
         }
     }
@@ -431,7 +431,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         saveDecisionToCache(fallback)
         _uiState.value = DecisionUiState.Success(fallback)
         _actionError.value = null
-        Log.d(TAG, "Switched to local authoritative Policy v1.2 decision: status=${fallback.status}, decision=${fallback.decision}")
+        AppLog.d(TAG, "Switched to local authoritative Policy v1.2 decision: status=${fallback.status}, decision=${fallback.decision}")
     }
 
     /**
@@ -441,7 +441,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun addActivityNote(note: String) {
         val cleanNote = note.trim()
         if (cleanNote.isBlank()) return
-        Log.d(TAG, "addActivityNote called: $cleanNote")
+        AppLog.d(TAG, "addActivityNote called: $cleanNote")
 
         val triggersRespiratoryStepUp = Regex(
             "(asthma|respiratory|breathing|cough|wheez|আজমা|অ্যাজমা|হাঁপানি|শ্বাসকষ্ট|কাশি|সংবেদনশীল|sensitive|ajma|ajmao)",
@@ -463,15 +463,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Sending submitNote to: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/notes")
+                AppLog.d(TAG, "Sending submitNote to schools/$schoolId/notes")
                 val resp = AirSafeApiClient.service.submitNote(
                     schoolId,
                     NoteRequest(note = cleanNote, hasRespiratoryCondition = triggersRespiratoryStepUp)
                 )
-                Log.d(TAG, "submitNote API Success: $resp")
+                AppLog.d(TAG, "submitNote API Success: $resp")
                 loadCurrentDecision(schoolId)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in submitNote API call: ${e.message}", e)
+                AppLog.e(TAG, "Error in submitNote API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
                     "অনলাইন সিঙ্ক সতর্কতা (${e.javaClass.simpleName}): নোটটি লোকাল মেমোরি ও স্ক্রিনে সফলভাবে সংরক্ষিত হয়েছে।"
                 } else {
@@ -496,7 +496,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             _actionError.value = if (_isBengali.value) "সংরক্ষণ হয়নি: ওভাররাইডের কারণ অন্তত ৫ অক্ষরের হতে হবে" else "Failed to save: Override reason must be at least 5 characters"
             return
         }
-        Log.d(TAG, "applyCoordinatorOverride called: decision=$decision, reason=$cleanReason")
+        AppLog.d(TAG, "applyCoordinatorOverride called: decision=$decision, reason=$cleanReason")
 
         _activeOverride.value = "$decision: $cleanReason"
         val schoolId = _userSession.value?.schoolId ?: _selectedSchoolId.value
@@ -514,15 +514,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Sending submitOverride to: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/overrides")
+                AppLog.d(TAG, "Sending submitOverride to schools/$schoolId/overrides")
                 val resp = AirSafeApiClient.service.submitOverride(
                     schoolId,
                     OverrideRequest(decision = decision, reason = cleanReason)
                 )
-                Log.d(TAG, "submitOverride API Success: $resp")
+                AppLog.d(TAG, "submitOverride API Success: $resp")
                 loadCurrentDecision(schoolId)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in submitOverride API call: ${e.message}", e)
+                AppLog.e(TAG, "Error in submitOverride API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
                     "ওভাররাইড সিঙ্ক সতর্কতা (${e.javaClass.simpleName}): সিদ্ধান্তটি লোকাল নীতি অনুযায়ী স্ক্রিনে প্রয়োগ করা হয়েছে।"
                 } else {
@@ -597,7 +597,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             else -> "MODERATE"
         }
         currentRoutineIntensity = normalizedIntensity.lowercase()
-        Log.d(TAG, "updateRoutineActivity: $activityNameBn, intensity=$normalizedIntensity, duration=$durationMinutes")
+        AppLog.d(TAG, "updateRoutineActivity: $activityNameBn, intensity=$normalizedIntensity, duration=$durationMinutes")
 
         val schoolId = _userSession.value?.schoolId ?: _selectedSchoolId.value
         val updatedDecision = computeLocalAuthoritativeDecision(schoolId)
@@ -607,7 +607,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Sending updateRoutine to: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/routines")
+                AppLog.d(TAG, "Sending updateRoutine to schools/$schoolId/routines")
                 val resp = AirSafeApiClient.service.updateRoutine(
                     schoolId,
                     RoutineUpdateRequest(
@@ -618,10 +618,10 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                         targetClass = targetClass
                     )
                 )
-                Log.d(TAG, "updateRoutine API Success: $resp")
+                AppLog.d(TAG, "updateRoutine API Success: $resp")
                 loadCurrentDecision(schoolId)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in updateRoutine API call: ${e.message}", e)
+                AppLog.e(TAG, "Error in updateRoutine API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
                     "রুটিন সিঙ্ক সতর্কতা (${e.javaClass.simpleName}): রুটিন লোকাল নীতি অনুযায়ী স্ক্রিনে সংরক্ষিত হয়েছে।"
                 } else {
@@ -646,15 +646,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         val schoolId = _userSession.value?.schoolId ?: return
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Inviting teacher $cleanEmail via ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/staff/invite")
+                AppLog.d(TAG, "Inviting teacher via schools/$schoolId/staff/invite")
                 AirSafeApiClient.service.inviteStaff(
                     schoolId,
                     StaffInviteRequest(email = cleanEmail, role = "TEACHER")
                 )
                 _invitedStaff.value = _invitedStaff.value + StaffItem(cleanEmail, "শিক্ষক", "Teacher")
-                Log.d(TAG, "Staff invite API Success for $cleanEmail")
+                AppLog.d(TAG, "Staff invite API Success")
             } catch (e: Exception) {
-                Log.e(TAG, "Error in inviteStaff API: ${e.message}", e)
+                AppLog.e(TAG, "Error in inviteStaff API: ${e.message}", e)
                 _actionError.value = if (_isBengali.value) {
                     "সংরক্ষণ হয়নি: শিক্ষক আমন্ত্রণ পাঠানো যায়নি (${e.javaClass.simpleName}: ${e.message ?: "সার্ভার সমস্যা"})"
                 } else {
@@ -671,7 +671,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun setOfflineMode(offline: Boolean) {
         if (_isOffline.value == offline) return
         _isOffline.value = offline
-        Log.d(TAG, "Offline mode changed to: $offline")
+        AppLog.d(TAG, "Offline mode changed to: $offline")
         if (offline) {
             stopForegroundSync()
             val cached = cachedDecision ?: (_uiState.value as? DecisionUiState.Success)?.data
@@ -725,12 +725,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             _uiState.value = DecisionUiState.Loading
-            Log.d(TAG, "loadCurrentDecision: Requesting /schools/$targetSchoolId/current-decision from ${AirSafeApiClient.getBaseUrl()}")
+            AppLog.d(TAG, "loadCurrentDecision: Requesting /schools/$targetSchoolId/current-decision")
 
             try {
                 val rawResponse = AirSafeApiClient.service.getCurrentDecision(targetSchoolId)
                 val response = rawResponse.sanitized()
-                Log.d(TAG, "loadCurrentDecision API Success: status=${response.status}, decision=${response.decision}, heatIndex=${response.heatIndexC}, aqi=${response.aqi}")
+                AppLog.d(TAG, "loadCurrentDecision API Success: status=${response.status}, decision=${response.decision}, heatIndex=${response.heatIndexC}, aqi=${response.aqi}")
                 saveDecisionToCache(response)
                 _uiState.value = DecisionUiState.Success(response)
 
@@ -742,7 +742,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     lastAlertedStatus = response.status
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in loadCurrentDecision: ${e.message}", e)
+                AppLog.e(TAG, "Error in loadCurrentDecision: ${e.message}", e)
 
                 // If user has explicitly toggled offline, or if error occurs, show actionable error
                 val errorDetails = when (e) {
@@ -779,7 +779,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun loadSensorSites(schoolId: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Loading sensor sites from: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/sensor-sites")
+                AppLog.d(TAG, "Loading sensor sites from schools/$schoolId/sensor-sites")
                 val resp = AirSafeApiClient.service.getSensorSites(schoolId)
                 if (resp.sites.isNotEmpty()) {
                     _sensorSites.value = resp.sites.map { siteDto ->
@@ -797,12 +797,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                             lastUpdatedEn = siteDto.lastUpdatedEn ?: "Just now"
                         )
                     }
-                    Log.d(TAG, "Sensor sites loaded: ${_sensorSites.value.size} sites")
+                    AppLog.d(TAG, "Sensor sites loaded: ${_sensorSites.value.size} sites")
                 } else {
                     _sensorSites.value = emptyList()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in loadSensorSites: ${e.message}", e)
+                AppLog.e(TAG, "Error in loadSensorSites: ${e.message}", e)
                 if (_sensorSites.value.isEmpty()) {
                     _sensorSites.value = getSeedSensorSites(schoolId)
                 }
@@ -813,7 +813,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun loadAnalytics(schoolId: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Loading analytics from: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/analytics")
+                AppLog.d(TAG, "Loading analytics from schools/$schoolId/analytics")
                 val resp = AirSafeApiClient.service.getAnalytics(schoolId)
                 _analyticsData.value = SchoolAnalyticsSummary(
                     weekLabelBn = resp.periodBn ?: "গত ৭ দিন",
@@ -827,9 +827,9 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     overridesCount = 0,
                     measuredRatioPct = 100
                 )
-                Log.d(TAG, "Analytics loaded successfully")
+                AppLog.d(TAG, "Analytics loaded successfully")
             } catch (e: Exception) {
-                Log.e(TAG, "Error in loadAnalytics: ${e.message}", e)
+                AppLog.e(TAG, "Error in loadAnalytics: ${e.message}", e)
                 _analyticsData.value = getSeedAnalytics()
             }
         }
@@ -838,7 +838,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     fun loadStaff(schoolId: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Loading staff from: ${AirSafeApiClient.getBaseUrl()}schools/$schoolId/staff")
+                AppLog.d(TAG, "Loading staff from schools/$schoolId/staff")
                 val resp = AirSafeApiClient.service.getStaff(schoolId)
                 if (resp.staff.isNotEmpty()) {
                     _invitedStaff.value = resp.staff.map {
@@ -848,12 +848,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                             roleEn = it.roleEn ?: "Teacher"
                         )
                     }
-                    Log.d(TAG, "Staff loaded: ${_invitedStaff.value.size} members")
+                    AppLog.d(TAG, "Staff loaded: ${_invitedStaff.value.size} members")
                 } else {
                     _invitedStaff.value = emptyList()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in loadStaff: ${e.message}", e)
+                AppLog.e(TAG, "Error in loadStaff: ${e.message}", e)
                 if (_invitedStaff.value.isEmpty()) {
                     _invitedStaff.value = getSeedStaff()
                 }

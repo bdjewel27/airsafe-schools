@@ -1,9 +1,9 @@
 package com.airsafe.schools.data.api
 
 import android.content.Context
-import android.util.Log
 import com.airsafe.schools.BuildConfig
 import com.airsafe.schools.data.model.*
+import com.airsafe.schools.util.AppLog
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -142,13 +142,13 @@ object AirSafeApiClient {
 
         // In release builds, strictly reject cleartext HTTP URLs (S5)
         if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
-            Log.w(TAG, "Cleartext HTTP URL rejected in release build. Reverting to AWS_LIVE_BASE_URL.")
+            AppLog.w(TAG, "Cleartext HTTP URL rejected in release build. Reverting to AWS_LIVE_BASE_URL.")
             normalized = AWS_LIVE_BASE_URL
         }
 
         currentBaseUrl = normalized
         _service = buildService(normalized)
-        Log.d(TAG, "AirSafeApiClient Base URL set to: $normalized")
+        AppLog.d(TAG, "AirSafeApiClient Base URL configured.")
 
         context?.let { ctx ->
             try {
@@ -157,16 +157,17 @@ object AirSafeApiClient {
                     .putString(KEY_BASE_URL, normalized)
                     .apply()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to persist base URL: ${e.message}", e)
+                AppLog.e(TAG, "Failed to persist base URL: ${e.message}", e)
             }
         }
     }
 
     private fun buildService(baseUrl: String): AirSafeApiService {
+        // S6: Completely disable HTTP logging in release builds, and avoid BODY logging in debug to protect tokens/passwords
         val logging = HttpLoggingInterceptor { message ->
-            Log.d(TAG, "[HTTP] $message")
+            AppLog.d(TAG, "[HTTP] $message")
         }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
         }
 
         val client = OkHttpClient.Builder()
@@ -177,9 +178,9 @@ object AirSafeApiClient {
                 if (!token.isNullOrBlank()) {
                     reqBuilder.header("Authorization", "Bearer $token")
                 }
-                Log.d(TAG, "--> ${original.method} ${original.url}")
+                AppLog.d(TAG, "--> ${original.method} ${original.url}")
                 val response = chain.proceed(reqBuilder.build())
-                Log.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
+                AppLog.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
                 response
             }
             .addInterceptor(logging)
