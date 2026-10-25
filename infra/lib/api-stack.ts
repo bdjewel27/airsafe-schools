@@ -42,6 +42,7 @@ export class ApiStack extends cdk.Stack {
         TABLE_NAME: props.readingsTable.tableName,
         DECISIONS_TABLE_NAME: props.decisionsTable?.tableName || `AirSafe-Decisions-${props.environmentName}`,
         PROJECT_REGION: this.region,
+        USER_POOL_ID: props.userPool?.userPoolId || '',
         NODE_OPTIONS: '--enable-source-maps',
         JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/jwt-secret`,
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
@@ -54,6 +55,21 @@ export class ApiStack extends cdk.Stack {
     props.readingsTable.grantReadData(this.apiFunction);
     if (props.decisionsTable) {
       props.decisionsTable.grantReadWriteData(this.apiFunction);
+    }
+
+    // Grant Cognito User Pool administrative access for staff invites (F-12 & S-2)
+    if (props.userPool) {
+      this.apiFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: [
+            'cognito-idp:AdminCreateUser',
+            'cognito-idp:AdminAddUserToGroup',
+            'cognito-idp:AdminGetUser',
+            'cognito-idp:AdminInitiateAuth',
+          ],
+          resources: [props.userPool.userPoolArn],
+        })
+      );
     }
 
     // Grant SSM parameter store access for JWT and MCP secrets (Hard Gate 1)
@@ -108,7 +124,8 @@ export class ApiStack extends cdk.Stack {
     cognitoCheck.addMethod('GET', lambdaIntegration, cognitoMethodOptions);
 
     // In-lambda fail-closed authentication (authenticateRequest) handles both HMAC-SHA256 JWT & Cognito tokens
-    const methodOptions: apigateway.MethodOptions | undefined = undefined;
+    // S3 & Hard Gate 2: Protect all tenant /schools/* routes with Cognito User Pool authorizer
+    const methodOptions: apigateway.MethodOptions | undefined = cognitoMethodOptions;
 
     // 1. Invite-only Authentication Endpoint: POST /auth/login (F-01, S-2)
     const authResource = this.restApi.root.addResource('auth');
