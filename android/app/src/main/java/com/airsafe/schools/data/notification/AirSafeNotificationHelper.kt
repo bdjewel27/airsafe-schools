@@ -6,10 +6,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.airsafe.schools.MainActivity
+import com.airsafe.schools.util.AppLog
 
 object AirSafeNotificationHelper {
     private const val TAG = "AirSafeNotif"
@@ -57,9 +57,9 @@ object AirSafeNotificationHelper {
         try {
             val manager = NotificationManagerCompat.from(context)
             manager.notify(NOTIFICATION_ID, builder.build())
-            Log.d(TAG, "Notification posted successfully: $title - $message")
+            AppLog.d(TAG, "Notification posted successfully: $title - $message")
         } catch (e: Throwable) {
-            Log.e(TAG, "Notification dispatch error: ${e.message}", e)
+            AppLog.e(TAG, "Notification dispatch error: ${e.message}", e)
         }
     }
 }
