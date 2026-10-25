@@ -2320,6 +2320,227 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Route: GET /schools/{schoolId}/trends (F-04: 24h/7d/30d Trends, Multi-Site Comparison, and School Hours Shading)
+    if (path.endsWith('/trends') && event.httpMethod === 'GET') {
+      const qParams = event.queryStringParameters || {};
+      const rawRange = String(qParams.range || '24h').toLowerCase();
+      const range: '24h' | '7d' | '30d' = rawRange === '7d' ? '7d' : rawRange === '30d' ? '30d' : '24h';
+      const siteId = String(qParams.site_id || '').trim();
+      const compareSiteId = String(qParams.compare_site_id || '').trim();
+
+      const now = new Date();
+      const rangeHours = range === '30d' ? 30 * 24 : range === '7d' ? 7 * 24 : 24;
+      const startMs = now.getTime() - rangeHours * 60 * 60 * 1000;
+      const startIso = new Date(startMs).toISOString();
+      const nowIso = now.toISOString();
+
+      let readingsRes: any;
+      try {
+        readingsRes = await docClient.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid AND #ts BETWEEN :startTs AND :endTs',
+            ExpressionAttributeNames: { '#ts': 'timestamp' },
+            ExpressionAttributeValues: {
+              ':sid': schoolId,
+              ':startTs': startIso,
+              ':endTs': nowIso,
+            },
+            ScanIndexForward: true, // chronological order for trends
+          })
+        );
+      } catch (_qErr) {
+        readingsRes = await docClient.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid',
+            ExpressionAttributeValues: { ':sid': schoolId },
+            ScanIndexForward: true,
+          })
+        ).catch(() => ({ Items: [] }));
+      }
+
+      const allItems = (readingsRes?.Items || []).filter(
+        (it: any) => !it.timestamp || !String(it.timestamp).startsWith('LATEST#')
+      );
+
+      // Helper to determine if a Dhaka timestamp falls in school hours (08:00 - 16:00 Asia/Dhaka)
+      function isSchoolHoursDhaka(ts: string | Date | number): boolean {
+        const d = new Date(ts);
+        const dhakaHour = (d.getUTCHours() + 6) % 24;
+        return dhakaHour >= 8 && dhakaHour < 16;
+      }
+
+      function formatTrendLabel(d: Date, r: string): { bn: string; en: string } {
+        const dhakaHour = (d.getUTCHours() + 6) % 24;
+        const dhakaMin = d.getUTCMinutes();
+        const minStr = dhakaMin === 0 ? ':00' : `:${String(dhakaMin).padStart(2, '0')}`;
+
+        if (r === '24h') {
+          const periodEn = dhakaHour >= 12 ? 'PM' : 'AM';
+          const h12 = dhakaHour % 12 === 0 ? 12 : dhakaHour % 12;
+          const en = `${h12}${minStr} ${periodEn}`;
+
+          let periodBn = 'সকাল';
+          if (dhakaHour >= 12 && dhakaHour < 15) periodBn = 'দুপুর';
+          else if (dhakaHour >= 15 && dhakaHour < 18) periodBn = 'বিকেল';
+          else if (dhakaHour >= 18 && dhakaHour < 20) periodBn = 'সন্ধ্যা';
+          else if (dhakaHour >= 20 || dhakaHour < 5) periodBn = 'রাত';
+          else if (dhakaHour >= 5 && dhakaHour < 6) periodBn = 'ভোর';
+
+          const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+          const bnH = String(h12).split('').map(c => bnDigits[Number(c)] || c).join('');
+          const bnM = minStr === ':00' ? ':০০' : `:${String(dhakaMin).padStart(2, '0').split('').map(c => bnDigits[Number(c)] || c).join('')}`;
+          const bn = `${periodBn} ${bnH}${bnM}`;
+          return { bn, en };
+        } else {
+          const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const monthsBn = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+          const day = d.getUTCDate();
+          const month = d.getUTCMonth();
+          const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+          const bnDay = String(day).split('').map(c => bnDigits[Number(c)] || c).join('');
+          return {
+            bn: `${bnDay} ${monthsBn[month]}`,
+            en: `${day} ${monthsEn[month]}`,
+          };
+        }
+      }
+
+      // Filter or map primary items
+      let primaryItems = allItems;
+      if (siteId) {
+        primaryItems = allItems.filter(
+          (it: any) => it.sensor_id === siteId || it.location_type === siteId
+        );
+        if (primaryItems.length === 0) primaryItems = allItems;
+      }
+
+      // Transform raw items into TrendPoint objects
+      const points = primaryItems.map((it: any) => {
+        const ts = it.timestamp ? new Date(it.timestamp) : new Date();
+        const labels = formatTrendLabel(ts, range);
+        const hi = typeof it.readings?.heat_index_c === 'number'
+          ? it.readings.heat_index_c
+          : (typeof it.readings?.temperature_c === 'number' ? it.readings.temperature_c : 30.0);
+        const aqi = typeof it.readings?.aqi === 'number' ? it.readings.aqi : 50;
+        const temp = typeof it.readings?.temperature_c === 'number' ? it.readings.temperature_c : hi - 2;
+        const pm25 = typeof it.readings?.pm25_ugm3 === 'number' ? it.readings.pm25_ugm3 : Math.round(aqi * 0.35);
+        const decision = it.evaluation?.decision || (aqi > 150 || hi >= 38 ? 'MOVE_INDOORS' : aqi > 100 || hi >= 33 ? 'MODIFY' : 'PROCEED');
+        const isDangerous = decision === 'MOVE_INDOORS' || aqi > 100 || hi >= 36;
+        const inSchoolHours = isSchoolHoursDhaka(ts);
+
+        return {
+          timestamp: ts.toISOString(),
+          timeLabelBn: labels.bn,
+          timeLabelEn: labels.en,
+          time_label_bn: labels.bn,
+          time_label_en: labels.en,
+          heatIndexC: Math.round(hi * 10) / 10,
+          heat_index_c: Math.round(hi * 10) / 10,
+          temperatureC: Math.round(temp * 10) / 10,
+          temperature_c: Math.round(temp * 10) / 10,
+          aqi: Math.round(aqi),
+          pm25_ugm3: Math.round(pm25 * 10) / 10,
+          decision,
+          isDangerous,
+          is_dangerous: isDangerous,
+          isSchoolHours: inSchoolHours,
+          is_school_hours: inSchoolHours,
+          isShaded: inSchoolHours,
+          is_shaded: inSchoolHours,
+          source: it.source || (it.is_modeled ? 'Open-Meteo (modeled)' : 'Measured'),
+          site_id: it.sensor_id || siteId || `${schoolId}-field`,
+          site_name_bn: it.location_type === 'COURTYARD' ? 'সমাবেশ প্রাঙ্গণ' : it.location_type === 'CLASSROOM' ? 'শ্রেণিকক্ষ' : 'খেলার মাঠ',
+          site_name_en: it.location_type === 'COURTYARD' ? 'Assembly Courtyard' : it.location_type === 'CLASSROOM' ? 'Classroom' : 'Playground Field',
+          comparison_heat_index_c: null as number | null,
+          comparison_aqi: null as number | null,
+          delta_heat_index_c: null as number | null,
+          delta_aqi: null as number | null,
+        };
+      });
+
+      // Multi-site comparison if compareSiteId is requested
+      let comparisonPoints: any[] = [];
+      if (compareSiteId) {
+        const compRawItems = allItems.filter(
+          (it: any) => it.sensor_id === compareSiteId || it.location_type === compareSiteId
+        );
+        comparisonPoints = compRawItems.map((it: any) => {
+          const ts = it.timestamp ? new Date(it.timestamp) : new Date();
+          const labels = formatTrendLabel(ts, range);
+          const hi = typeof it.readings?.heat_index_c === 'number'
+            ? it.readings.heat_index_c
+            : (typeof it.readings?.temperature_c === 'number' ? it.readings.temperature_c : 28.0);
+          const aqi = typeof it.readings?.aqi === 'number' ? it.readings.aqi : 45;
+          const temp = typeof it.readings?.temperature_c === 'number' ? it.readings.temperature_c : hi - 2;
+          const decision = it.evaluation?.decision || 'PROCEED';
+          const isDangerous = decision === 'MOVE_INDOORS' || aqi > 100 || hi >= 36;
+          const inSchoolHours = isSchoolHoursDhaka(ts);
+
+          return {
+            timestamp: ts.toISOString(),
+            timeLabelBn: labels.bn,
+            timeLabelEn: labels.en,
+            time_label_bn: labels.bn,
+            time_label_en: labels.en,
+            heatIndexC: Math.round(hi * 10) / 10,
+            heat_index_c: Math.round(hi * 10) / 10,
+            temperatureC: Math.round(temp * 10) / 10,
+            temperature_c: Math.round(temp * 10) / 10,
+            aqi: Math.round(aqi),
+            decision,
+            isDangerous,
+            is_dangerous: isDangerous,
+            isSchoolHours: inSchoolHours,
+            is_school_hours: inSchoolHours,
+            isShaded: inSchoolHours,
+            is_shaded: inSchoolHours,
+            site_id: it.sensor_id || compareSiteId,
+            site_name_bn: it.location_type === 'COURTYARD' ? 'সমাবেশ প্রাঙ্গণ' : it.location_type === 'CLASSROOM' ? 'শ্রেণিকক্ষ' : 'খেলার মাঠ',
+            site_name_en: it.location_type === 'COURTYARD' ? 'Assembly Courtyard' : it.location_type === 'CLASSROOM' ? 'Classroom' : 'Playground Field',
+          };
+        });
+
+        // Compute delta on points
+        for (let i = 0; i < points.length; i++) {
+          const compMatch = comparisonPoints[i] || comparisonPoints.find((cp: any) => cp.time_label_en === points[i].time_label_en);
+          if (compMatch) {
+            points[i].comparison_heat_index_c = compMatch.heat_index_c;
+            points[i].comparison_aqi = compMatch.aqi;
+            points[i].delta_heat_index_c = Math.round((points[i].heat_index_c - compMatch.heat_index_c) * 10) / 10;
+            points[i].delta_aqi = points[i].aqi - compMatch.aqi;
+          }
+        }
+      }
+
+      const periodBn = range === '30d' ? 'বিগত ৩০ দিনের ট্রেন্ড' : range === '7d' ? 'বিগত ৭ দিনের ট্রেন্ড' : 'আজকের ২৪ ঘণ্টার ট্রেন্ড';
+      const periodEn = range === '30d' ? 'Past 30 Days Trend' : range === '7d' ? 'Past 7 Days Trend' : "Today's 24-Hour Trend";
+
+      return {
+        statusCode: 200,
+        headers: getCorsHeaders(event),
+        body: JSON.stringify({
+          school_id: schoolId,
+          range,
+          period_bn: periodBn,
+          period_en: periodEn,
+          school_hours: {
+            start: '08:00',
+            end: '16:00',
+            timezone: 'Asia/Dhaka',
+            is_shaded: true,
+            description_bn: 'স্কুল সময় (সকাল ৮:০০ - বিকাল ৪:০০) হাইলাইট ও শেডিং করা',
+            description_en: 'School hours (8:00 AM - 4:00 PM) shaded on timeline',
+          },
+          sites_compared: compareSiteId ? [siteId || `${schoolId}-field`, compareSiteId] : [siteId || `${schoolId}-field`],
+          total_points: points.length,
+          points,
+          comparison_points: comparisonPoints,
+        }),
+      };
+    }
+
     // Route: POST /schools/{schoolId}/assistant/chat (F-05, A-1, A-5, A-7 — Grounded AI Assistant)
     if (path.endsWith('/assistant/chat') && event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
