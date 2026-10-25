@@ -1532,4 +1532,150 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.districts[0].district_name).toBe('Dhaka');
     });
   });
+
+  describe('F-13: Authentic 7-Day Analytics, Prior Week Comparison, Provenance & Override Audit', () => {
+    beforeEach(() => {
+      jest.restoreAllMocks();
+      resetRateLimits();
+    });
+
+    test('Computes real indoor hours and distinct warning days without fake multipliers (no count*2 or min(n,3))', async () => {
+      const now = new Date();
+      // 3 sessions across 2 distinct days
+      const day1 = new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString();
+      const day1Session2 = new Date(now.getTime() - 1 * 24 * 3600 * 1000 + 3600 * 1000).toISOString();
+      const day2 = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString();
+      const day3Safe = new Date(now.getTime() - 4 * 24 * 3600 * 1000).toISOString();
+
+      const mockItems = [
+        // Day 1: 2 indoor sessions of 45 mins each = 90 mins (1.5 hours)
+        { timestamp: day1, duration_minutes: 45, readings: { aqi: 160, heat_index_c: 38 }, evaluation: { decision: 'MOVE_INDOORS' }, is_modeled: false },
+        { timestamp: day1Session2, duration_minutes: 45, readings: { aqi: 165, heat_index_c: 39 }, evaluation: { decision: 'MOVE_INDOORS' }, is_modeled: false },
+        // Day 2: 1 caution session of 45 mins
+        { timestamp: day2, duration_minutes: 45, readings: { aqi: 110, heat_index_c: 34 }, evaluation: { decision: 'MODIFY' }, is_modeled: true },
+        // Day 3: Safe session
+        { timestamp: day3Safe, duration_minutes: 45, readings: { aqi: 45, heat_index_c: 26 }, evaluation: { decision: 'PROCEED' }, is_modeled: false },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return { Items: mockItems } as never;
+        }
+        if (command.input?.TableName === 'AirSafe-Decisions-dev') {
+          return { Items: [] } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/analytics',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      // Total indoor hours: 2 sessions of 45 mins = 90 mins = 1.5 hours (NOT fabricated count*2 = 4!)
+      expect(body.lost_outdoor_minutes).toBe(90);
+      expect(body.total_indoor_hours).toBe(2); // Math.round(1.5) = 2
+
+      // Warning days: Day 1 and Day 2 (2 distinct days, NOT fabricated min(n, 3) = 3!)
+      expect(body.warning_days_count).toBe(2);
+
+      // Provenance: 3 measured, 1 modeled = 75% measured, 25% modeled
+      expect(body.measured_ratio_pct).toBe(75);
+      expect(body.modeled_ratio_pct).toBe(25);
+      expect(body.data_provenance.measured_count).toBe(3);
+      expect(body.data_provenance.modeled_count).toBe(1);
+
+      // Total sessions analyzed
+      expect(body.total_sessions_analyzed).toBe(4);
+      expect(body.safe_sessions_count).toBe(1);
+      expect(body.caution_sessions_count).toBe(1);
+      expect(body.move_indoors_count).toBe(2);
+    });
+
+    test('Computes prior week comparison, delta, and trend direction accurately', async () => {
+      const now = new Date();
+      // Current week: avg AQI 120
+      const current1 = new Date(now.getTime() - 2 * 24 * 3600 * 1000).toISOString();
+      const current2 = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString();
+      // Prior week (8-13 days ago): avg AQI 150
+      const prior1 = new Date(now.getTime() - 9 * 24 * 3600 * 1000).toISOString();
+      const prior2 = new Date(now.getTime() - 11 * 24 * 3600 * 1000).toISOString();
+
+      const mockItems = [
+        { timestamp: current1, readings: { aqi: 110, heat_index_c: 34 }, evaluation: { decision: 'MODIFY' } },
+        { timestamp: current2, readings: { aqi: 130, heat_index_c: 35 }, evaluation: { decision: 'MODIFY' } },
+        { timestamp: prior1, readings: { aqi: 140, heat_index_c: 37 }, evaluation: { decision: 'MODIFY' } },
+        { timestamp: prior2, readings: { aqi: 160, heat_index_c: 39 }, evaluation: { decision: 'MOVE_INDOORS' } },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return { Items: mockItems } as never;
+        }
+        return { Items: [] } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/analytics',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      // Current week avg AQI: (110 + 130) / 2 = 120
+      expect(body.avg_aqi).toBe(120);
+      // Prior week avg AQI: (140 + 160) / 2 = 150
+      expect(body.prior_week.avg_aqi).toBe(150);
+      // AQI delta: 120 - 150 = -30 (Improving!)
+      expect(body.comparison.aqi_delta).toBe(-30);
+      expect(body.comparison.trend_direction).toBe('IMPROVING');
+      expect(body.comparison.is_improved).toBe(true);
+    });
+
+    test('Audits recorded overrides count and override days from DECISIONS_TABLE_NAME', async () => {
+      const now = new Date();
+      const day1 = new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const day2 = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+      const mockOverrides = [
+        { activity_id: `OVERRIDE#${day1}#football`, date: day1, requested_decision: 'MOVE_INDOORS', reason: 'Smoke' },
+        { activity_id: `OVERRIDE#${day1}#cricket`, date: day1, requested_decision: 'MOVE_INDOORS', reason: 'Dust' },
+        { activity_id: `OVERRIDE#${day2}#assembly`, date: day2, requested_decision: 'MODIFY', reason: 'Heat' },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return { Items: [] } as never;
+        }
+        if (command.input?.TableName === 'AirSafe-Decisions-dev') {
+          return { Items: mockOverrides } as never;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/analytics',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      expect(body.overrides_count).toBe(3);
+      expect(body.override_days_count).toBe(2);
+    });
+  });
 });
