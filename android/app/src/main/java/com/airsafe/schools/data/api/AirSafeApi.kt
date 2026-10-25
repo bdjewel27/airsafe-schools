@@ -2,6 +2,7 @@ package com.airsafe.schools.data.api
 
 import android.content.Context
 import android.util.Log
+import com.airsafe.schools.BuildConfig
 import com.airsafe.schools.data.model.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -82,9 +83,11 @@ object AirSafeApiClient {
 
     // AWS Live API Gateway Endpoint (ap-southeast-2 Sydney dev stage)
     const val AWS_LIVE_BASE_URL = "https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/"
-    const val USB_BASE_URL = "http://127.0.0.1:3000/"
-    const val LAN_BASE_URL = "http://192.168.31.37:3000/"
     const val DEFAULT_BASE_URL = AWS_LIVE_BASE_URL
+
+    // Local development endpoints - strictly restricted to debug builds (S5)
+    val USB_BASE_URL: String = BuildConfig.USB_BASE_URL
+    val LAN_BASE_URL: String = BuildConfig.LAN_BASE_URL
 
     @Volatile
     private var currentBaseUrl: String = DEFAULT_BASE_URL
@@ -105,10 +108,17 @@ object AirSafeApiClient {
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val savedUrl = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
-        // Force upgrade legacy local/emulator URLs to the live AWS Sydney API Gateway endpoint
-        val targetUrl = if (savedUrl.contains("127.0.0.1") || savedUrl.contains("localhost") || savedUrl.contains("192.168.")) {
+        // Force upgrade legacy local/emulator URLs or cleartext URLs in release to live AWS endpoint (S5)
+        val isLocalOrCleartext = savedUrl.contains("127.0.0.1") ||
+            savedUrl.contains("localhost") ||
+            savedUrl.contains("192.168.") ||
+            (!BuildConfig.DEBUG && savedUrl.startsWith("http://"))
+
+        val targetUrl = if (!BuildConfig.DEBUG && isLocalOrCleartext) {
             prefs.edit().putString(KEY_BASE_URL, AWS_LIVE_BASE_URL).apply()
             AWS_LIVE_BASE_URL
+        } else if (savedUrl.contains("127.0.0.1") || savedUrl.contains("localhost") || savedUrl.contains("192.168.")) {
+            if (BuildConfig.DEBUG && savedUrl.isNotBlank()) savedUrl else AWS_LIVE_BASE_URL
         } else {
             savedUrl
         }
@@ -124,10 +134,16 @@ object AirSafeApiClient {
             normalized = DEFAULT_BASE_URL
         }
         if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
-            normalized = "http://$normalized"
+            normalized = if (BuildConfig.DEBUG) "http://$normalized" else "https://$normalized"
         }
         if (!normalized.endsWith("/")) {
             normalized = "$normalized/"
+        }
+
+        // In release builds, strictly reject cleartext HTTP URLs (S5)
+        if (!BuildConfig.DEBUG && normalized.startsWith("http://")) {
+            Log.w(TAG, "Cleartext HTTP URL rejected in release build. Reverting to AWS_LIVE_BASE_URL.")
+            normalized = AWS_LIVE_BASE_URL
         }
 
         currentBaseUrl = normalized
