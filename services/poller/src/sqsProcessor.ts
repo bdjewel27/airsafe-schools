@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { calculateHeatIndex } from './heatindex';
-import { evaluatePolicy } from './policy';
+import { evaluatePolicy, calculateAqiFromPm25 } from './policy';
 
 const region = process.env.PROJECT_REGION || 'ap-southeast-2';
 const ddbClient = new DynamoDBClient({ region });
@@ -50,8 +50,8 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       const rhPct = readings.rh_pct;
       const pm25 = readings.pm25_ugm3;
       const heatIndexC = calculateHeatIndex(tempC, rhPct);
-      // Modeled AQI from PM2.5 calculation per Appendix A (e.g. 50 ug/m3 -> ~137 AQI)
-      const aqi = Math.round(pm25 * 2.1);
+      // US EPA Standard Piecewise-Linear AQI from PM2.5 calculation per Appendix B
+      const aqi = calculateAqiFromPm25(pm25);
 
       const evaluation = evaluatePolicy(aqi, heatIndexC, 'VIGOROUS', false);
       const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
