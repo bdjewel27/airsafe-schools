@@ -523,7 +523,33 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(getBody.activeNote).toBeDefined();
     expect(getBody.hasRespiratoryCondition).toBe(true);
   });
-test('S4: Coordinator Override fails-closed with 503 when telemetry table is unavailable or empty', async () => {
+  test('S4: Coordinator Override fails-closed with 503 when DynamoDB read throws an error', async () => {
+    let putCalled = false;
+    jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+      if (command.input?.TableName === 'AirSafe-Readings-dev') {
+        throw new Error('ProvisionedThroughputExceededException: DynamoDB read failed');
+      }
+      if (command.input?.Item) {
+        putCalled = true;
+      }
+      return {} as never;
+    });
+
+    const res = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/overrides',
+        headers: { Authorization: `Bearer ${coordinatorToken}` },
+        body: JSON.stringify({ decision: 'PROCEED', reason: 'Principal special event exemption' }),
+      })
+    );
+    expect(res.statusCode).toBe(503);
+    const body = JSON.parse(res.body);
+    expect(body.error).toContain('Service Unavailable');
+    expect(putCalled).toBe(false);
+  });
+
+  test('S4: Coordinator Override fails-closed with 503 when telemetry table is empty', async () => {
     // Force QueryCommand for telemetry table to return empty items
     jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
       if (command.input?.TableName === 'AirSafe-Readings-dev') {
