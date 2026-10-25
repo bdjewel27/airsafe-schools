@@ -308,6 +308,28 @@ export const handler = async (_event: any): Promise<any> => {
         })
       );
 
+      // P6: Persist LATEST#<sensor_id> for primary school playground / field sensor
+      const fieldSensorId = provenance?.air_quality?.station_id || `${school.id}-field`;
+      await docClient.send(
+        new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            school_id: school.id,
+            timestamp: `LATEST#${fieldSensorId}`,
+            sensor_id: fieldSensorId,
+            location_type: 'FIELD',
+            observed_at: timestamp,
+            readings: record.readings,
+            evaluations,
+            evaluation,
+            source: primarySource,
+            is_modeled: isModeled,
+            is_online: true,
+            ttl,
+          },
+        })
+      );
+
       // 5. Send FCM push notification if decision worsens to MODIFY or MOVE_INDOORS (respecting F-06 Quiet Hours 8 PM - 6 AM BST)
       if (
         (evaluation.decision === 'MODIFY' || evaluation.decision === 'MOVE_INDOORS') &&
