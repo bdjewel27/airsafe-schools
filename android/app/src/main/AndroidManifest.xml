@@ -6,8 +6,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:allowBackup="true"
-        android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@android:drawable/ic_dialog_info"
         android:label="AirSafe Schools"
         android:roundIcon="@android:drawable/ic_dialog_info"
