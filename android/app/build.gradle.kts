@@ -112,6 +112,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // Firebase Cloud Messaging (F-06: Background Push & Alert Delivery)
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

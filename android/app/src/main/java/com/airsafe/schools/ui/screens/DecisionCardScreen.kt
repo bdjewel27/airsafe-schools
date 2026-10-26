@@ -65,6 +65,7 @@ fun DecisionCardScreen(
     val activeOverride by viewModel.activeOverride.collectAsState()
     val activityNotes by viewModel.activityNotes.collectAsState()
     val actionError by viewModel.actionError.collectAsState()
+    val showExplanationDialog by viewModel.showExplanationDialog.collectAsState()
     val scrollState = rememberScrollState()
 
     var showNoteDialog by remember { mutableStateOf(false) }
@@ -582,6 +583,97 @@ fun DecisionCardScreen(
                 }
             }
         }
+    }
+
+    // F-06: Urgent Alert Explanation Dialog (triggered when tapping notification)
+    if (showExplanationDialog) {
+        val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissExplanationDialog() },
+            title = {
+                Text(
+                    text = if (isBengali) "🚨 জরুরি এয়ারসেফ ব্যাখ্যা ও সতর্কতা" else "🚨 Urgent AirSafe Alert Explanation",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = DangerRed
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = if (isBengali) "বর্তমান অবস্থা ও সিদ্ধান্ত:" else "Current Status and Decision:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = safeData?.decision ?: "MOVE_INDOORS",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        color = DangerRed
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (isBengali) "প্রধান কারণ:" else "Primary Reason:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = safeData?.primaryReason
+                            ?: (if (isBengali) "হিট ইনডেক্স বা একিউআই সীমা অতিক্রম করায় জরুরি সতর্কতা জারি করা হয়েছে।" else "Safety threshold exceeded; urgent precaution required."),
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        color = TextSecondary
+                    )
+                    if (!safeData?.reasons.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isBengali) "পলিসি রুলস ও কারণসমূহ:" else "Policy Rules and Reasons:",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = TextPrimary
+                        )
+                        safeData?.reasons?.forEach { r ->
+                            Text(
+                                text = "• " + r,
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (isBengali) "হিট ইনডেক্স: " + (safeData?.heatIndexC?.toString()?.toBengaliDigits(isBengali) ?: "—") + "°C" else "Heat Index: " + (safeData?.heatIndexC ?: "—") + "°C",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (isBengali) "US AQI: " + (safeData?.aqi?.toString()?.toBengaliDigits(isBengali) ?: "—") else "US AQI: " + (safeData?.aqi ?: "—"),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.dismissExplanationDialog() },
+                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                ) {
+                    Text(if (isBengali) "ঠিক আছে" else "Dismiss", color = Color.White)
+                }
+            }
+        )
     }
 
     // Teacher Note Dialog (F-08)
