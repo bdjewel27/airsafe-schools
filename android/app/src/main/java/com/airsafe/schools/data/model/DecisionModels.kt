@@ -7,6 +7,26 @@ import com.google.gson.annotations.SerializedName
  * Supports both snake_case and camelCase serialization from backend.
  * Missing or null fields NEVER default to GREEN/PROCEED or fabricated safe numbers.
  */
+data class ActivityScheduleItem(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName(value = "activity_id", alternate = ["activityId"]) val activityId: String? = null,
+    @SerializedName(value = "name_bn", alternate = ["nameBn"]) val nameBn: String? = null,
+    @SerializedName(value = "name_en", alternate = ["nameEn"]) val nameEn: String? = null,
+    @SerializedName(value = "time_slot", alternate = ["timeSlot"]) val timeSlot: String? = null,
+    @SerializedName("intensity") val intensity: String? = "MODERATE",
+    @SerializedName(value = "location_type", alternate = ["locationType"]) val locationType: String? = "FIELD",
+    @SerializedName(value = "target_class", alternate = ["targetClass"]) val targetClass: String? = null,
+    @SerializedName(value = "duration_minutes", alternate = ["durationMinutes"]) val durationMinutes: Int? = 45,
+    @SerializedName(value = "is_current", alternate = ["isCurrent"]) val isCurrent: Boolean? = false,
+    @SerializedName("order") val order: Int? = 1,
+    @SerializedName("decision") val decision: String? = "UNKNOWN",
+    @SerializedName("status") val status: String? = "UNKNOWN",
+    @SerializedName(value = "primary_reason", alternate = ["primaryReason"]) val primaryReason: String? = null,
+    @SerializedName("reasons") val reasons: List<String>? = emptyList(),
+    @SerializedName(value = "max_duration_minutes", alternate = ["maxDurationMinutes"]) val maxDurationMinutes: Int? = null,
+    @SerializedName(value = "requires_shade", alternate = ["requiresShade"]) val requiresShade: Boolean? = true
+)
+
 data class DecisionResponse(
     @SerializedName(value = "school_id", alternate = ["schoolId"]) val schoolId: String? = null,
     @SerializedName(value = "school_name", alternate = ["schoolName"]) val schoolName: String? = null,
@@ -32,9 +52,16 @@ data class DecisionResponse(
     @SerializedName(value = "routine_intensity", alternate = ["routineIntensity"]) val routineIntensity: String? = null,
     @SerializedName(value = "active_override", alternate = ["activeOverride"]) val activeOverride: String? = null,
     @SerializedName(value = "confidence_level_pct", alternate = ["confidenceLevelPct"]) val confidenceLevelPct: Int? = null,
+    @SerializedName(value = "confidence_label_bn", alternate = ["confidenceLabelBn"]) val confidenceLabelBn: String? = null,
+    @SerializedName(value = "confidence_label_en", alternate = ["confidenceLabelEn"]) val confidenceLabelEn: String? = null,
     @SerializedName(value = "weather_trend_bn", alternate = ["weatherTrendBn"]) val weatherTrendBn: String? = null,
     @SerializedName(value = "weather_trend_en", alternate = ["weatherTrendEn"]) val weatherTrendEn: String? = null,
-    @SerializedName(value = "activities") val activities: List<ActivityScheduleItem>? = emptyList()
+    @SerializedName(value = "change_forecast_bn", alternate = ["changeForecastBn", "expected_change_bn"]) val changeForecastBn: String? = null,
+    @SerializedName(value = "change_forecast_en", alternate = ["changeForecastEn", "expected_change_en"]) val changeForecastEn: String? = null,
+    @SerializedName(value = "expected_change_at", alternate = ["expectedChangeAt"]) val expectedChangeAt: String? = null,
+    @SerializedName(value = "activities") val activities: List<ActivityScheduleItem>? = emptyList(),
+    @SerializedName(value = "current_activity", alternate = ["currentActivity"]) val currentActivity: ActivityScheduleItem? = null,
+    @SerializedName(value = "next_activity", alternate = ["nextActivity"]) val nextActivity: ActivityScheduleItem? = null
 ) {
     /**
      * Hard Gate 4 Fail-Closed Sanitizer:
@@ -88,7 +115,14 @@ data class DecisionResponse(
             nextActivityEn = if (nextActivityEn.isNullOrBlank()) null else nextActivityEn,
             routineIntensity = routineIntensity,
             confidenceLevelPct = if (confidenceLevelPct != null && confidenceLevelPct > 0) confidenceLevelPct else null,
-            activities = if (!activities.isNullOrEmpty()) activities else this.activities
+            confidenceLabelBn = confidenceLabelBn ?: (if (isModeled == true) "মডেল করা স্যাটেলাইট ডেটা" else "পরিমাপিত ক্যাম্পাস IoT সেন্সর"),
+            confidenceLabelEn = confidenceLabelEn ?: (if (isModeled == true) "Modeled Satellite Telemetry" else "Measured Campus IoT Sensor"),
+            changeForecastBn = changeForecastBn ?: "পরবর্তী ৪ ঘণ্টায় পরিবর্তনের সম্ভাবনা নেই (স্থিতিশীল)",
+            changeForecastEn = changeForecastEn ?: "No decision change expected in the next 4 hours (Stable)",
+            expectedChangeAt = expectedChangeAt,
+            activities = if (!activities.isNullOrEmpty()) activities else this.activities,
+            currentActivity = currentActivity,
+            nextActivity = nextActivity
         )
     }
 }

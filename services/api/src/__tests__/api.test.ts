@@ -1802,6 +1802,62 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       }
     });
 
+    test('F-02 MUST: GET /schools/{schoolId}/decision returns next_activity, confidence_level_pct, and change_forecast', async () => {
+      const nowIso = new Date().toISOString();
+      const futureTimeIso = new Date(Date.now() + 2 * 3600 * 1000).toISOString();
+      jest
+        .spyOn(docClient, 'send')
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: nowIso,
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+              hourly_forecast: [
+                {
+                  time: futureTimeIso,
+                  heat_index_c: 39.5,
+                  aqi: 120,
+                  pm25_ugm3: 45.0,
+                },
+              ],
+            },
+          ],
+        } as never)
+        .mockResolvedValueOnce({
+          Item: {
+            activity_id: 'ROUTINE#current',
+            intensity: 'moderate',
+            activity_name_bn: 'সকালের পিই ক্লাস',
+            activity_name_en: 'Morning PE Class',
+            next_activity_bn: 'স্কুল সমাবেশ',
+            next_activity_en: 'School Assembly',
+          },
+        } as never)
+        .mockResolvedValueOnce({ Item: null } as never)
+        .mockResolvedValueOnce({ Item: null } as never);
+
+      const res = await handler(
+        makeEvent({
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.confidence_level_pct).toBe(95);
+      expect(body.confidence_label_bn).toContain('ক্যাম্পাস IoT সেন্সর');
+      expect(body.confidence_label_en).toContain('Campus IoT Sensor');
+      expect(body.change_forecast_bn).toBeDefined();
+      expect(body.change_forecast_en).toBeDefined();
+      expect(body.expected_change_at).toBe(futureTimeIso);
+      expect(body.next_activity_bn).toBe('স্কুল সমাবেশ');
+      expect(body.next_activity).toBeDefined();
+      expect(body.next_activity.name_bn).toBe('স্কুল সমাবেশ');
+    });
+
     test('GET /districts returns 64 districts public feeds from DynamoDB', async () => {
       const mockDistricts = [
         { school_id: 'bd-dhaka', timestamp: 'LATEST#bd-dhaka', district_name: 'Dhaka', division: 'Dhaka', readings: { aqi: 155 } },
