@@ -65,6 +65,11 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         _showExplanationDialog.value = false
     }
 
+    // F-07: SQLite Database for authentic offline telemetry and snapshot caching
+    private val dbHelper by lazy {
+        com.airsafe.schools.data.local.AirSafeDatabaseHelper.getInstance(getApplication())
+    }
+
     private val prefs by lazy {
         getApplication<Application>().getSharedPreferences("airsafe_offline_cache", Context.MODE_PRIVATE)
     }
@@ -173,6 +178,14 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
     private fun getCachedDecision(schoolId: String): DecisionResponse? {
         if (cachedDecision?.schoolId == schoolId) return cachedDecision
+        val fromDb = try {
+            dbHelper.getDecision(schoolId)
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Error fetching cached decision from SQLite: ${e.message}", e)
+            null
+        }
+        if (fromDb != null) return fromDb
+
         val fromPrefs = try {
             val json = prefs.getString("cached_decision_$schoolId", null)
             if (!json.isNullOrBlank()) {
@@ -188,6 +201,11 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private fun saveDecisionToCache(response: DecisionResponse) {
         cachedDecision = response
         try {
+            dbHelper.saveDecision(response)
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to persist decision to SQLite: ", e)
+        }
+        try {
             val json = gson.toJson(response)
             prefs.edit().putString("cached_decision_${response.schoolId}", json).apply()
         } catch (e: Exception) {
@@ -197,6 +215,11 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
     private fun saveSessionToCache(session: UserSession) {
         try {
+            dbHelper.saveUserSession(session)
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to persist user session to SQLite: ", e)
+        }
+        try {
             val json = gson.toJson(session)
             prefs.edit().putString("cached_user_session_${session.email}", json).apply()
         } catch (e: Exception) {
@@ -205,6 +228,14 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun getCachedUserSession(email: String): UserSession? {
+        val fromDb = try {
+            dbHelper.getUserSession(email)
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Error reading session from SQLite: ${e.message}", e)
+            null
+        }
+        if (fromDb != null) return fromDb
+
         return try {
             val json = prefs.getString("cached_user_session_$email", null)
             if (!json.isNullOrBlank()) {
@@ -217,6 +248,11 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
     private fun clearCache() {
         cachedDecision = null
+        try {
+            dbHelper.clearAll()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to clear SQLite cache: ", e)
+        }
         try {
             prefs.edit().clear().apply()
         } catch (_: Exception) {
@@ -450,11 +486,23 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
      */
     fun useOfflineFallback(schoolId: String? = null) {
         val target = schoolId ?: _userSession.value?.schoolId ?: _selectedSchoolId.value
-        val fallback = computeLocalAuthoritativeDecision(target)
+        val cachedFromDb = try { dbHelper.getDecision(target) } catch (_: Exception) { null }
+        val fallback = if (cachedFromDb != null) {
+            val cappedDecision = if (cachedFromDb.decision == "PROCEED") "PROCEED_WITH_PRECAUTIONS" else cachedFromDb.decision
+            val cappedStatus = if (cappedDecision == "PROCEED_WITH_PRECAUTIONS") "YELLOW" else cachedFromDb.status
+            cachedFromDb.copy(
+                decision = cappedDecision,
+                status = cappedStatus,
+                isStale = true,
+                dataAgeMinutes = cachedFromDb.dataAgeMinutes ?: 15
+            )
+        } else {
+            computeLocalAuthoritativeDecision(target)
+        }
         saveDecisionToCache(fallback)
         _uiState.value = DecisionUiState.Success(fallback)
         _actionError.value = null
-        AppLog.d(TAG, "Switched to local authoritative Policy v1.2 decision: status=${fallback.status}, decision=${fallback.decision}")
+        AppLog.d(TAG, "Switched to SQLite/local authoritative Policy v1.2 decision: status=${fallback.status}, decision=${fallback.decision}")
     }
 
     /**
@@ -697,7 +745,9 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         AppLog.d(TAG, "Offline mode changed to: $offline")
         if (offline) {
             stopForegroundSync()
-            val cached = cachedDecision ?: (_uiState.value as? DecisionUiState.Success)?.data
+            val cached = cachedDecision
+                ?: (try { dbHelper.getDecision(_selectedSchoolId.value) } catch (_: Exception) { null })
+                ?: (_uiState.value as? DecisionUiState.Success)?.data
             if (cached != null) {
                 val cappedDecision = if (cached.decision == "PROCEED") "PROCEED_WITH_PRECAUTIONS" else cached.decision
                 val cappedStatus = if (cappedDecision == "PROCEED_WITH_PRECAUTIONS") "YELLOW" else cached.status
@@ -711,12 +761,23 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             } else {
                 _uiState.value = DecisionUiState.Success(buildFailClosedUnknown(_userSession.value?.schoolId ?: "school-dhaka-001"))
             }
-            _sensorSites.value = _sensorSites.value.map { site ->
-                site.copy(
-                    isOnline = false,
-                    lastUpdatedBn = "ক্যাশে সংরক্ষিত",
-                    lastUpdatedEn = "Cached offline"
-                )
+            val cachedDbSites = try { dbHelper.getSensorSites(_selectedSchoolId.value) } catch (_: Exception) { null }
+            if (!cachedDbSites.isNullOrEmpty()) {
+                _sensorSites.value = cachedDbSites.map { site ->
+                    site.copy(
+                        isOnline = false,
+                        lastUpdatedBn = "ক্যাশে সংরক্ষিত (SQLite)",
+                        lastUpdatedEn = "Cached offline (SQLite)"
+                    )
+                }
+            } else {
+                _sensorSites.value = _sensorSites.value.map { site ->
+                    site.copy(
+                        isOnline = false,
+                        lastUpdatedBn = "ক্যাশে সংরক্ষিত (SQLite)",
+                        lastUpdatedEn = "Cached offline (SQLite)"
+                    )
+                }
             }
         } else {
             _sensorSites.value = _sensorSites.value.map { site ->
@@ -825,12 +886,26 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                         )
                     }
                     AppLog.d(TAG, "Sensor sites loaded: ${_sensorSites.value.size} sites (including district baseline: ${resp.districtBaseline != null})")
+                    try {
+                        dbHelper.saveSensorSites(schoolId, _sensorSites.value)
+                    } catch (dbErr: Exception) {
+                        AppLog.e(TAG, "Failed to persist sensor sites to SQLite: ${dbErr.message}", dbErr)
+                    }
                 } else {
                     _sensorSites.value = emptyList()
                 }
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in loadSensorSites: ${e.message}", e)
-                if (_sensorSites.value.isEmpty()) {
+                val cachedDbSites = try { dbHelper.getSensorSites(schoolId) } catch (_: Exception) { null }
+                if (!cachedDbSites.isNullOrEmpty()) {
+                    _sensorSites.value = cachedDbSites.map { site ->
+                        site.copy(
+                            isOnline = false,
+                            lastUpdatedBn = "ক্যাশে সংরক্ষিত (SQLite)",
+                            lastUpdatedEn = "Cached offline (SQLite)"
+                        )
+                    }
+                } else if (_sensorSites.value.isEmpty()) {
                     _sensorSites.value = getSeedSensorSites(schoolId)
                 }
             }
