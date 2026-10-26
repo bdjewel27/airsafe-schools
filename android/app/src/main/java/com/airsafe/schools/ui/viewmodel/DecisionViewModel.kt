@@ -1242,7 +1242,14 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             currentActivityEn = "Morning PE Class",
             nextActivityBn = "স্কুল সমাবেশ",
             nextActivityEn = "School Assembly",
-            activities = scheduleActivities
+            confidenceLevelPct = 95,
+            confidenceLabelBn = if (_isBengali.value) "পরিমাপিত ক্যাম্পাস IoT সেন্সর" else "Measured Campus IoT Sensor",
+            confidenceLabelEn = "Measured Campus IoT Sensor",
+            changeForecastBn = if (_isBengali.value) "পরবর্তী ৪ ঘণ্টায় পরিবর্তনের সম্ভাবনা নেই (স্থিতিশীল)" else "No decision change expected in the next 4 hours (Stable)",
+            changeForecastEn = "No decision change expected in the next 4 hours (Stable)",
+            activities = scheduleActivities,
+            currentActivity = scheduleActivities.getOrNull(0),
+            nextActivity = scheduleActivities.getOrNull(1)
         )
     }
 
