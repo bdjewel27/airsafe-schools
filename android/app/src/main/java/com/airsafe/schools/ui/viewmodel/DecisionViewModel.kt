@@ -165,7 +165,8 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             cachedDecision = null
         }
         _trendData.value = getSeedTrends()
-        _sensorSites.value = getSeedSensorSites(_selectedSchoolId.value)
+        val cachedSites = try { dbHelper.getSensorSites(_selectedSchoolId.value) } catch (_: Exception) { null }
+        _sensorSites.value = if (!cachedSites.isNullOrEmpty()) cachedSites else getSeedSensorSites(_selectedSchoolId.value)
         _analyticsData.value = getSeedAnalytics()
         _invitedStaff.value = getSeedStaff()
         setupNetworkMonitoring()
@@ -1277,26 +1278,26 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 nameBn = "স্কুল উঠান",
                 nameEn = "School Courtyard",
                 locationType = "COURTYARD",
-                tempC = 29.8,
-                rhPct = 70.0,
-                pm25Ugm3 = 38.5,
-                heatIndexC = 33.1,
-                isOnline = true,
-                lastUpdatedBn = "৩ মিনিট আগে",
-                lastUpdatedEn = "3 mins ago"
+                tempC = null,
+                rhPct = null,
+                pm25Ugm3 = null,
+                heatIndexC = null,
+                isOnline = false,
+                lastUpdatedBn = "সেন্সর সংযুক্ত নেই",
+                lastUpdatedEn = "Sensor unattached"
             ),
             SensorSite(
                 id = "$schoolId-classroom-101",
                 nameBn = "ক্লাসরুম ১০১",
                 nameEn = "Classroom 101",
                 locationType = "CLASSROOM",
-                tempC = 26.5,
-                rhPct = 55.0,
-                pm25Ugm3 = 18.0,
-                heatIndexC = 27.0,
-                isOnline = true,
-                lastUpdatedBn = "২ মিনিট আগে",
-                lastUpdatedEn = "2 mins ago"
+                tempC = null,
+                rhPct = null,
+                pm25Ugm3 = null,
+                heatIndexC = null,
+                isOnline = false,
+                lastUpdatedBn = "সেন্সর সংযুক্ত নেই",
+                lastUpdatedEn = "Sensor unattached"
             ),
             SensorSite(
                 id = "$schoolId-district-baseline",
