@@ -567,7 +567,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(body.next_activity_en).toBeNull();
   });
 
-  test('F-15: GET /policies/current returns authoritative Policy v1.2 specification', async () => {
+  test('F-15: GET /policies/current returns authoritative Policy v1.2 specification with UTF-8 charset and decision links', async () => {
     const res = await handler(
       makeEvent({
         httpMethod: 'GET',
@@ -575,10 +575,17 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       })
     );
     expect(res.statusCode).toBe(200);
+    expect(res.headers?.['Content-Type']).toBe('application/json; charset=utf-8');
     const body = JSON.parse(res.body);
     expect(body.version).toBe('v1.2');
     expect(body.name).toBe('Model School Outdoor Activity Policy');
     expect(body.rules.length).toBe(6);
+    expect(body.rules[0].titleBn).toBe('তাপ ও বায়ু থ্রেশহোল্ড');
+    expect(body.governed_decisions).toBeDefined();
+    expect(body.governed_decisions.length).toBe(5);
+    expect(body.active_schools).toBeDefined();
+    expect(body.active_schools.some((s: any) => s.school_id === 'school-dhaka-001')).toBe(true);
+    expect(body.active_decisions_link).toBe('/schools/{schoolId}/decision');
     expect(body.aqiBands).toBeDefined();
     expect(body.heatBands).toBeDefined();
   });
