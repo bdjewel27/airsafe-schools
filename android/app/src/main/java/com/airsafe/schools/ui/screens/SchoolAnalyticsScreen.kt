@@ -311,6 +311,35 @@ fun SchoolAnalyticsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // F-14: Official Printable PDF Report Generation & Export
+        Button(
+            onClick = {
+                val schoolName = if (isBengali) "ঢাকা মডেল স্কুল" else "Dhaka Model School"
+                com.airsafe.schools.util.AirSafePdfReportGenerator.generateAndShareWeeklyReport(
+                    context = context,
+                    analytics = analytics,
+                    schoolName = schoolName,
+                    isBengali = isBengali
+                )
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Description, contentDescription = null, tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isBengali) "PDF সাপ্তাহিক রিপোর্ট এক্সপোর্ট করুন (F-14)" else "Export Weekly PDF Report (F-14)",
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 15.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // F-14: Share / Export Weekly Report (Android Share Sheet)
         // F-14: Share / Export Weekly Report Summary
         Button(
