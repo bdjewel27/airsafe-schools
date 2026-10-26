@@ -1133,57 +1133,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           }
         }
 
-        // Step 5: Seeded demo accounts bootstrap fallback (F-20)
-        if (!staff && SEEDED_DEMO_ACCOUNTS[email]) {
-          const seeded = SEEDED_DEMO_ACCOUNTS[email];
-          const demoHash = hashPassword('[REDACTED_PASSWORD]');
-          staff = {
-            email: seeded.email,
-            passwordHash: demoHash,
-            role: seeded.role,
-            schoolId: seeded.schoolId,
-            nameBn: seeded.nameBn,
-            nameEn: seeded.nameEn,
-            schoolNameBn: seeded.schoolNameBn,
-            schoolNameEn: seeded.schoolNameEn,
-          };
-          docClient.send(
-            new PutCommand({
-              TableName: DECISIONS_TABLE_NAME,
-              Item: {
-                school_id: seeded.schoolId,
-                activity_id: `STAFF#${seeded.email}`,
-                email: seeded.email,
-                role: seeded.role,
-                password_hash: demoHash,
-                name_bn: seeded.nameBn,
-                name_en: seeded.nameEn,
-                school_name_bn: seeded.schoolNameBn,
-                school_name_en: seeded.schoolNameEn,
-                created_at: new Date().toISOString(),
-              },
-            })
-          ).catch(() => {});
-          docClient.send(
-            new PutCommand({
-              TableName: DECISIONS_TABLE_NAME,
-              Item: {
-                school_id: 'STAFF_LOOKUP',
-                activity_id: `EMAIL#${seeded.email}`,
-                target_school_id: seeded.schoolId,
-              },
-            })
-          ).catch(() => {});
-        }
+        // Step 5: Fail-closed (S1 / F-01: Removed insecure on-the-fly backdoor)
       } catch (dbErr) {
         console.error('Error fetching staff from DynamoDB:', dbErr);
       }
 
-      const isPasswordValid = Boolean(
-        staff && password && verifyPassword(password, staff.passwordHash)
-      );
-
-      if (!staff || !password || !isPasswordValid) {
+      if (!staff) {
         return {
           statusCode: 401,
           headers: getCorsHeaders(event),
@@ -1192,15 +1147,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           }),
         };
       }
-
-      // Reset rate limit on successful authentication so valid users aren't locked out
-      loginAttempts.delete(rateLimitKey);
-      await docClient.send(
-        new DeleteCommand({
-          TableName: DECISIONS_TABLE_NAME,
-          Key: { school_id: 'RATELIMIT#LOGIN', activity_id: rateLimitKey },
-        })
-      ).catch(() => {});
 
       // Issue genuine Cognito RS256 IdToken when Cognito is configured (Policy S-2 / F-01)
       let token: string | undefined;
@@ -1226,14 +1172,38 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           );
           if (authRes.AuthenticationResult?.IdToken) {
             token = authRes.AuthenticationResult.IdToken;
+          } else {
+            return {
+              statusCode: 401,
+              headers: getCorsHeaders(event),
+              body: JSON.stringify({
+                error: 'Authentication failed: No valid token returned by Cognito User Pool (Policy S-2 / F-01).',
+              }),
+            };
           }
         } catch (cognitoAuthErr: any) {
-          console.warn('[Cognito Auth Warning]: AdminInitiateAuth failed:', cognitoAuthErr?.message);
+          console.error('[Cognito Auth Error]: AdminInitiateAuth rejected credentials:', cognitoAuthErr?.message);
+          return {
+            statusCode: 401,
+            headers: getCorsHeaders(event),
+            body: JSON.stringify({
+              error: 'Invalid credentials. Authentication failed via Cognito User Pool (Policy S-2 / F-01).',
+            }),
+          };
         }
-      }
+      } else {
+        // Fallback for offline test environments where Cognito is not configured: verify PBKDF2 hash
+        const isPasswordValid = Boolean(password && verifyPassword(password, staff.passwordHash));
+        if (!isPasswordValid) {
+          return {
+            statusCode: 401,
+            headers: getCorsHeaders(event),
+            body: JSON.stringify({
+              error: 'Invalid credentials or uninvited account. Self sign-up is disabled per Policy S-2.',
+            }),
+          };
+        }
 
-      // Fallback for offline test environments where Cognito is not configured
-      if (!token) {
         token = createSignedJwt({
           email: staff.email,
           school_id: staff.schoolId,
@@ -1244,6 +1214,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           school_name_en: staff.schoolNameEn,
         });
       }
+
+      // Reset rate limit ONLY on successful authentication so valid users aren't locked out
+      loginAttempts.delete(rateLimitKey);
+      await docClient.send(
+        new DeleteCommand({
+          TableName: DECISIONS_TABLE_NAME,
+          Key: { school_id: 'RATELIMIT#LOGIN', activity_id: rateLimitKey },
+        })
+      ).catch(() => {});
 
       return {
         statusCode: 200,
