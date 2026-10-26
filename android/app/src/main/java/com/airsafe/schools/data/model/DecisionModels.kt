@@ -165,7 +165,29 @@ data class AnalyticsResponseDto(
 
 data class OverrideRequest(
     @SerializedName("decision") val decision: String,
-    @SerializedName("reason") val reason: String
+    @SerializedName("reason") val reason: String,
+    @SerializedName(value = "duration_minutes", alternate = ["durationMinutes"]) val durationMinutes: Int? = 120,
+    @SerializedName(value = "activity_id", alternate = ["activityId", "target_activity_id"]) val activityId: String? = "current"
+)
+
+data class OverrideAuditItemDto(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("timestamp") val timestamp: String? = null,
+    @SerializedName(value = "requested_decision", alternate = ["decision"]) val requestedDecision: String? = null,
+    @SerializedName(value = "policy_floor", alternate = ["policy_floor_decision"]) val policyFloor: String? = null,
+    @SerializedName(value = "relaxes_floor", alternate = ["relaxesFloor"]) val relaxesFloor: Boolean = false,
+    @SerializedName("reason") val reason: String? = null,
+    @SerializedName(value = "coordinator_email", alternate = ["coordinatorEmail"]) val coordinatorEmail: String? = null,
+    @SerializedName(value = "target_activity_id", alternate = ["targetActivityId"]) val targetActivityId: String? = null,
+    @SerializedName(value = "duration_minutes", alternate = ["durationMinutes"]) val durationMinutes: Int? = null,
+    @SerializedName(value = "expires_at", alternate = ["expiresAt"]) val expiresAt: String? = null,
+    @SerializedName("date") val date: String? = null
+)
+
+data class OverrideAuditResponse(
+    @SerializedName("school_id") val schoolId: String? = null,
+    @SerializedName(value = "audit_logs", alternate = ["auditLogs", "overrides"]) val auditLogs: List<OverrideAuditItemDto> = emptyList(),
+    @SerializedName("count") val count: Int = 0
 )
 
 data class NoteRequest(
