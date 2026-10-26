@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1157.0",
-    "ulid": "^2.3.0"
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
