@@ -17,14 +17,35 @@ export interface SQSBatchResponseLike {
   batchItemFailures: { itemIdentifier: string }[];
 }
 
+// In-memory deduplication cache & quarantine metrics (F-21)
+const processedEventIds = new Set<string>();
+export let quarantineMetricCount = 0;
+
+export function getQuarantineMetricCount(): number {
+  return quarantineMetricCount;
+}
+
+export function resetDeduplicationCache(): void {
+  processedEventIds.clear();
+  quarantineMetricCount = 0;
+}
+
 export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSBatchResponseLike> {
   const batchItemFailures: { itemIdentifier: string }[] = [];
 
   for (const record of records) {
     try {
-      const payload = JSON.parse(record.body);
+      let payload: any;
+      try {
+        payload = JSON.parse(record.body);
+      } catch {
+        quarantineMetricCount++;
+        console.warn(`[Quarantine/Malformed] Poisoned record ${record.messageId} unparseable JSON forwarded to DLQ [METRIC QuarantineCount=${quarantineMetricCount}]`);
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+        continue;
+      }
 
-      // Validate required sensor event schema (Appendix B schema)
+      // Validate required sensor event schema (Appendix B schema / F-21)
       if (
         !payload ||
         typeof payload !== 'object' ||
@@ -40,12 +61,46 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
         typeof payload.readings.pm25_ugm3 !== 'number' ||
         !Number.isFinite(payload.readings.pm25_ugm3)
       ) {
-        console.warn(`[Quarantine/Malformed] Poisoned record ${record.messageId} forwarded to DLQ`);
+        quarantineMetricCount++;
+        console.warn(
+          `[Quarantine/Malformed] Poisoned record ${record.messageId} forwarded to DLQ [METRIC QuarantineCount=${quarantineMetricCount}]`
+        );
         batchItemFailures.push({ itemIdentifier: record.messageId });
         continue;
       }
 
-      const { school_id, sensor_id, readings, ts } = payload;
+      // F-21: Consumer Idempotency via event_id
+      if (payload.event_id) {
+        if (processedEventIds.has(payload.event_id)) {
+          console.warn(`[Deduplication] Dropping duplicate event_id: ${payload.event_id} (idempotent in-memory skip)`);
+          continue;
+        }
+        processedEventIds.add(payload.event_id);
+
+        try {
+          await docClient.send(
+            new PutCommand({
+              TableName: TABLE_NAME,
+              Item: {
+                school_id: 'IDEMPOTENCY',
+                timestamp: `EVENT#${payload.event_id}`,
+                event_id: payload.event_id,
+                observed_at: payload.ts,
+                ttl: Math.floor(Date.now() / 1000) + 86400,
+              },
+              ConditionExpression: 'attribute_not_exists(#ts)',
+              ExpressionAttributeNames: { '#ts': 'timestamp' },
+            })
+          );
+        } catch (dedupErr: any) {
+          if (dedupErr.name === 'ConditionalCheckFailedException') {
+            console.warn(`[Deduplication] Duplicate event_id detected in DynamoDB: ${payload.event_id} (idempotent skip)`);
+            continue;
+          }
+        }
+      }
+
+      const { school_id, sensor_id, readings, ts, event_id } = payload;
       const tempC = readings.temp_c;
       const rhPct = readings.rh_pct;
       const pm25 = readings.pm25_ugm3;
@@ -63,14 +118,16 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
       const fetchedAt = new Date().toISOString();
 
-      // 1. Save historical time-series reading
+      // 1. Save historical time-series reading with composite key (${ts}#${sensor_id}) to prevent key collision (F-21)
       await docClient.send(
         new PutCommand({
           TableName: TABLE_NAME,
           Item: {
             school_id,
-            timestamp: ts,
+            timestamp: `${ts}#${sensor_id}`,
             sensor_id,
+            observed_at: ts,
+            event_id,
             readings: {
               temperature_c: tempC,
               relative_humidity_pct: rhPct,
@@ -107,30 +164,43 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       );
 
       // 2. P6: Persist dedicated latest reading for sensor station (LATEST#<sensor_id>)
-      await docClient.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: {
-            school_id,
-            timestamp: `LATEST#${sensor_id}`,
-            sensor_id,
-            observed_at: ts,
-            readings: {
-              temperature_c: tempC,
-              relative_humidity_pct: rhPct,
-              heat_index_c: heatIndexC,
-              pm25_ugm3: pm25,
-              aqi,
+      // F-21: Guard against out-of-order delayed events regressing the live reading
+      try {
+        await docClient.send(
+          new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+              school_id,
+              timestamp: `LATEST#${sensor_id}`,
+              sensor_id,
+              observed_at: ts,
+              readings: {
+                temperature_c: tempC,
+                relative_humidity_pct: rhPct,
+                heat_index_c: heatIndexC,
+                pm25_ugm3: pm25,
+                aqi,
+              },
+              evaluations,
+              evaluation,
+              source: 'Campus IoT Sensor (measured)',
+              is_modeled: false,
+              is_online: true,
+              ttl,
             },
-            evaluations,
-            evaluation,
-            source: 'Campus IoT Sensor (measured)',
-            is_modeled: false,
-            is_online: true,
-            ttl,
-          },
-        })
-      );
+            ConditionExpression: 'attribute_not_exists(observed_at) OR observed_at <= :ts',
+            ExpressionAttributeValues: {
+              ':ts': ts,
+            },
+          })
+        );
+      } catch (condErr: any) {
+        if (condErr.name === 'ConditionalCheckFailedException') {
+          console.info(`[Delayed Event] Event ${event_id} observed at ${ts} is older than current latest station reading. Historical record preserved; LATEST# not regressed.`);
+        } else {
+          throw condErr;
+        }
+      }
     } catch (err) {
       console.error(`Failed to process message ${record.messageId}:`, err);
       batchItemFailures.push({ itemIdentifier: record.messageId });
