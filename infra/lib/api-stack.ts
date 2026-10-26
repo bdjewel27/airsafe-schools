@@ -63,6 +63,32 @@ export class ApiStack extends cdk.Stack {
       logGroup,
     });
 
+    // F-22: Deployable Hardened Model Context Protocol (MCP) Server Lambda (Node.js 22, ARM_64 Graviton)
+    const mcpLogGroup = new logs.LogGroup(this, 'McpHandlerLogGroup', {
+      logGroupName: `/aws/lambda/airsafe-mcp-${props.environmentName}`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const mcpFunction = new lambda.Function(this, 'McpHandlerFunction', {
+      functionName: `airsafe-mcp-${props.environmentName}`,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../services/mcp/dist')),
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        TABLE_NAME: props.readingsTable.tableName,
+        PROJECT_REGION: this.region,
+        NODE_OPTIONS: '--enable-source-maps',
+        MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
+      },
+      logGroup: mcpLogGroup,
+    });
+
+    props.readingsTable.grantReadData(mcpFunction);
+
     // Grant least-privilege permissions to DynamoDB tables (S-4, S7)
     props.readingsTable.grantReadData(this.apiFunction);
     if (props.decisionsTable) {
@@ -226,11 +252,24 @@ export class ApiStack extends cdk.Stack {
     const chat = assistant.addResource('chat');
     chat.addMethod('POST', lambdaIntegration, methodOptions);
 
+    // F-22: Deployable Hardened MCP Server Route: POST /mcp
+    const mcpIntegration = new apigateway.LambdaIntegration(mcpFunction, {
+      proxy: true,
+    });
+    const mcpResource = this.restApi.root.addResource('mcp');
+    mcpResource.addMethod('POST', mcpIntegration);
+
     // Outputs for testing with curl and Android app integration
     new cdk.CfnOutput(this, 'ApiUrlOutput', {
       value: this.restApi.url,
       description: 'AirSafe REST API Base URL',
       exportName: `AirSafe-ApiUrl-${props.environmentName}`,
+    });
+
+    new cdk.CfnOutput(this, 'McpUrlOutput', {
+      value: `${this.restApi.url}mcp`,
+      description: 'AirSafe Hardened MCP Server Endpoint (F-22)',
+      exportName: `AirSafe-McpUrl-${props.environmentName}`,
     });
 
     cdk.Tags.of(this).add('project', 'airsafe');

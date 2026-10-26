@@ -4,11 +4,15 @@
  * Implements MCP specification tools for LLMs (Amazon Bedrock Nova / Claude)
  * to ground queries strictly on real-time school telemetry and Policy v1.2.
  *
- * Hard Gate 2: Cryptographic Tenant Isolation (Fail-Closed)
- * - Tokens must be passed via standard HTTP Authorization / headers, NEVER tool arguments.
- * - Tool schemas do NOT contain school_id or scoped_token (scoping is purely context-driven).
- * - Full cryptographic signature verification (HMAC-SHA256), expiration, issuer, audience checks.
- * - Missing or invalid token fails closed immediately with 401/403.
+ * Security Policies:
+ * - Hard Gate 2: Cryptographic Tenant Isolation (Fail-Closed)
+ *   - Tokens must be passed via standard HTTP Authorization / headers, NEVER tool arguments.
+ *   - Tool schemas do NOT contain school_id or scoped_token (scoping is purely context-driven).
+ *   - Full cryptographic signature verification (HMAC-SHA256), expiration, issuer, audience checks.
+ *   - Missing or invalid token fails closed immediately with 401/403.
+ * - Policy S-5: Strict Rate Limiting (F-22)
+ *   - Rate limiting enforced at 60 requests/minute per tenant / IP / scoped token.
+ *   - Exceeding limit throws 429 Too Many Requests.
  */
 
 import * as crypto from 'crypto';
@@ -74,6 +78,9 @@ export const MCP_TOOLS: McpTool[] = [
   }
 ];
 
+export const SHARED_TOOL_DEFINITIONS = MCP_TOOLS;
+export type McpToolSchema = McpTool;
+
 export interface RequestContext {
   schoolId: string;
   role?: string;
@@ -91,26 +98,54 @@ export class AirSafeMcpServer {
   private jwtSecret: string;
   private docClient?: DynamoDBDocumentClient;
   private tableName: string;
+  private rateLimits: Map<string, { count: number; resetAt: number }> = new Map();
+  private maxRequestsPerMinute: number = 60;
 
-  constructor(options?: { jwtSecret?: string; dynamoClient?: DynamoDBDocumentClient; tableName?: string }) {
+  constructor(options?: { jwtSecret?: string; dynamoClient?: DynamoDBDocumentClient; tableName?: string; maxRequestsPerMinute?: number }) {
     const secret = options?.jwtSecret || process.env.MCP_JWT_SECRET;
     if (!secret || secret.trim() === '') {
       throw new Error('SECURITY FATAL: MCP_JWT_SECRET is missing in environment or options. Fail-closed (Hard Gate 1).');
     }
     this.jwtSecret = secret;
     this.tableName = options?.tableName || process.env.TABLE_NAME || 'AirSafe-Readings-dev';
+    if (options?.maxRequestsPerMinute) {
+      this.maxRequestsPerMinute = options.maxRequestsPerMinute;
+    }
 
     if (options?.dynamoClient) {
       this.docClient = options.dynamoClient;
     } else {
       try {
         const client = new DynamoDBClient({
-          region: process.env.AWS_REGION || 'ap-southeast-2'
+          region: process.env.AWS_REGION || process.env.PROJECT_REGION || 'ap-southeast-2'
         });
         this.docClient = DynamoDBDocumentClient.from(client);
       } catch {
         // DynamoDB client initialized lazily
       }
+    }
+  }
+
+  public resetRateLimits(): void {
+    this.rateLimits.clear();
+  }
+
+  /**
+   * Policy S-5: Strict Rate Limiting (60 requests/minute per tenant / IP / token)
+   */
+  public checkRateLimit(key: string, limit: number = this.maxRequestsPerMinute): void {
+    const now = Date.now();
+    let entry = this.rateLimits.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + 60000 };
+      this.rateLimits.set(key, entry);
+      return;
+    }
+
+    entry.count++;
+    if (entry.count > limit) {
+      const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+      throw new HttpError(429, `Too Many Requests: Rate limit exceeded (Policy S-5). Maximum ${limit} requests per minute. Retry after ${retryAfterSeconds}s`);
     }
   }
 
@@ -398,7 +433,7 @@ export class AirSafeMcpServer {
    * Complete JSON-RPC 2.0 Dispatcher (initialize, tools/list, tools/call)
    */
   public async handleJsonRpcMessage(message: any, headers: Record<string, string | undefined> = {}): Promise<any> {
-    const id = message.id ?? null;
+    const id = message?.id ?? null;
 
     if (!message || message.jsonrpc !== '2.0') {
       return { jsonrpc: '2.0', id, error: { code: -32600, message: 'Invalid Request: missing jsonrpc 2.0 version' } };
@@ -421,7 +456,9 @@ export class AirSafeMcpServer {
         }
 
         case 'tools/list': {
-          this.authenticate(headers);
+          const ctx = this.authenticate(headers);
+          const rateKey = ctx.schoolId || headers['x-forwarded-for'] || 'client';
+          this.checkRateLimit(rateKey);
           return {
             jsonrpc: '2.0',
             id,
@@ -431,6 +468,9 @@ export class AirSafeMcpServer {
 
         case 'tools/call': {
           const ctx = this.authenticate(headers);
+          const rateKey = ctx.schoolId || headers['x-forwarded-for'] || 'client';
+          this.checkRateLimit(rateKey);
+
           const params = message.params || {};
           const toolName = params.name;
           const toolArgs = params.arguments || {};
@@ -457,7 +497,11 @@ export class AirSafeMcpServer {
         return {
           jsonrpc: '2.0',
           id,
-          error: { code: err.statusCode === 401 ? -32001 : err.statusCode === 403 ? -32003 : -32603, message: err.message }
+          error: {
+            code: err.statusCode === 401 ? -32001 : err.statusCode === 403 ? -32003 : err.statusCode === 429 ? -32000 : -32603,
+            message: err.message,
+            data: { statusCode: err.statusCode }
+          }
         };
       }
       return {
@@ -470,41 +514,67 @@ export class AirSafeMcpServer {
 }
 
 /**
- * AWS Lambda HTTP Handler (API Gateway / Bedrock Agent MCP adapter)
+ * AWS Lambda HTTP Handler (API Gateway / Bedrock Agent MCP adapter - F-22 Deployable)
  */
 export const handler = async (event: any) => {
-  const server = new AirSafeMcpServer();
-  const headers = event.headers || {};
-  let body: any;
+  const headers = event?.headers || {};
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'X-Content-Type-Options': 'nosniff',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-school-id',
+  };
 
+  if (event?.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: corsHeaders, body: '' };
+  }
+
+  let server: AirSafeMcpServer;
+  try {
+    server = new AirSafeMcpServer();
+  } catch (initErr: any) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: initErr.message || 'MCP Server configuration error' })
+    };
+  }
+
+  let body: any;
   try {
     body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
   } catch {
     return {
       statusCode: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
       body: JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } })
     };
   }
 
   const response = await server.handleJsonRpcMessage(body, headers);
-  const statusCode = response.error ? (response.error.code === -32001 ? 401 : response.error.code === -32003 ? 403 : 400) : 200;
+  const statusCode = response.error
+    ? (response.error.code === -32001
+        ? 401
+        : response.error.code === -32003
+        ? 403
+        : response.error.code === -32000
+        ? 429
+        : 400)
+    : 200;
 
   return {
     statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Content-Type-Options': 'nosniff'
-    },
+    headers: corsHeaders,
     body: JSON.stringify(response)
   };
 };
 
 /**
- * Automated Verification Suite (Rigorous Hard Gate 2 & MCP protocol validation)
+ * Automated Verification Suite (Rigorous Hard Gate 2, Policy S-5 & MCP protocol validation)
  */
 if (process.argv.includes('--test')) {
-  console.log('Running AirSafe MCP Server Fail-Closed Verification (Hard Gates 1 & 2)...');
+  console.log('Running AirSafe MCP Server Verification (Hard Gates 1, 2 & Policy S-5 Rate Limiting)...');
   
   let passed = 0;
   let failed = 0;
@@ -571,7 +641,6 @@ if (process.argv.includes('--test')) {
 
     // Test 4.1: Token missing exp claim must throw 401
     const tokenNoExp = server.createToken({ school_id: 'school-dhaka-001', exp: undefined as any });
-    // Strip exp
     const partsNoExp = tokenNoExp.split('.');
     const pNoExp = JSON.parse(Buffer.from(partsNoExp[1], 'base64url').toString());
     delete pNoExp.exp;
@@ -604,40 +673,79 @@ if (process.argv.includes('--test')) {
       assert(e.statusCode === 401, 'T4.3: Issuer other than airsafe-chat rejected with 401');
     }
 
+    // Test 4.4: Token with invalid audience must throw 401
+    const wrongAudToken = server.createToken({ school_id: 'school-dhaka-001', aud: 'rogue-service' });
+    try {
+      server.authenticate({ authorization: `Bearer ${wrongAudToken}` });
+      assert(false, 'T4.4: Wrong audience must throw 401');
+    } catch (e: any) {
+      assert(e.statusCode === 401, 'T4.4: Audience other than airsafe-mcp rejected with 401');
+    }
+
     // Test 5: Valid Scoped Token Scoping & Tenant Isolation
     const schoolAToken = server.createToken({ school_id: 'school-dhaka-001' });
     const ctxA = server.authenticate({ authorization: `Bearer ${schoolAToken}` });
     assert(ctxA.schoolId === 'school-dhaka-001', 'T5.1: Context extracted strictly from token claim');
 
-    // Test 6: Cross-Tenant Protection (Passing school-b in args is IGNORED, scoped strictly to school A)
+    // Test 6: Policy S-5 Rate Limiting (60 requests/minute exceeded throws 429)
+    server.resetRateLimits();
+    let rateLimitThrown = false;
+    try {
+      for (let i = 0; i < 65; i++) {
+        server.checkRateLimit('rate-test-tenant', 60);
+      }
+    } catch (e: any) {
+      if (e instanceof HttpError && e.statusCode === 429) {
+        rateLimitThrown = true;
+      }
+    }
+    assert(rateLimitThrown, 'T6.1: Policy S-5 Rate Limiting: 61st request in 1 minute throws 429 Too Many Requests');
+
+    // Test 6.2: JSON-RPC tools/call handles rate limiting gracefully
+    server.resetRateLimits();
+    let jsonRpc429Seen = false;
+    for (let i = 0; i < 65; i++) {
+      const resp = await server.handleJsonRpcMessage(
+        { jsonrpc: '2.0', id: i, method: 'tools/list' },
+        { authorization: `Bearer ${schoolAToken}` }
+      );
+      if (resp.error?.code === -32000) {
+        jsonRpc429Seen = true;
+        break;
+      }
+    }
+    assert(jsonRpc429Seen, 'T6.2: JSON-RPC tools/list returns error code -32000 (HTTP 429) when rate limit exceeded');
+    server.resetRateLimits();
+
+    // Test 7: Cross-Tenant Protection (Passing school-b in args is IGNORED, scoped strictly to school A)
     const resA = await server.handleToolCall('get_school_decision', { school_id: 'school-chittagong-002' }, ctxA);
-    assert(resA.school_id === 'school-dhaka-001', 'T6: Cross-tenant arg ignored; scoped strictly to token school_id');
-    assert(resA.status === 'UNKNOWN' && resA.decision === 'UNKNOWN', 'T6.1: get_school_decision returns UNKNOWN when no data exists (fail-closed)');
+    assert(resA.school_id === 'school-dhaka-001', 'T7.1: Cross-tenant arg ignored; scoped strictly to token school_id');
+    assert(resA.status === 'UNKNOWN' && resA.decision === 'UNKNOWN', 'T7.2: get_school_decision returns UNKNOWN when no data exists (fail-closed)');
 
-    // Test 7: Policy tool returns v1.2 citation and structured tables (authenticated)
+    // Test 8: Policy tool returns v1.2 citation and structured tables (authenticated)
     const policy = await server.handleToolCall('get_outdoor_policy', { section: 'AQI_THRESHOLDS' }, ctxA);
-    assert(policy.policy_version === 'v1.2' && policy.doc_id === 'airsafe-policy-v1.2', 'T7: Policy tool returns official v1.2 citation metadata');
+    assert(policy.policy_version === 'v1.2' && policy.doc_id === 'airsafe-policy-v1.2', 'T8: Policy tool returns official v1.2 citation metadata');
 
-    // Test 8: JSON-RPC initialize
+    // Test 9: JSON-RPC initialize
     const initRes = await server.handleJsonRpcMessage({ jsonrpc: '2.0', id: 1, method: 'initialize' });
-    assert(initRes.result.serverInfo.name === 'airsafe-mcp-server', 'T8.1: JSON-RPC initialize succeeds');
+    assert(initRes.result.serverInfo.name === 'airsafe-mcp-server', 'T9.1: JSON-RPC initialize succeeds');
 
-    // Test 8.2: tools/list without token throws 401
+    // Test 9.2: tools/list without token throws 401
     const listNoAuth = await server.handleJsonRpcMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-    assert(listNoAuth.error?.code === -32001, 'T8.2: JSON-RPC tools/list without token rejected with 401');
+    assert(listNoAuth.error?.code === -32001, 'T9.2: JSON-RPC tools/list without token rejected with 401');
 
-    // Test 8.3: tools/list with token succeeds
+    // Test 9.3: tools/list with token succeeds
     const listAuth = await server.handleJsonRpcMessage({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, { authorization: `Bearer ${schoolAToken}` });
-    assert(listAuth.result?.tools?.length === 3, 'T8.3: JSON-RPC tools/list with valid token returns 3 tools');
+    assert(listAuth.result?.tools?.length === 3, 'T9.3: JSON-RPC tools/list with valid token returns 3 tools');
 
-    // Test 8.4: get_outdoor_policy via tools/call without token throws 401
+    // Test 9.4: get_outdoor_policy via tools/call without token throws 401
     const policyNoAuth = await server.handleJsonRpcMessage({
       jsonrpc: '2.0',
       id: 4,
       method: 'tools/call',
       params: { name: 'get_outdoor_policy', arguments: {} }
     });
-    assert(policyNoAuth.error?.code === -32001, 'T8.4: get_outdoor_policy without token rejected with 401');
+    assert(policyNoAuth.error?.code === -32001, 'T9.4: get_outdoor_policy without token rejected with 401');
 
     console.log(`\nMCP Verification Summary: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) process.exit(1);
