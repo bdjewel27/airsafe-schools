@@ -669,7 +669,10 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         activityNameEn: String,
         intensity: String = "MODERATE",
         durationMinutes: Int = 45,
-        targetClass: String? = null
+        targetClass: String? = null,
+        nextActivityNameBn: String? = null,
+        nextActivityNameEn: String? = null,
+        timeSlot: String? = "০৮:৪৫ – ০৯:৩০"
     ) {
         val cleanIntensity = intensity.trim().uppercase()
         val normalizedIntensity = when (cleanIntensity) {
@@ -678,7 +681,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             else -> "MODERATE"
         }
         currentRoutineIntensity = normalizedIntensity.lowercase()
-        AppLog.d(TAG, "updateRoutineActivity: $activityNameBn, intensity=$normalizedIntensity, duration=$durationMinutes")
+        AppLog.d(TAG, "updateRoutineActivity: $activityNameBn, intensity=$normalizedIntensity, duration=$durationMinutes, next=$nextActivityNameBn")
 
         val schoolId = _userSession.value?.schoolId ?: _selectedSchoolId.value
         val updatedDecision = computeLocalAuthoritativeDecision(schoolId)
@@ -694,9 +697,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     RoutineUpdateRequest(
                         activityNameBn = activityNameBn,
                         activityNameEn = activityNameEn,
+                        nextActivityBn = nextActivityNameBn,
+                        nextActivityEn = nextActivityNameEn,
                         intensity = normalizedIntensity,
                         durationMinutes = durationMinutes,
-                        targetClass = targetClass
+                        targetClass = targetClass,
+                        timeSlot = timeSlot
                     )
                 )
                 AppLog.d(TAG, "updateRoutine API Success: $resp")
@@ -1143,6 +1149,57 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
+        val scheduleActivities = listOf(
+            ActivityScheduleItem(
+                id = "current",
+                activityId = "ACTIVITY#current",
+                nameBn = "সকালের পিই ক্লাস",
+                nameEn = "Morning PE Class",
+                timeSlot = "০৮:৪৫ – ০৯:৩০",
+                intensity = currentRoutineIntensity.uppercase(),
+                locationType = "FIELD",
+                targetClass = "৬ষ্ঠ–১০ম শ্রেণি",
+                durationMinutes = 45,
+                isCurrent = true,
+                order = 1,
+                decision = plan.decision,
+                status = plan.status,
+                primaryReason = plan.primaryReason
+            ),
+            ActivityScheduleItem(
+                id = "next",
+                activityId = "ACTIVITY#next",
+                nameBn = "স্কুল সমাবেশ",
+                nameEn = "School Assembly",
+                timeSlot = "০৯:৩৫ – ১০:০৫",
+                intensity = "LIGHT",
+                locationType = "COURTYARD",
+                targetClass = "সকল শ্রেণি",
+                durationMinutes = 30,
+                isCurrent = false,
+                order = 2,
+                decision = "PROCEED",
+                status = "GREEN",
+                primaryReason = "স্বাভাবিক সহনশীল আবহাওয়া ও হালকা শারীরিক কসরত"
+            ),
+            ActivityScheduleItem(
+                id = "games",
+                activityId = "ACTIVITY#games",
+                nameBn = "মাঠের খেলাধুলা",
+                nameEn = "Outdoor Sports & Games",
+                timeSlot = "১০:১৫ – ১১:০০",
+                intensity = "VIGOROUS",
+                locationType = "FIELD",
+                targetClass = "৮ম–১০ম শ্রেণি",
+                durationMinutes = 45,
+                isCurrent = false,
+                order = 3,
+                decision = if (plan.status == "RED") "MOVE_INDOORS" else "MODIFY",
+                status = if (plan.status == "RED") "RED" else "ORANGE",
+                primaryReason = "তীব্র শারীরিক কসরত — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
+            )
+        )
+
         return DecisionResponse(
             schoolId = schoolId,
             schoolName = "$schoolNameBn ($schoolNameEn)",
@@ -1166,7 +1223,8 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             currentActivityBn = "সকালের পিই ক্লাস",
             currentActivityEn = "Morning PE Class",
             nextActivityBn = "স্কুল সমাবেশ",
-            nextActivityEn = "School Assembly"
+            nextActivityEn = "School Assembly",
+            activities = scheduleActivities
         )
     }
 
