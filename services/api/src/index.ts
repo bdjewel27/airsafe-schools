@@ -1714,20 +1714,63 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Route: GET /schools/{schoolId}/notes (F-08 — Teacher Context Notes & Sensitive Group Status)
     if (path.endsWith('/notes') && event.httpMethod === 'GET') {
-      const noteRes = await docClient.send(
-        new GetCommand({
-          TableName: DECISIONS_TABLE_NAME,
-          Key: { school_id: schoolId, activity_id: 'NOTE#latest' },
-        })
-      );
-      const activeNote = noteRes.Item || null;
+      let notesList: any[] = [];
+      let activeNote: any = null;
+
+      try {
+        const queryRes = await docClient.send(
+          new QueryCommand({
+            TableName: DECISIONS_TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid AND begins_with(activity_id, :prefix)',
+            ExpressionAttributeValues: {
+              ':sid': schoolId,
+              ':prefix': 'NOTE#',
+            },
+            ScanIndexForward: false,
+          })
+        );
+        const allItems = queryRes.Items || [];
+        const historical = allItems.filter((i: any) => i.activity_id !== 'NOTE#latest');
+        activeNote = allItems.find((i: any) => i.activity_id === 'NOTE#latest') || historical[0] || null;
+        notesList = historical.length > 0 ? historical : (activeNote ? [activeNote] : []);
+      } catch (_err) {
+        try {
+          const noteRes = await docClient.send(
+            new GetCommand({
+              TableName: DECISIONS_TABLE_NAME,
+              Key: { school_id: schoolId, activity_id: 'NOTE#latest' },
+            })
+          );
+          activeNote = noteRes.Item || null;
+          notesList = activeNote ? [activeNote] : [];
+        } catch (_getErr) {
+          activeNote = null;
+          notesList = [];
+        }
+      }
+
+      const formattedNotes = notesList.map((item: any) => ({
+        id: item.activity_id,
+        activity_id: item.target_activity_id || 'current',
+        activityId: item.target_activity_id || 'current',
+        activityName: item.target_activity_name || null,
+        note: item.note,
+        hasRespiratory: Boolean(item.has_respiratory_condition),
+        has_respiratory_condition: Boolean(item.has_respiratory_condition),
+        author_email: item.author_email,
+        timestamp: item.timestamp,
+      }));
+
+      const hasResp = formattedNotes.some((n: any) => n.hasRespiratory) || Boolean(activeNote?.has_respiratory_condition);
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
         body: JSON.stringify({
           schoolId,
+          notes: formattedNotes,
           activeNote,
-          hasRespiratoryCondition: Boolean(activeNote?.has_respiratory_condition),
+          hasRespiratoryCondition: hasResp,
         }),
       };
     }
@@ -1743,13 +1786,19 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           body: JSON.stringify({ error: 'Activity note cannot be empty' }),
         };
       }
+      const targetActivityId = String(body.activity_id || body.activityId || body.target_activity_id || 'current').trim();
+      const targetActivityName = body.activity_name || body.activityName || body.target_activity_name || null;
+
       const hasRespiratory =
         Boolean(body.has_respiratory_condition) ||
-        /asthma|respiratory|breathing|cough|wheez|শ্বাসকষ্ট|হাঁপানি|কাশি/i.test(note);
+        Boolean(body.hasRespiratoryCondition) ||
+        /asthma|respiratory|breathing|cough|wheez|শ্বাসকষ্ট|হাঁপানি|কাশি|আজমা|অ্যাজমা/i.test(note);
       const nowIso = new Date().toISOString();
       const noteItem = {
         school_id: schoolId,
         activity_id: 'NOTE#latest',
+        target_activity_id: targetActivityId,
+        target_activity_name: targetActivityName,
         note,
         has_respiratory_condition: hasRespiratory,
         author_email: auth.email,
@@ -1758,6 +1807,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const noteHistoryItem = {
         school_id: schoolId,
         activity_id: `NOTE#${nowIso}`,
+        target_activity_id: targetActivityId,
+        target_activity_name: targetActivityName,
         note,
         has_respiratory_condition: hasRespiratory,
         author_email: auth.email,
@@ -1773,6 +1824,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({
           status: 'SAVED',
           note: noteItem,
+          activity_id: targetActivityId,
           has_respiratory_condition: hasRespiratory,
           safety_tier_stepped_up: hasRespiratory,
           messageBn: hasRespiratory
@@ -2689,10 +2741,21 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             })
           ),
           docClient.send(
-            new GetCommand({
+            new QueryCommand({
               TableName: DECISIONS_TABLE_NAME,
-              Key: { school_id: schoolId, activity_id: 'NOTE#latest' },
+              KeyConditionExpression: 'school_id = :sid AND begins_with(activity_id, :prefix)',
+              ExpressionAttributeValues: {
+                ':sid': schoolId,
+                ':prefix': 'NOTE#',
+              },
             })
+          ).catch(() =>
+            docClient.send(
+              new GetCommand({
+                TableName: DECISIONS_TABLE_NAME,
+                Key: { school_id: schoolId, activity_id: 'NOTE#latest' },
+              })
+            )
           ),
           docClient.send(
             new GetCommand({
@@ -2710,7 +2773,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           nextActivityBn = routineRes.Item.next_activity_bn || null;
           nextActivityEn = routineRes.Item.next_activity_en || null;
         }
-        if (noteRes.Item?.has_respiratory_condition) {
+        const noteItems1 = (noteRes as any).Items || ((noteRes as any).Item ? [(noteRes as any).Item] : []);
+        if (noteItems1.some((n: any) => n.has_respiratory_condition)) {
           hasRespiratoryCondition = true;
         }
         if (overrideRes.Item) {
@@ -2965,7 +3029,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         nextActivityBn = routineRes.Item.next_activity_bn || null;
         nextActivityEn = routineRes.Item.next_activity_en || null;
       }
-      if (noteRes.Item?.has_respiratory_condition) {
+      const noteItems2 = (noteRes as any).Items || ((noteRes as any).Item ? [(noteRes as any).Item] : []);
+      if (noteItems2.some((n: any) => n.has_respiratory_condition)) {
         hasRespiratoryCondition = true;
       }
       if (overrideRes.Item) {

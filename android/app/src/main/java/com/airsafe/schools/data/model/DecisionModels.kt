@@ -168,12 +168,16 @@ data class OverrideRequest(
 
 data class NoteRequest(
     @SerializedName("note") val note: String,
-    @SerializedName("has_respiratory_condition") val hasRespiratoryCondition: Boolean
+    @SerializedName(value = "has_respiratory_condition", alternate = ["hasRespiratoryCondition"]) val hasRespiratoryCondition: Boolean,
+    @SerializedName(value = "activity_id", alternate = ["activityId", "target_activity_id"]) val activityId: String? = null,
+    @SerializedName(value = "activity_name", alternate = ["activityName", "target_activity_name"]) val activityName: String? = null
 )
 
 data class NoteItemDto(
     @SerializedName("note") val note: String,
-    @SerializedName("hasRespiratory", alternate = ["has_respiratory"]) val hasRespiratory: Boolean? = false,
+    @SerializedName(value = "hasRespiratory", alternate = ["has_respiratory", "has_respiratory_condition"]) val hasRespiratory: Boolean? = false,
+    @SerializedName(value = "activity_id", alternate = ["activityId", "target_activity_id"]) val activityId: String? = null,
+    @SerializedName(value = "activity_name", alternate = ["activityName", "target_activity_name"]) val activityName: String? = null,
     @SerializedName("timestamp") val timestamp: String? = null
 )
 
