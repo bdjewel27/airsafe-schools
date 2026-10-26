@@ -1641,7 +1641,43 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     beforeEach(() => {
       jest.restoreAllMocks();
       resetRateLimits();
-      jest.spyOn(docClient, 'send').mockImplementation(async () => ({} as never));
+      const mockSeededHash = hashPassword('AirSafe@2026!');
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.Key?.school_id === 'STAFF_LOOKUP') {
+          const actId = command.input.Key.activity_id || '';
+          if (actId.includes('chs')) return { Item: { target_school_id: 'school-chattogram-001' } } as never;
+          if (actId.includes('rps')) return { Item: { target_school_id: 'school-rajshahi-001' } } as never;
+        }
+        if (command.input?.Key?.activity_id === 'STAFF#nusrat.teacher@chs.edu.bd') {
+          return {
+            Item: {
+              email: 'nusrat.teacher@chs.edu.bd',
+              school_id: 'school-chattogram-001',
+              role: 'TEACHER',
+              password_hash: mockSeededHash,
+              name_bn: 'সহকারী শিক্ষক নুসরাত জাহান',
+              name_en: 'Assistant Teacher Nusrat Jahan',
+              school_name_bn: 'চট্টগ্রাম হিলস স্কুল',
+              school_name_en: 'Chittagong Hills School',
+            },
+          } as never;
+        }
+        if (command.input?.Key?.activity_id === 'STAFF#tareq.teacher@rps.edu.bd') {
+          return {
+            Item: {
+              email: 'tareq.teacher@rps.edu.bd',
+              school_id: 'school-rajshahi-001',
+              role: 'TEACHER',
+              password_hash: mockSeededHash,
+              name_bn: 'সহকারী শিক্ষক তারেক রহমান',
+              name_en: 'Assistant Teacher Tareq Rahman',
+              school_name_bn: 'রাজশাহী পদ্মা স্কুল',
+              school_name_en: 'Rajshahi Padma School',
+            },
+          } as never;
+        }
+        return {} as never;
+      });
     });
 
     test('POST /auth/login successfully authenticates Chittagong teacher with school-chattogram-001', async () => {
@@ -1682,6 +1718,88 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.user.school_id).toBe('school-rajshahi-001');
       expect(body.user.role).toBe('TEACHER');
       expect(body.token).toBeDefined();
+    });
+
+    test('F-01 & S1: POST /auth/login rejects uninvited / non-existent account with HTTP 401 (backdoor eliminated)', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/auth/login',
+          body: JSON.stringify({
+            email: 'uninvited.stranger@external.edu.bd',
+            password: 'AirSafe@2026!',
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(401);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Invalid credentials or uninvited account');
+    });
+
+    test('F-01 & S3: POST /auth/login fails closed with 401 when Cognito User Pool rejects credentials', async () => {
+      process.env.USER_POOL_ID = 'ap-southeast-2_TestUserPool';
+      process.env.USER_POOL_CLIENT_ID = 'test-client-id';
+
+      const originalCognito = await import('@aws-sdk/client-cognito-identity-provider');
+      const spy = jest.spyOn(originalCognito.CognitoIdentityProviderClient.prototype, 'send')
+        .mockRejectedValueOnce(new Error('NotAuthorizedException: Incorrect username or password.') as never);
+
+      try {
+        const res = await handler(
+          makeEvent({
+            httpMethod: 'POST',
+            path: '/auth/login',
+            body: JSON.stringify({
+              email: 'nusrat.teacher@chs.edu.bd',
+              password: 'WrongPassword123!',
+            }),
+          })
+        );
+
+        expect(res.statusCode).toBe(401);
+        const body = JSON.parse(res.body);
+        expect(body.error).toContain('Cognito User Pool');
+      } finally {
+        spy.mockRestore();
+        delete process.env.USER_POOL_ID;
+        delete process.env.USER_POOL_CLIENT_ID;
+      }
+    });
+
+    test('F-01 & S3: POST /auth/login returns genuine Cognito IdToken when Cognito authentication succeeds', async () => {
+      process.env.USER_POOL_ID = 'ap-southeast-2_TestUserPool';
+      process.env.USER_POOL_CLIENT_ID = 'test-client-id';
+
+      const originalCognito = await import('@aws-sdk/client-cognito-identity-provider');
+      const spy = jest.spyOn(originalCognito.CognitoIdentityProviderClient.prototype, 'send')
+        .mockResolvedValueOnce({
+          AuthenticationResult: {
+            IdToken: 'cognito.id.token.jwt.here',
+          },
+        } as never);
+
+      try {
+        const res = await handler(
+          makeEvent({
+            httpMethod: 'POST',
+            path: '/auth/login',
+            body: JSON.stringify({
+              email: 'nusrat.teacher@chs.edu.bd',
+              password: 'AirSafe@2026!',
+            }),
+          })
+        );
+
+        expect(res.statusCode).toBe(200);
+        const body = JSON.parse(res.body);
+        expect(body.token).toBe('cognito.id.token.jwt.here');
+        expect(body.user.email).toBe('nusrat.teacher@chs.edu.bd');
+      } finally {
+        spy.mockRestore();
+        delete process.env.USER_POOL_ID;
+        delete process.env.USER_POOL_CLIENT_ID;
+      }
     });
 
     test('GET /districts returns 64 districts public feeds from DynamoDB', async () => {
