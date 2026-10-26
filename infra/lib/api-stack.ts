@@ -56,6 +56,7 @@ export class ApiStack extends cdk.Stack {
         USER_POOL_ID: props.userPool?.userPoolId || '',
         USER_POOL_CLIENT_ID: props.userPoolClient?.userPoolClientId || '',
         NODE_OPTIONS: '--enable-source-maps',
+        MCP_JWT_SECRET: process.env.MCP_JWT_SECRET || 'airsafe-prod-mcp-jwt-secret-key-32-chars-min',
         JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/jwt-secret`,
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
         ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(','),
@@ -82,6 +83,7 @@ export class ApiStack extends cdk.Stack {
         TABLE_NAME: props.readingsTable.tableName,
         PROJECT_REGION: this.region,
         NODE_OPTIONS: '--enable-source-maps',
+        MCP_JWT_SECRET: process.env.MCP_JWT_SECRET || 'airsafe-prod-mcp-jwt-secret-key-32-chars-min',
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
       },
       logGroup: mcpLogGroup,
@@ -202,6 +204,10 @@ export class ApiStack extends cdk.Stack {
     const currentPolicy = policies.addResource('current');
     currentPolicy.addMethod('GET', lambdaIntegration);
 
+    // Public District Feeds Endpoint: GET /districts (F-20)
+    const districts = this.restApi.root.addResource('districts');
+    districts.addMethod('GET', lambdaIntegration);
+
     // 3. Tenant-Scoped School Endpoints: /schools/{schoolId}/* (Hard Gate 2 & 3)
     const schools = this.restApi.root.addResource('schools');
     const school = schools.addResource('{schoolId}');
@@ -224,6 +230,12 @@ export class ApiStack extends cdk.Stack {
 
     const overrides = school.addResource('overrides');
     overrides.addMethod('POST', lambdaIntegration, methodOptions);
+    overrides.addMethod('GET', lambdaIntegration, methodOptions);
+    const overridesAudit = overrides.addResource('audit');
+    overridesAudit.addMethod('GET', lambdaIntegration, methodOptions);
+
+    const schoolAudit = school.addResource('audit');
+    schoolAudit.addMethod('GET', lambdaIntegration, methodOptions);
 
     const notes = school.addResource('notes');
     notes.addMethod('POST', lambdaIntegration, methodOptions);
