@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { calculateHeatIndex } from './heatindex';
 import { evaluatePolicy, calculateAqiFromPm25 } from './policy';
+import { performDeltaCheck, classifyAnomalyWithNovaMicro, SensorTelemetryInput } from './plausibility';
 
 const region = process.env.PROJECT_REGION || 'ap-southeast-2';
 const ddbClient = new DynamoDBClient({ region });
@@ -25,8 +26,11 @@ export function getQuarantineMetricCount(): number {
   return quarantineMetricCount;
 }
 
+const lastReadingsMap = new Map<string, SensorTelemetryInput>();
+
 export function resetDeduplicationCache(): void {
   processedEventIds.clear();
+  lastReadingsMap.clear();
   quarantineMetricCount = 0;
 }
 
@@ -108,6 +112,22 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
       // US EPA Standard Piecewise-Linear AQI from PM2.5 calculation per Appendix B
       const aqi = calculateAqiFromPm25(pm25);
 
+      // F-23: Delta limits validation & Nova Micro anomaly classification
+      const currentTelemetry: SensorTelemetryInput = { temp_c: tempC, rh_pct: rhPct, pm25_ugm3: pm25, ts, sensor_id, school_id };
+      const priorTelemetry = lastReadingsMap.get(sensor_id) || null;
+      const deltaCheck = performDeltaCheck(currentTelemetry, priorTelemetry, null);
+      lastReadingsMap.set(sensor_id, currentTelemetry);
+
+      let anomalyClassification: any = null;
+      if (deltaCheck.isAnomalous) {
+        anomalyClassification = await classifyAnomalyWithNovaMicro({
+          current: currentTelemetry,
+          flags: deltaCheck.flags,
+          deltas: deltaCheck.deltas,
+          prior: priorTelemetry,
+        });
+      }
+
       // P4: Multi-intensity evaluations across LIGHT, MODERATE, VIGOROUS
       const evaluations = {
         LIGHT: evaluatePolicy(aqi, heatIndexC, 'LIGHT', false),
@@ -156,6 +176,8 @@ export async function processSensorBatch(records: SQSRecordLike[]): Promise<SQSB
             },
             evaluations,
             evaluation,
+            delta_check: deltaCheck,
+            anomaly_classification: anomalyClassification,
             source: 'Simulator Sensor Telemetry (SQS)',
             is_modeled: false,
             ttl,
