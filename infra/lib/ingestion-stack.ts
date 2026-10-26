@@ -92,8 +92,8 @@ export class IngestionStack extends cdk.Stack {
     });
 
     // Grant DynamoDB write permissions (least-privilege per S-04)
-    props.readingsTable.grantWriteData(this.pollerFunction);
-    props.readingsTable.grantWriteData(this.sqsProcessorFunction);
+    props.readingsTable.grantReadWriteData(this.pollerFunction);
+    props.readingsTable.grantReadWriteData(this.sqsProcessorFunction);
 
     // Event Source Mapping: SQS Ingestion Queue -> SqsProcessorFunction
     this.sqsProcessorFunction.addEventSource(
@@ -103,6 +103,19 @@ export class IngestionStack extends cdk.Stack {
         reportBatchItemFailures: true,
       })
     );
+
+    // Grant Amazon Bedrock permissions for Nova Micro anomaly classification (F-23)
+    const bedrockAnomalyStatement = new iam.PolicyStatement({
+      sid: 'AllowBedrockNovaMicroInvocation',
+      effect: iam.Effect.ALLOW,
+      actions: ['bedrock:InvokeModel'],
+      resources: [
+        `arn:aws:bedrock:*::foundation-model/*`,
+        `arn:aws:bedrock:${this.region}:${this.account}:*`,
+      ],
+    });
+    this.pollerFunction.addToRolePolicy(bedrockAnomalyStatement);
+    this.sqsProcessorFunction.addToRolePolicy(bedrockAnomalyStatement);
 
     // Grant SSM parameter store read access for secrets
     this.pollerFunction.addToRolePolicy(

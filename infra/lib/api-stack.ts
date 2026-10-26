@@ -152,6 +152,22 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    // Grant Amazon Bedrock Converse permissions for AI assistant (F-05)
+    this.apiFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowBedrockAssistantInvocation',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:*::foundation-model/*`,
+          `arn:aws:bedrock:${this.region}:${this.account}:*`,
+        ],
+      })
+    );
+
     // API Gateway REST API with restricted CORS allowlist
     this.restApi = new apigateway.RestApi(this, 'AirSafeRestApi', {
       restApiName: `AirSafe-Api-${props.environmentName}`,
