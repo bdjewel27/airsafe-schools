@@ -61,6 +61,16 @@ class AppSyncEventsClient(
         activeSchoolId = schoolId
         isForeground = true
 
+        val isAppSyncHost = baseUrl.contains("appsync-realtime", ignoreCase = true) || baseUrl.contains("appsync-api", ignoreCase = true)
+
+        if (!isAppSyncHost) {
+            // F-03: When connecting to the REST API host (API Gateway), connect directly to the HTTP Event Stream (SSE).
+            // Avoids attempting an invalid WebSocket upgrade (wss://.../schools/{id}/events) on standard REST host.
+            AppLog.d(TAG, "Connecting directly to HTTP Event Stream (SSE) on REST host for school: $schoolId")
+            startHttpEventStreamFallback(baseUrl, schoolId)
+            return
+        }
+
         val wsScheme = if (baseUrl.startsWith("https://", ignoreCase = true)) "wss://" else "ws://"
         val hostPart = baseUrl
             .removePrefix("http://")
@@ -69,12 +79,14 @@ class AppSyncEventsClient(
             .removePrefix("HTTPS://")
             .trimEnd('/')
 
-        val wsUrl = "$wsScheme$hostPart/schools/$schoolId/events"
+        val wsUrl = "$wsScheme$hostPart/event/realtime"
         val token = AirSafeApiClient.authToken
-        AppLog.d(TAG, "Subscribing to AppSync Events channel for school: $schoolId (authenticated: ${!token.isNullOrBlank()})")
+        AppLog.d(TAG, "Subscribing to AppSync Events WebSocket at $wsUrl for school: $schoolId (authenticated: ${!token.isNullOrBlank()})")
 
-        // S6: Token is strictly sent via HTTP Authorization header during handshake, NEVER in query string (?token=)
-        val reqBuilder = Request.Builder().url(wsUrl)
+        // S6: Handshake with aws-appsync-event-ws subprotocol; token sent strictly via Authorization header
+        val reqBuilder = Request.Builder()
+            .url(wsUrl)
+            .header("Sec-WebSocket-Protocol", "aws-appsync-event-ws")
         if (!token.isNullOrBlank()) {
             reqBuilder.header("Authorization", "Bearer $token")
         }
@@ -84,6 +96,9 @@ class AppSyncEventsClient(
                 AppLog.d(TAG, "Connected to AppSync Events channel for school: $schoolId")
                 isConnected = true
                 onConnectionStatusChanged(true)
+                // AppSync Events connection_init & subscribe
+                ws.send("{\"type\":\"connection_init\"}")
+                ws.send("{\"type\":\"subscribe\",\"id\":\"$schoolId\",\"channel\":\"/default/schools/$schoolId/events\"}")
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
