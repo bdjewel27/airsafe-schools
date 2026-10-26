@@ -953,9 +953,9 @@ fun DecisionCardScreen(
                             overrideValidationError = if (isBengali) "কারণ কমপক্ষে ৫ অক্ষরের হতে হবে" else "Reason must be at least 5 characters"
                         } else {
                             val decisionText = when (selectedOverrideDecision) {
-                                "MODIFY" -> if (isBengali) "কার্যক্রম সীমিত (MODIFY)" else "MODIFY"
-                                "PRECAUTIONS" -> if (isBengali) "সতর্কতা সহ (CAUTION)" else "PROCEED WITH PRECAUTIONS"
-                                else -> if (isBengali) "ভেতরে নিন (MOVE INDOORS)" else "MOVE INDOORS"
+                                "MODIFY" -> "MODIFY"
+                                "PRECAUTIONS" -> "PROCEED_WITH_PRECAUTIONS"
+                                else -> "MOVE_INDOORS"
                             }
                             viewModel.applyCoordinatorOverride(decisionText, overrideReason)
                             overrideReason = ""
