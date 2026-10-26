@@ -31,6 +31,17 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- FileProvider for Weekly Safety PDF Report Sharing (F-14) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.airsafe.schools.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
