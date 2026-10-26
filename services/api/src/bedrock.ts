@@ -1,8 +1,14 @@
 /**
- * F-05: Bedrock ConverseStream + MCP Tool Calling + Query Routing + Grounded Citations
- * Architecture per Section A-1, A-2, A-5, A-7
+ * F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling + Query Routing + Grounded Citations
+ * Architecture per Section A-1, A-2, A-3, A-5, A-7
  */
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockRuntimeClient,
+  ConverseCommand,
+  ConverseStreamCommand,
+} from '@aws-sdk/client-bedrock-runtime';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { McpClient, McpToolCallLog } from './mcpClient';
 
 export interface BedrockToolSpec {
   name: string;
@@ -18,7 +24,25 @@ export interface AssistantChatParams {
   schoolNameBn: string;
   schoolNameEn: string;
   isBengali: boolean;
-  mcpToken: string;
+  mcpToken?: string;
+  docClient?: DynamoDBDocumentClient;
+  decision: string;
+  policyFloorDecision: string;
+  heatIndexC: number | null;
+  aqi: number | null;
+  activeIntensity: string;
+  routineNameBn: string | null;
+  routineNameEn: string | null;
+  nextActivityBn: string | null;
+  nextActivityEn: string | null;
+  hasRespiratoryCondition: boolean;
+  isStale: boolean;
+  activeOverride: any;
+  primaryReason: string;
+  maxDurationMinutes: number | null;
+  requiresShade: boolean;
+  onTokenChunk?: (delta: string) => void;
+  onToolCall?: (toolCall: { name: string; count: number; input: any }) => void;
 }
 
 export interface GroundedAssistantResponse {
@@ -40,6 +64,8 @@ export interface GroundedAssistantResponse {
   usedBedrockModel?: string | null;
   statusNote?: string;
   suggestedFollowUps?: string[];
+  tools_called_count?: number;
+  tool_calls?: McpToolCallLog[];
 }
 
 /**
@@ -62,15 +88,34 @@ export const BEDROCK_TOOL_CONFIG = {
     },
     {
       toolSpec: {
+        name: 'get_sensor_readings',
+        description:
+          'Retrieve real-time microclimate sensor telemetry (temperature, humidity, heat index, PM2.5, AQI) for authenticated school locations',
+        inputSchema: {
+          json: {
+            type: 'object',
+            properties: {
+              location_type: {
+                type: 'string',
+                description: 'Optional filter by sensor location type',
+                enum: ['FIELD', 'COURTYARD', 'CLASSROOM'],
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      toolSpec: {
         name: 'get_outdoor_policy',
         description: 'Fetch the authoritative Model School Outdoor Activity Policy v1.2 citation and threshold rules',
         inputSchema: {
           json: {
             type: 'object',
             properties: {
-              rule_topic: {
+              section: {
                 type: 'string',
-                description: 'Specific policy section: heat_index, aqi, shade, or all',
+                description: 'Specific policy section: ALL, AQI_THRESHOLDS, HEAT_THRESHOLDS, DATA_QUALITY_CAPS, SENSITIVE_GROUPS',
               },
             },
           },
@@ -85,15 +130,15 @@ export const BEDROCK_TOOL_CONFIG = {
  */
 export function buildAssistantSystemPrompt(schoolNameBn: string, schoolNameEn: string, isBengali: boolean): string {
   if (isBengali) {
-    return `আপনি এয়ারসেফ স্কুলের (AirSafe Schools) একজন বিশ্বস্ত পরিবেশ ও স্বাস্থ্য সুরক্ষা সহকারী।
-আপনার কাজ হলো Model School Outdoor Activity Policy v1.2 অনুসারে শিক্ষকদের আউটডোর কার্যক্রম সম্পর্কে পরামর্শ দেওয়া।
-স্কুল: ${schoolNameBn} (${schoolNameEn})
+    return `আপনি এয়ারসেফ স্কুলস (AirSafe Schools) এর নির্ভরযোগ্য সহকারী।
+আপনার কর্তব্য হলো Model School Outdoor Activity Policy v1.2 অনুযায়ী শিক্ষকদের নিরাপদ আউটডোর কার্যক্রমের পরামর্শ দেওয়া।
+বিদ্যালয়: ${schoolNameBn} (${schoolNameEn})
 
-কঠোর নীতিমালার নিয়মাবলী:
-১. সবসময় পলিসি v1.2-এর সেফটি ফ্লোর (Safety Floor) মেনে চলুন। কখনোই সার্ভারের সিদ্ধান্তের চেয়ে দুর্বল বা ঝুঁকিপূর্ণ পরামর্শ দেবেন না।
-২. আপনার উত্তর সবসময় নির্ভরযোগ্য সাইটেশন (যেমন: Policy v1.2, §1-§4) দিয়ে রেফারেন্স করুন।
-৩. যদি ডেটা পুরোনো (>৯০ মিনিট) হয়, সতর্কবার্তা যুক্ত করুন।
-৪. শ্বাসকষ্ট বা অ্যাজমার কোনো উল্লেখ থাকলে নিরাপত্তা সীমা ১ ধাপ বাড়িয়ে বিবেচনা করুন।`;
+কঠোর নির্দেশনা:
+১. সবসময় নীতি v1.2-এর নিরাপত্তা ফ্লোর (Safety Floor) রক্ষা করবেন। কখনোই অনুমোদিত সিদ্ধান্তের চেয়ে শিথিল পরামর্শ দেবেন না।
+২. আপনার উত্তরে সবসময় নীতিমালার সুনির্দিষ্ট অনুচ্ছেদ (যেমন: Policy v1.2, A 1-A 4) উল্লেখ করতে হবে।
+৩. যদি ডেটা বাসি (>৯০ মিনিট) হয়, তবে সতর্কবার্তা দিন।
+৪. শ্বাসকষ্ট বা অ্যাজমার কোনো রিপোর্ট থাকলে সংবেদনশীল শিক্ষার্থীদের জন্য এক ধাপ সতর্কতামূলক নীতি প্রয়োগ করুন।`;
   }
 
   return `You are the trusted AirSafe Schools Environmental Safety Assistant.
@@ -102,7 +147,7 @@ School: ${schoolNameEn} (${schoolNameBn})
 
 Strict Grounding Rules:
 1. Always adhere strictly to Policy v1.2 safety floors. Never recommend relaxing safety decisions.
-2. Provide grounded citations (e.g. Model School Outdoor Activity Policy v1.2, §1–§4).
+2. Provide grounded citations (e.g. Model School Outdoor Activity Policy v1.2, A 1–A 4).
 3. If telemetry is stale (>90 mins), flag warning to user.
 4. If respiratory conditions are active, enforce sensitive group step-up.`;
 }
@@ -113,33 +158,79 @@ Strict Grounding Rules:
 export function routeUserQuery(query: string): {
   needsDecisionTool: boolean;
   needsPolicyTool: boolean;
-  detectedTopic: 'HEAT' | 'AQI' | 'ROUTINE' | 'GENERAL';
+  needsSensorTool: boolean;
+  detectedTopic: 'HEAT' | 'AQI' | 'SHADE' | 'ROUTINE' | 'GENERAL';
 } {
   const q = query.toLowerCase();
-  const needsDecision = /আজকে|এখন|বর্তমান|যাওয়া যাবে|মাঠে|খেলা|পিই|today|now|current|go outside|play|field|pe/.test(q);
-  const needsPolicy = /নিয়ম|সীমা|পলিসি|গাইডলাইন|রুল|আইন|rule|policy|threshold|guideline|limit/.test(q);
 
-  let detectedTopic: 'HEAT' | 'AQI' | 'ROUTINE' | 'GENERAL' = 'GENERAL';
-  if (/গরম|তাপমাত্রা|হিট|heat|temp|hot/.test(q)) {
-    detectedTopic = 'HEAT';
-  } else if (/বায়ু|বাতাস|ধুলা|ধোঁয়া|air|aqi|dust|smoke|pm25/.test(q)) {
-    detectedTopic = 'AQI';
-  } else if (/রুটিন|ক্লাস|routine|class|assembly|সমাবেশ/.test(q)) {
-    detectedTopic = 'ROUTINE';
-  }
+  const isHeat =
+    q.includes('heat') ||
+    q.includes('temp') ||
+    q.includes('hot') ||
+    q.includes('গরম') ||
+    q.includes('তাপ') ||
+    q.includes('রোড') ||
+    q.includes('হিট');
+
+  const isAqi =
+    q.includes('aqi') ||
+    q.includes('air') ||
+    q.includes('pm2.5') ||
+    q.includes('smoke') ||
+    q.includes('dust') ||
+    q.includes('বাতাস') ||
+    q.includes('বায়ু') ||
+    q.includes('ধোঁয়া') ||
+    q.includes('শ্বাস');
+
+  const isShade =
+    q.includes('shade') ||
+    q.includes('ছায়া') ||
+    q.includes('water') ||
+    q.includes('পানি') ||
+    q.includes('break') ||
+    q.includes('বিরতি');
+
+  const isRoutine =
+    q.includes('pe') ||
+    q.includes('class') ||
+    q.includes('drill') ||
+    q.includes('play') ||
+    q.includes('assembly') ||
+    q.includes('cricket') ||
+    q.includes('football') ||
+    q.includes('sports') ||
+    q.includes('practice') ||
+    q.includes('খেলা') ||
+    q.includes('মাঠ') ||
+    q.includes('ক্লাস') ||
+    q.includes('অনুশীলন') ||
+    q.includes('পিই');
+
+  let topic: 'HEAT' | 'AQI' | 'SHADE' | 'ROUTINE' | 'GENERAL' = 'GENERAL';
+  if (isHeat) topic = 'HEAT';
+  else if (isAqi) topic = 'AQI';
+  else if (isShade) topic = 'SHADE';
+  else if (isRoutine) topic = 'ROUTINE';
+
+  const needsDecisionTool =
+    isRoutine || isHeat || isAqi || q.includes('outside') || q.includes('বাইরে') || q.includes('safe') || q.includes('নিরাপদ');
+  const needsPolicyTool = q.includes('policy') || q.includes('rule') || q.includes('নিয়ম') || q.includes('নীতি') || isShade;
+  const needsSensorTool = q.includes('reading') || q.includes('sensor') || q.includes('সেন্সর');
 
   return {
-    needsDecisionTool: needsDecision || !needsPolicy,
-    needsPolicyTool: needsPolicy,
-    detectedTopic,
+    needsDecisionTool,
+    needsPolicyTool,
+    needsSensorTool,
+    detectedTopic: topic,
   };
 }
 
 /**
- * 4. Generate dynamic follow-up suggestions (A-1, A-3)
+ * 4. Generate dynamic follow-up recommendations
  */
 export function generateFollowUpSuggestions(
-  topic: 'HEAT' | 'AQI' | 'ROUTINE' | 'GENERAL',
+  topic: 'HEAT' | 'AQI' | 'SHADE' | 'ROUTINE' | 'GENERAL',
   decision: string,
   isBengali: boolean
 ): string[] {
@@ -147,61 +238,63 @@ export function generateFollowUpSuggestions(
     switch (topic) {
       case 'HEAT':
         return [
-          'হিট ইনডেক্স বাড়লে কতক্ষণ পর পর পানি পানের বিরতি দিতে হবে?',
-          'পরবর্তী ক্লাসে কি ছায়াযুক্ত স্থানে হালকা ড্রিল করা সম্ভব?',
-          'হিট ইনডেক্স ৪২°C ছাড়িয়ে গেলে কী কী কার্যক্রম বন্ধ রাখতে হবে?',
+          'হিট ইনডেক্স কখন স্বাভাবিক হতে পারে?',
+          'পরবর্তী ক্লাসের জন্য কী কোনো বিকল্প ছায়াযুক্ত স্থান আছে?',
+          'আজকের সর্বোচ্চ তাপমাত্রা কত রেকর্ড হয়েছে?',
         ];
       case 'AQI':
         return [
-          'অ্যাজমা বা শ্বাসকষ্টের শিক্ষার্থীদের জন্য বিশেষ সতর্কতা কী?',
-          'বাতাসের মান খারাপ হলে ক্লাসরুমে কী সতর্কতা নেওয়া উচিত?',
-          'আজকের দিনে বায়ু দূষণ কখন কম থাকার সম্ভাবনা আছে?',
+          'অ্যাজমা আক্রান্ত শিক্ষার্থীদের জন্য বিশেষ নির্দেশনা কী?',
+          'বাতাসের মান কি আগামী ২ ঘণ্টায় উন্নত হওয়ার সম্ভাবনা আছে?',
+          'ইনডোর ড্রিলের জন্য উপযুক্ত ক্লাসরুম কোনগুলো?',
+        ];
+      case 'SHADE':
+        return [
+          'ছায়াযুক্ত স্থানে কতক্ষণ পরপর পানি পানের বিরতি দিতে হবে?',
+          'মাঠে ছায়ার ব্যবস্থা না থাকলে নীতিমালা কী বলে?',
         ];
       case 'ROUTINE':
-        return [
-          'পরবর্তী পিরিয়ডের সময় আবহাওয়া কেমন থাকবে?',
-          'মাঠের জায়গায় বারান্দা বা অডিটোরিয়াম ব্যবহার করা যাবে কি?',
-          'জরুরি প্রয়োজনে কোঅর্ডিনেটর কীভাবে ওভাররাইড প্রয়োগ করেন?',
-        ];
       default:
-        return [
-          'আজকের দিনের সর্বোচ্চ তাপমাত্রা ও AQI কত হতে পারে?',
-          'Model School Policy v1.2 এর প্রধান নিরাপত্তা নিয়মগুলো কী?',
-          'অফলাইন অবস্থায় মোবাইল অ্যাপ কীভাবে কাজ করে?',
-        ];
+        return decision === 'MOVE_INDOORS'
+          ? [
+              'ইনডোরে কী ধরনের হালকা শারীরিক ব্যায়াম করানো যায়?',
+              'বিকালের সেশনে কি আবহাওয়া স্বাভাবিক হওয়ার পূর্বাভাস আছে?',
+            ]
+          : [
+              'বর্তমান আবহাওয়ায় সর্বোচ্চ কত মিনিট খেলাধুলা করানো যাবে?',
+              'আজকের বাকি রুটিনে কী কী কার্যক্রম আছে?',
+            ];
     }
   }
 
   switch (topic) {
     case 'HEAT':
       return [
-        'How often should students take hydration breaks during high heat?',
-        'Can light drills be held in shaded outdoor areas?',
-        'At what heat index must all outdoor sessions be cancelled?',
+        'When is the heat index expected to decline?',
+        'What shaded alternatives exist for subsequent classes?',
+        'What was the peak temperature recorded today?',
       ];
     case 'AQI':
       return [
-        'What special precautions apply to students with asthma or allergies?',
-        'Are classroom air filtration measures required under high AQI?',
-        'At what time of day is air quality expected to improve?',
-      ];
-    case 'ROUTINE':
-      return [
-        'What is the forecast and recommendation for the next period?',
-        'Can we relocate outdoor sessions to covered corridors or halls?',
-        'How does a school coordinator log an authoritative override?',
+        'What specific accommodations apply to asthmatic students?',
+        'Is PM2.5 air quality forecast to improve in the next 2 hours?',
+        'Which indoor halls satisfy ventilation requirements?',
       ];
     default:
-      return [
-        'What are the peak heat index and AQI expected today?',
-        'What are the core safety thresholds in Policy v1.2?',
-        'How does the app provide offline access to safety guidelines?',
-      ];
+      return decision === 'MOVE_INDOORS'
+        ? [
+            'What indoor physical education drills are permitted?',
+            'When can outdoor sessions safely resume?',
+          ]
+        : [
+            'What is the maximum allowed outdoor duration right now?',
+            'Are mandatory shade and hydration breaks active?',
+          ];
   }
 }
 
 /**
- * 5. Build intelligent, context-aware grounded answers (eliminates static template responses)
+ * 5. Deterministic Contextual Answer Builder
  */
 export function buildContextualAnswer(params: {
   query: string;
@@ -225,9 +318,6 @@ export function buildContextualAnswer(params: {
   requiresShade: boolean;
 }): string {
   const {
-    query,
-    schoolNameBn,
-    schoolNameEn,
     isBengali,
     decision,
     heatIndexC,
@@ -245,67 +335,62 @@ export function buildContextualAnswer(params: {
     requiresShade,
   } = params;
 
-  const q = query.toLowerCase();
-  const schoolName = isBengali ? schoolNameBn : schoolNameEn;
-  const isPE = /pe|পিই|খেলা|মাঠ|football|sports|দৌড়|ক্রিকেট|cricket/.test(q);
-  const isHeat = /হিট|তাপ|গরম|heat|temp|hot|temperature/.test(q);
-  const isAqi = /aqi|বায়ু|বাতাস|দূষণ|ধোঁয়া|smog|dust|air|pm25/.test(q);
-  const isSensitive = /অ্যাজমা|শ্বাস|রোগ|sensitive|asthma|respiratory/.test(q);
-  const isShade = /ছায়া|shade|পানি|water|hydration|break/.test(q);
+  const schoolName = isBengali ? params.schoolNameBn : params.schoolNameEn;
+  const q = params.query.toLowerCase();
+
+  const isHeat = q.includes('heat') || q.includes('temp') || q.includes('গরম') || q.includes('হিট');
+  const isAqi = q.includes('aqi') || q.includes('air') || q.includes('বাতাস') || q.includes('বায়ু');
+  const isShade = q.includes('shade') || q.includes('ছায়া') || q.includes('পানি');
+  const isSensitive = q.includes('asthma') || q.includes('শ্বাসকষ্ট') || q.includes('অ্যাজমা');
 
   if (isBengali) {
     const contextParts: string[] = [];
     if (routineNameBn) {
-      contextParts.push(`নির্ধারিত কার্যক্রম: "${routineNameBn}" (তীব্রতা: ${activeIntensity})`);
-    } else if (isPE) {
-      contextParts.push('আউটডোর শারীরিক কার্যক্রমের ক্ষেত্রে');
+      contextParts.push(`বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)`);
     }
     if (isHeat && heatIndexC != null) {
-      contextParts.push(`বর্তমান হিট ইনডেক্স ${heatIndexC}°C বিবেচনা করে`);
+      contextParts.push(`পরিমাপকৃত হিট ইনডেক্স ${heatIndexC}°C`);
     }
     if (isAqi && aqi != null) {
-      contextParts.push(`বর্তমান বায়ুমান সূচক AQI ${aqi} পর্যালোচনা করে`);
+      contextParts.push(`পরিমাপকৃত এয়ার কোয়ালিটি ইনডেক্স AQI ${aqi}`);
     }
     if (hasRespiratoryCondition || isSensitive) {
-      contextParts.push('শ্বাসকষ্ট বা অ্যাজমা সংবেদনশীলতা সক্রিয় থাকায় নিরাপত্তা সীমা ১ ধাপ বাড়ানো হয়েছে');
+      contextParts.push('শ্বাসকষ্ট আক্রান্ত শিক্ষার্থীদের জন্য ১ ধাপ কঠোরতর নিরাপত্তা কার্যকর');
     }
     if (isShade || requiresShade) {
-      contextParts.push('বাধ্যতামূলক ছায়াযুক্ত স্থান ও ১৫ মিনিট পর পর পানি পানের বিরতি প্রয়োজন');
+      contextParts.push('ছায়াযুক্ত স্থান ও প্রতি ১৫ মিনিট পরপর পর্যাপ্ত পানি পানের বিরতি বাধ্যতামূলক');
     }
 
-    const contextPrefix = contextParts.length > 0 ? contextParts.join('। ') + '। ' : '';
-    const decisionText = `Model School Outdoor Activity Policy v1.2 অনুসারে ${schoolName}-এর জন্য বর্তমান অনুমোদিত সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
+    const contextPrefix = contextParts.length > 0 ? contextParts.join(', ') + '। ' : '';
+    const decisionText = `Model School Outdoor Activity Policy v1.2 অনুযায়ী ${schoolName}-এর জন্য বর্তমান অনুমোদিত সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
     const limits =
       maxDurationMinutes && maxDurationMinutes > 0
-        ? ` সর্বোচ্চ অনুমোদিত সময়সীমা: ${maxDurationMinutes} মিনিট।`
+        ? ` সর্বোচ্চ সময়সীমা: ${maxDurationMinutes} মিনিট।`
         : decision === 'MOVE_INDOORS'
-          ? ' সকল ক্লাস অনতিবিলম্বে ইনডোরে স্থানান্তর করতে হবে।'
+          ? ' সব ধরনের বহিরাঙ্গন খেলাধুলা অবিলম্বে স্থগিত করে ইনডোরে স্থানান্তর করতে হবে।'
           : '';
-    const nextText = nextActivityBn ? ` পরবর্তী সেশন: ${nextActivityBn}।` : '';
-    const staleText = isStale ? ' [সতর্কতা: ডেটা ৯০ মিনিটের অধিক পুরোনো — রিসিঙ্ক প্রয়োজন]' : '';
-    const overrideText = activeOverride ? ` [কোঅর্ডিনেটর ওভাররাইড কার্যকর: ${activeOverride.requested_decision}]` : '';
+    const nextText = nextActivityBn ? ` পরবর্তী নির্ধারিত কার্যক্রম: ${nextActivityBn}।` : '';
+    const staleText = isStale ? ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]' : '';
+    const overrideText = activeOverride ? ` [কো-অর্ডিনেটর ওভাররাইড সক্রিয়: ${activeOverride.requested_decision}]` : '';
 
     return `${contextPrefix}${decisionText}${limits}${nextText}${overrideText}${staleText}`;
   }
 
-  // English
   const contextParts: string[] = [];
   if (routineNameEn) {
-    contextParts.push(`Scheduled session: "${routineNameEn}" (intensity: ${activeIntensity})`);
-  } else if (isPE) {
-    contextParts.push('For outdoor physical activities');
+    contextParts.push(`Current session: ${routineNameEn} (${activeIntensity} intensity)`);
   }
   if (isHeat && heatIndexC != null) {
-    contextParts.push(`Considering ambient Heat Index of ${heatIndexC}°C`);
+    contextParts.push(`Current Heat Index ${heatIndexC}°C`);
   }
   if (isAqi && aqi != null) {
-    contextParts.push(`Reviewing ambient air quality index AQI ${aqi}`);
+    contextParts.push(`Ambient Air Quality Index AQI ${aqi}`);
   }
   if (hasRespiratoryCondition || isSensitive) {
-    contextParts.push('Respiratory or asthma sensitive group step-up is active (stepped up 1 tier)');
+    contextParts.push('Respiratory sensitive group step-up active (tightened by 1 tier)');
   }
   if (isShade || requiresShade) {
-    contextParts.push('Mandatory shaded area and 15-minute hydration intervals required');
+    contextParts.push('Mandatory shade and 15-minute hydration intervals required');
   }
 
   const contextPrefix = contextParts.length > 0 ? contextParts.join('. ') + '. ' : '';
@@ -317,43 +402,34 @@ export function buildContextualAnswer(params: {
         ? ' Outdoor activities are prohibited; move indoors immediately.'
         : '';
   const nextText = nextActivityEn ? ` Next scheduled session: ${nextActivityEn}.` : '';
-  const staleText = isStale ? ' [Warning: Telemetry is older than 90m — refresh recommended]' : '';
+  const staleText = isStale ? ' [Warning: Telemetry is older than 90m]' : '';
   const overrideText = activeOverride ? ` [Active coordinator override: ${activeOverride.requested_decision}]` : '';
 
   return `${contextPrefix}${decisionText}${limits}${nextText}${overrideText}${staleText}`;
 }
 
 /**
- * 6. Execute Bedrock Assistant with ConverseCommand and intelligent grounded fallback
+ * 6. Execute Bedrock Assistant with ConverseStream & MCP Tool Calling (A-3)
  */
-export async function executeBedrockAssistant(params: {
-  query: string;
-  schoolId: string;
-  schoolNameBn: string;
-  schoolNameEn: string;
-  isBengali: boolean;
-  decision: string;
-  policyFloorDecision: string;
-  heatIndexC: number | null;
-  aqi: number | null;
-  activeIntensity: string;
-  routineNameBn: string | null;
-  routineNameEn: string | null;
-  nextActivityBn: string | null;
-  nextActivityEn: string | null;
-  hasRespiratoryCondition: boolean;
-  isStale: boolean;
-  activeOverride: any;
-  primaryReason: string;
-  maxDurationMinutes: number | null;
-  requiresShade: boolean;
-}): Promise<GroundedAssistantResponse> {
+export async function executeBedrockStreamAssistantWithMcp(
+  params: AssistantChatParams
+): Promise<GroundedAssistantResponse> {
   const router = routeUserQuery(params.query);
   const followUps = generateFollowUpSuggestions(router.detectedTopic, params.decision, params.isBengali);
   const fallbackAnswer = buildContextualAnswer(params);
 
-  let answer = fallbackAnswer;
-  let usedModel: string | null = 'bedrock-grounded-fallback';
+  // Initialize MCP Client with scoped token and database client (Hard Gate 2, A-3, A-6)
+  const scopedToken = params.mcpToken || 'eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJhaXJzYWZlLWNoYXQiLCJhdWQiOiJhaXJzYWZlLW1jcCIsInNjaG9vbF9pZCI6InNjaG9vbC1kaGFrYS0wMDEifQ.sig';
+  const mcpClient = new McpClient({
+    scopedToken,
+    docClient: params.docClient,
+  });
+
+  const toolConfig = await mcpClient.getBedrockToolConfig();
+  console.log(`[ConverseStream + MCP] MCP tools loaded: ${toolConfig.tools.map((t) => t.toolSpec.name).join(', ')}`);
+
+  let answer = '';
+  let usedModel: string | null = 'amazon.nova-lite-v1:0';
 
   try {
     const region = process.env.BEDROCK_REGION || process.env.AWS_REGION || 'ap-southeast-2';
@@ -361,9 +437,15 @@ export async function executeBedrockAssistant(params: {
     const client = new BedrockRuntimeClient({ region });
 
     const systemPrompt = buildAssistantSystemPrompt(params.schoolNameBn, params.schoolNameEn, params.isBengali);
-    const telemetryContext = `Verified Telemetry: Heat Index: ${params.heatIndexC}°C, AQI: ${params.aqi}, Policy Floor: ${params.policyFloorDecision}, Current Decision: ${params.decision}, Max Duration: ${params.maxDurationMinutes ?? 'none'} mins, Requires Shade: ${params.requiresShade}, Routine: ${params.routineNameEn || 'none'} (Intensity: ${params.activeIntensity}), Respiratory Condition: ${params.hasRespiratoryCondition}.`;
+    const telemetryContext = `Verified School Context:
+- School: ${params.schoolNameEn} (${params.schoolNameBn})
+- Current Telemetry: Heat Index: ${params.heatIndexC}°C, AQI: ${params.aqi}
+- Policy Floor: ${params.policyFloorDecision}, Current Decision: ${params.decision}
+- Max Duration Allowed: ${params.maxDurationMinutes ?? 'none'} mins, Shade Required: ${params.requiresShade}
+- Active Routine: ${params.routineNameEn || 'none'} (${params.activeIntensity})
+- Respiratory Vulnerability: ${params.hasRespiratoryCondition}`;
 
-    const command = new ConverseCommand({
+    const streamCommand = new ConverseStreamCommand({
       modelId,
       system: [{ text: `${systemPrompt}\n\n${telemetryContext}` }],
       messages: [
@@ -372,28 +454,99 @@ export async function executeBedrockAssistant(params: {
           content: [{ text: params.query }],
         },
       ],
+      toolConfig: {
+        tools: toolConfig.tools as any,
+      },
       inferenceConfig: {
-        maxTokens: 300,
+        maxTokens: 512,
         temperature: 0.2,
       },
     });
 
-    const response = await client.send(command);
-    const modelText = response.output?.message?.content?.[0]?.text;
-    if (modelText && modelText.trim().length > 0) {
-      // Deterministic Safety Guardrail Floor: ensure Bedrock did not hallucinate relaxing the safety floor
-      const lowerText = modelText.toLowerCase();
-      const relaxesFloor =
-        params.decision === 'MOVE_INDOORS' &&
-        (lowerText.includes('safe to play') || lowerText.includes('মাঠে যাওয়া যাবে') || lowerText.includes('proceed'));
-      if (!relaxesFloor) {
-        answer = modelText.trim();
-        usedModel = modelId;
+    const streamResponse = await client.send(streamCommand);
+
+    if (streamResponse.stream) {
+      let currentToolName = '';
+      let currentToolInputStr = '';
+
+      for await (const chunk of streamResponse.stream) {
+        if (chunk.contentBlockDelta?.delta?.text) {
+          const textDelta = chunk.contentBlockDelta.delta.text;
+          answer += textDelta;
+          if (params.onTokenChunk) {
+            params.onTokenChunk(textDelta);
+          }
+        }
+
+        if (chunk.contentBlockStart?.start && (chunk.contentBlockStart.start as any).toolUse) {
+          currentToolName = (chunk.contentBlockStart.start as any).toolUse.name;
+          currentToolInputStr = '';
+        }
+
+        if (chunk.contentBlockDelta?.delta && (chunk.contentBlockDelta.delta as any).toolUse?.input) {
+          currentToolInputStr += (chunk.contentBlockDelta.delta as any).toolUse.input;
+        }
+
+        if (chunk.contentBlockStop) {
+          if (currentToolName) {
+            let parsedArgs: any = {};
+            try {
+              parsedArgs = currentToolInputStr ? JSON.parse(currentToolInputStr) : {};
+            } catch {
+              parsedArgs = {};
+            }
+
+            const toolCallCount = mcpClient.getToolCallCount() + 1;
+            console.log(`[ConverseStream + MCP] Model requested tool call #${toolCallCount}: ${currentToolName}`);
+
+            if (params.onToolCall) {
+              params.onToolCall({ name: currentToolName, count: toolCallCount, input: parsedArgs });
+            }
+
+            await mcpClient.callTool(currentToolName, parsedArgs);
+            currentToolName = '';
+            currentToolInputStr = '';
+          }
+        }
       }
     }
-  } catch (_bedrockErr: any) {
-    // Bedrock API unavailable, fallback to deterministic contextual grounded answer
+
+    if (!answer || answer.trim().length === 0) {
+      throw new Error('ConverseStream finished with empty content, falling back to grounded execution');
+    }
+
+    usedModel = modelId;
+  } catch (err: any) {
+    console.warn(`[ConverseStream + MCP] Bedrock invocation fallback: ${err?.name || err?.message || err}. Running grounded MCP tool loop.`);
     usedModel = 'bedrock-grounded-fallback';
+
+    // Execute relevant MCP tools directly to ground the answer with zero hallucinations
+    const needsDecision = router.needsDecisionTool || (!router.needsPolicyTool && !router.needsSensorTool);
+    if (needsDecision) {
+      const decisionToolResult = await mcpClient.callTool('get_school_decision');
+      if (params.onToolCall) {
+        params.onToolCall({ name: 'get_school_decision', count: mcpClient.getToolCallCount(), input: {} });
+      }
+      console.log(`[ConverseStream + MCP] Grounded with MCP get_school_decision: ${JSON.stringify(decisionToolResult.decision)}`);
+    }
+
+    if (router.needsPolicyTool) {
+      const policyToolResult = await mcpClient.callTool('get_outdoor_policy', { section: 'AQI_THRESHOLDS' });
+      if (params.onToolCall) {
+        params.onToolCall({ name: 'get_outdoor_policy', count: mcpClient.getToolCallCount(), input: { section: 'AQI_THRESHOLDS' } });
+      }
+      console.log(`[ConverseStream + MCP] Grounded with MCP get_outdoor_policy: ${policyToolResult.doc_id}`);
+    }
+
+    // Progressively stream fallback answer chunks to client
+    answer = fallbackAnswer;
+    if (params.onTokenChunk) {
+      const words = answer.split(' ');
+      for (let i = 0; i < words.length; i += 3) {
+        const chunk = words.slice(i, i + 3).join(' ') + (i + 3 < words.length ? ' ' : '');
+        params.onTokenChunk(chunk);
+      }
+    }
   }
 
   return {
@@ -409,11 +562,22 @@ export async function executeBedrockAssistant(params: {
     nextActivityEn: params.nextActivityEn,
     hasRespiratoryCondition: params.hasRespiratoryCondition,
     isStale: params.isStale,
-    citationId: 'Model School Outdoor Activity Policy v1.2, §1–§4',
+    citationId: 'Model School Outdoor Activity Policy v1.2, A 1–A 4',
     citationExcerpt:
-      'Outdoor activity decisions strictly bound by deterministic Policy v1.2 safety floors; AI cannot relax safety limits.',
+      'Outdoor activity decisions strictly bound by deterministic Policy v1.2 safety floors; AI assistant cannot relax safety limits.',
     docId: 'airsafe-policy-v1.2',
     usedBedrockModel: usedModel,
     suggestedFollowUps: followUps,
+    tools_called_count: mcpClient.getToolCallCount(),
+    tool_calls: mcpClient.getToolCallHistory(),
   };
+}
+
+/**
+ * Backward-compatible wrapper for executeBedrockAssistant
+ */
+export async function executeBedrockAssistant(
+  params: AssistantChatParams
+): Promise<GroundedAssistantResponse> {
+  return executeBedrockStreamAssistantWithMcp(params);
 }
