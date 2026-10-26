@@ -96,9 +96,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private var hasRespiratoryNote: Boolean = false
     private var currentRoutineIntensity: String = "moderate"
 
-    // F-11: Coordinator Overrides
+    // F-11: Coordinator Overrides & Immutable Audit Trail
     private val _activeOverride = MutableStateFlow<String?>(null)
     val activeOverride: StateFlow<String?> = _activeOverride.asStateFlow()
+
+    private val _overrideAuditLogs = MutableStateFlow<List<com.airsafe.schools.data.model.OverrideAuditItemDto>>(emptyList())
+    val overrideAuditLogs: StateFlow<List<com.airsafe.schools.data.model.OverrideAuditItemDto>> = _overrideAuditLogs.asStateFlow()
 
     // F-12: Invited Staff List
     private val _invitedStaff = MutableStateFlow<List<StaffItem>>(emptyList())
@@ -377,6 +380,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         loadAnalytics(schoolId)
         loadStaff(schoolId)
         loadTrends(schoolId)
+        loadOverrideAuditLogs(schoolId)
     }
 
     /**
@@ -461,6 +465,19 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 AppLog.d(TAG, "[AUTO-RECALC] Successfully updated decision in-place: ${resp.decision}")
             } catch (e: Exception) {
                 AppLog.d(TAG, "[AUTO-RECALC] Silent recalculation skipped or failed: ${e.message}")
+            }
+        }
+    }
+
+    fun loadOverrideAuditLogs(schoolId: String) {
+        viewModelScope.launch {
+            try {
+                val resp = AirSafeApiClient.service.getOverrideAuditLogs(schoolId)
+                if (resp.auditLogs.isNotEmpty()) {
+                    _overrideAuditLogs.value = resp.auditLogs
+                }
+            } catch (e: Exception) {
+                AppLog.d(TAG, "loadOverrideAuditLogs skipped or failed: ${e.message}")
             }
         }
     }
@@ -602,6 +619,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 )
                 AppLog.d(TAG, "submitOverride API Success: $resp")
                 loadCurrentDecision(schoolId)
+                loadOverrideAuditLogs(schoolId)
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in submitOverride API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {

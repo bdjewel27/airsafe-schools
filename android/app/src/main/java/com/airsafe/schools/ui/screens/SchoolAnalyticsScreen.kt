@@ -29,6 +29,7 @@ fun SchoolAnalyticsScreen(
 ) {
     val analytics by viewModel.analyticsData.collectAsState()
     val isBengali by viewModel.isBengali.collectAsState()
+    val auditLogs by viewModel.overrideAuditLogs.collectAsState()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -215,6 +216,96 @@ fun SchoolAnalyticsScreen(
                     count = analytics.overridesCount,
                     color = Color.DarkGray
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // F-11: Immutable Coordinator Override Audit Trail
+        Text(
+            text = if (isBengali) "অপরিবর্তনীয় ওভাররাইড অডিট ট্রেইল (F-11)" else "Immutable Override Audit Trail (F-11)",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = TextPrimary
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                if (auditLogs.isEmpty()) {
+                    Text(
+                        text = if (isBengali) "কোনো কোঅর্ডিনেটর ওভাররাইড অডিট রেকর্ড নেই।" else "No coordinator override audit records found.",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                } else {
+                    auditLogs.forEachIndexed { index, item ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = item.requestedDecision ?: "OVERRIDE",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = if (item.requestedDecision == "MOVE_INDOORS") DangerRed else CautionYellow
+                                )
+                                Text(
+                                    text = item.timestamp?.take(16)?.replace("T", " ") ?: "",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${if (isBengali) "কারণ: " else "Reason: "}${item.reason ?: "-"}",
+                                fontSize = 13.sp,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${if (isBengali) "কোঅর্ডিনেটর: " else "By: "}${item.coordinatorEmail ?: "Coordinator"}",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary
+                                )
+                                if (item.relaxesFloor) {
+                                    Text(
+                                        text = if (isBengali) "⚠️ নীতি শিথিলকরণ" else "⚠️ Relaxes Floor",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = DangerRed
+                                    )
+                                }
+                            }
+                            if (!item.expiresAt.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${if (isBengali) "মেয়াদ শেষ: " else "Expires: "}${item.expiresAt?.take(16)?.replace("T", " ")}",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                        if (index < auditLogs.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                color = Color.LightGray.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
             }
         }
 

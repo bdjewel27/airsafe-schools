@@ -60,6 +60,11 @@ interface AirSafeApiService {
         @Body request: OverrideRequest
     ): Map<String, Any>
 
+    @GET("schools/{schoolId}/overrides/audit")
+    suspend fun getOverrideAuditLogs(
+        @Path("schoolId") schoolId: String
+    ): OverrideAuditResponse
+
     @POST("schools/{schoolId}/notes")
     suspend fun submitNote(
         @Path("schoolId") schoolId: String,

@@ -1427,6 +1427,95 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.active_override).toBeNull();
     });
 
+    test('POST /overrides records relaxing override with relaxes_floor=true and audit log (S4 / F-11)', async () => {
+      let savedAudit: any = null;
+      let savedOverride: any = null;
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { heat_index_c: 44.0, aqi: 220 }, // Severe hazard -> MOVE_INDOORS floor
+              },
+            ],
+          } as never;
+        }
+        if (command.input?.Item?.activity_id === 'OVERRIDE#active') {
+          savedOverride = command.input.Item;
+        }
+        if (command.input?.Item?.activity_id?.startsWith('OVERRIDE_AUDIT#')) {
+          savedAudit = command.input.Item;
+        }
+        return {} as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/overrides',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+          body: JSON.stringify({
+            decision: 'MODIFY',
+            reason: 'High-performance HEPA purifiers activated in auditorium',
+            activity_id: 'current',
+            duration_minutes: 60,
+          }),
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('RECORDED');
+      expect(body.relaxes_floor).toBe(true);
+      expect(body.policy_floor).toBe('MOVE_INDOORS');
+      expect(savedOverride.relaxes_floor).toBe(true);
+      expect(savedAudit.relaxes_floor).toBe(true);
+      expect(savedAudit.policy_floor).toBe('MOVE_INDOORS');
+    });
+
+    test('GET /overrides/audit and GET /audit return immutable override audit trail (F-11)', async () => {
+      const mockAuditItems = [
+        {
+          activity_id: 'OVERRIDE_AUDIT#2026-10-26T10:00:00.000Z',
+          school_id: 'school-dhaka-001',
+          requested_decision: 'MOVE_INDOORS',
+          policy_floor: 'MODIFY',
+          relaxes_floor: false,
+          reason: 'Excessive localized construction smoke',
+          coordinator_email: 'coordinator@dms.edu.bd',
+          target_activity_id: 'current',
+          expires_at: '2026-10-26T12:00:00.000Z',
+          date: '2026-10-26',
+          timestamp: '2026-10-26T10:00:00.000Z',
+        },
+      ];
+
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.KeyConditionExpression?.includes('OVERRIDE_AUDIT#') || command.input?.ExpressionAttributeValues?.[':prefix'] === 'OVERRIDE_AUDIT#') {
+          return { Items: mockAuditItems } as never;
+        }
+        return { Items: [] } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/overrides/audit',
+          headers: { Authorization: `Bearer ${coordinatorToken}` },
+        })
+      );
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.audit_logs).toBeDefined();
+      expect(body.audit_logs.length).toBe(1);
+      expect(body.audit_logs[0].coordinator_email).toBe('coordinator@dms.edu.bd');
+      expect(body.audit_logs[0].policy_floor).toBe('MODIFY');
+      expect(body.audit_logs[0].expires_at).toBe('2026-10-26T12:00:00.000Z');
+    });
+
     test('POST /notes and POST /routines preserve history without overwriting previous items', async () => {
       const savedItems: any[] = [];
       jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
