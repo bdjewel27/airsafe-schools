@@ -28,10 +28,10 @@
 | **F-21** | **MUST** | ফল্ট ইনজেকশনসহ সেন্সর সিমুলেটর (Sensor Simulator) | **done** | `simulator/sensor-sim.js` generates `normal`, `pollution-wave`, `heat-spike`, `monsoon` scenarios with 6 fault injections (`stale`, `drop`, `out-of-range`, `duplicate`, `out-of-order`, `clock-skew`). |
 | **F-22** | **MUST** | শুধু-পড়ার MCP সার্ভার (Read-Only MCP Server) | **done** | JSON-RPC 2.0 Model Context Protocol server exposing `get_school_profile`, `get_readings`, `get_current_policy`, `get_decision_history`. HMAC-SHA256 bearer token authentication. |
 | **F-23** | **SHOULD** | অস্বাভাবিক রিডিং যাচাই (Anomalous Reading Plausibility) | **done** | Validates delta limits (e.g. max 5°C/hr shift) and cross-checks outdoor sensors against regional district stations. |
-| **F-30** | **STRETCH**| Wear OS সহযোগী অ্যাপ | **scope-deferred** | Documented in architecture roadmap for future release. |
-| **F-31** | **STRETCH**| কাস্টম নীতি নির্মাতা (Custom Policy Builder) | **scope-deferred** | Documented in architecture roadmap for multi-school district admins. |
-| **F-32** | **STRETCH**| স্থানীয় প্রান্তিক অনুমান (Edge ML Fallback) | **scope-deferred** | Evaluated via ADR-005 offline SQLite caching strategy. |
-| **F-33** | **STRETCH**| বহুভাষিক ভয়েস সহকারী (Multilingual Voice) | **scope-deferred** | Evaluated; text-based bilingual assistant prioritized. |
+| **F-30** | **STRETCH**| মাঠের ছবি দেখে যাচাই (Ground Photo Verification) | **করা হয়নি** | প্রজেক্ট ব্রিফের স্ট্রেচ গোল; বর্তমান স্কোপে বাস্তবায়িত হয়নি। |
+| **F-31** | **STRETCH**| বাংলা ভয়েস সহকারী (Bangla Voice Queries) | **করা হয়নি** | প্রজেক্ট ব্রিফের স্ট্রেচ গোল; বর্তমান স্কোপে বাস্তবায়িত হয়নি। |
+| **F-32** | **STRETCH**| Glance উইজেট (Android Glance Home Screen Widget) | **করা হয়নি** | প্রজেক্ট ব্রিফের স্ট্রেচ গোল; বর্তমান স্কোপে বাস্তবায়িত হয়নি। |
+| **F-33** | **STRETCH**| বাইরে যাওয়ার সেরা সময় (Best Outdoor Time Window) | **করা হয়নি** | প্রজেক্ট ব্রিফের স্ট্রেচ গোল; বর্তমান স্কোপে বাস্তবায়িত হয়নি। |
 
 ---
 
