@@ -77,7 +77,9 @@ fun DecisionCardScreen(
     var overrideValidationError by remember { mutableStateOf<String?>(null) }
 
     var showRoutineDialog by remember { mutableStateOf(false) }
-    var routineActivityName by remember { mutableStateOf("পিই ও খেলাধুলা (PE & Games)") }
+    var routineActivityName by remember { mutableStateOf("সকালের পিই ক্লাস (Morning PE)") }
+    var routineNextActivityName by remember { mutableStateOf("স্কুল সমাবেশ (School Assembly)") }
+    var routineTimeSlot by remember { mutableStateOf("০৮:৪৫ – ০৯:৩০") }
     var selectedIntensity by remember { mutableStateOf("MODERATE") }
     var routineDurationMinutes by remember { mutableStateOf("45") }
     var routineTargetClass by remember { mutableStateOf("৬ষ্ঠ–১০ম শ্রেণি") }
@@ -847,13 +849,26 @@ fun DecisionCardScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = if (isBengali) "অ্যাক্টিভিটির ধরন:" else "Activity Type:",
+                        text = if (isBengali) "চলমান অ্যাক্টিভিটি:" else "Current Activity:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     OutlinedTextField(
                         value = routineActivityName,
                         onValueChange = { routineActivityName = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (isBengali) "পরবর্তী অ্যাক্টিভিটি:" else "Next Activity:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    OutlinedTextField(
+                        value = routineNextActivityName,
+                        onValueChange = { routineNextActivityName = it },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -914,7 +929,10 @@ fun DecisionCardScreen(
                             activityNameEn = routineActivityName,
                             intensity = selectedIntensity,
                             durationMinutes = duration,
-                            targetClass = routineTargetClass.ifBlank { null }
+                            targetClass = routineTargetClass.ifBlank { null },
+                            nextActivityNameBn = routineNextActivityName.ifBlank { null },
+                            nextActivityNameEn = routineNextActivityName.ifBlank { null },
+                            timeSlot = routineTimeSlot
                         )
                         showRoutineDialog = false
                     },
@@ -1198,6 +1216,111 @@ fun DecisionCardContent(
                                 fontSize = 11.sp,
                                 color = TextSecondary
                             )
+                        }
+                    }
+                }
+            }
+
+            // F-10 / P4: Comprehensive Activity Schedule Table
+            if (!safeData.activities.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.95f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isBengali) "📅 অ্যাক্টিভিটি ও সময়সূচি" else "📅 Activity Schedule",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SafeGreen
+                            )
+                            Text(
+                                text = if (isBengali) "${safeData.activities.size}টি সেশন" else "${safeData.activities.size} sessions",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        safeData.activities.forEach { act ->
+                            val actStatusColor = when (act.status?.uppercase()) {
+                                "RED" -> DangerRed
+                                "ORANGE" -> WarningOrange
+                                "YELLOW" -> CautionYellow
+                                else -> SafeGreen
+                            }
+                            val actName = if (isBengali) (act.nameBn ?: act.nameEn ?: "") else (act.nameEn ?: act.nameBn ?: "")
+                            val isCurrentAct = act.isCurrent
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isCurrentAct) SafeGreen.copy(alpha = 0.08f) else Color(0xFFF9FAFB),
+                                border = if (isCurrentAct) androidx.compose.foundation.BorderStroke(1.dp, SafeGreen) else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isCurrentAct) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = SafeGreen,
+                                                    modifier = Modifier.padding(end = 4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (isBengali) "চলমান" else "NOW",
+                                                        fontSize = 9.sp,
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = actName,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = TextPrimary
+                                            )
+                                        }
+                                        Text(
+                                            text = "${act.timeSlot ?: "সময় নির্ধারিত নেই"} • ${act.targetClass ?: "সকল শ্রেণি"} • ${act.intensity ?: "MODERATE"}",
+                                            fontSize = 10.sp,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = actStatusColor.copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            text = act.decision ?: "PROCEED",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = actStatusColor,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
