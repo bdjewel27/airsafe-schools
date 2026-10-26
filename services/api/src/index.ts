@@ -3031,6 +3031,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         is_stale: true,
         is_modeled: true,
         last_updated: null,
+        confidence_level_pct: 0,
+        confidence_label_bn: 'ডেটা অনুপলব্ধ',
+        confidence_label_en: 'Data Unavailable',
+        change_forecast_bn: 'ডেটা অনুপলব্ধ থাকায় পরিবর্তনের পূর্বাভাস নির্ধারণ করা যাচ্ছে না',
+        change_forecast_en: 'Forecast unavailable due to missing telemetry',
+        expected_change_at: null,
+        next_activity: null,
       };
 
       const isEventsRoute = path.endsWith('/events');
@@ -3200,6 +3207,78 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       ((event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream') ||
         event.queryStringParameters?.stream === 'sse');
 
+    // F-02: Calculate Confidence Level (আস্থার মাত্রা) based on sensor provenance and freshness
+    let confidenceLevelPct = 95;
+    let confidenceLabelBn = 'পরিমাপিত ক্যাম্পাস IoT সেন্সর';
+    let confidenceLabelEn = 'Measured Campus IoT Sensor';
+
+    if (effectiveDecision === 'UNKNOWN' || policyEval.decision === 'UNKNOWN') {
+      confidenceLevelPct = 0;
+      confidenceLabelBn = 'ডেটা অনুপলব্ধ';
+      confidenceLabelEn = 'Data Unavailable';
+    } else if (isStale) {
+      confidenceLevelPct = 60;
+      confidenceLabelBn = 'পুরোনো সেন্সর ডেটা';
+      confidenceLabelEn = 'Stale Sensor Telemetry';
+    } else if (isModeled) {
+      confidenceLevelPct = 75;
+      confidenceLabelBn = 'মডেল করা স্যাটেলাইট ডেটা';
+      confidenceLabelEn = 'Modeled Open-Meteo Satellite';
+    } else if (latestItem.provenance?.sensor_count && latestItem.provenance.sensor_count > 1) {
+      confidenceLevelPct = 98;
+      confidenceLabelBn = 'মাল্টিপল ক্যাম্পাস IoT সেন্সর কনসেন্সাস';
+      confidenceLabelEn = 'Multi-Sensor IoT Consensus';
+    }
+
+    // F-02: Calculate Change Forecast ("কখন বদলাতে পারে")
+    let changeForecastBn = 'পরবর্তী ৪ ঘণ্টায় পরিবর্তনের সম্ভাবনা নেই (স্থিতিশীল)';
+    let changeForecastEn = 'No decision change expected in the next 4 hours (Stable)';
+    let expectedChangeAt: string | null = null;
+
+    if (effectiveDecision === 'UNKNOWN') {
+      changeForecastBn = 'ডেটা অনুপলব্ধ থাকায় পরিবর্তনের পূর্বাভাস নির্ধারণ করা যাচ্ছে না';
+      changeForecastEn = 'Forecast unavailable due to missing telemetry';
+    } else if (Array.isArray(latestItem.hourly_forecast) && latestItem.hourly_forecast.length > 0) {
+      const nowMs = Date.now();
+      for (const fItem of latestItem.hourly_forecast) {
+        const itemTimeMs = fItem.time ? new Date(fItem.time).getTime() : 0;
+        if (itemTimeMs > nowMs && itemTimeMs <= nowMs + 6 * 3600 * 1000) {
+          const projEval = evaluatePolicyFloor({
+            heatIndexC: fItem.heat_index_c ?? heatIndexC,
+            aqi: fItem.aqi ?? aqi,
+            intensity: activeIntensity,
+            isModeled: false,
+            isStale: false,
+            hasRespiratoryCondition,
+          });
+
+          if (projEval.decision !== effectiveDecision) {
+            expectedChangeAt = fItem.time;
+            const hourDate = new Date(fItem.time);
+            const hourStr = hourDate.toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Dhaka' });
+            const hourStrEn = hourDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Dhaka' });
+
+            const decisionBnMap: Record<string, string> = {
+              PROCEED: 'স্বাভাবিক (PROCEED)',
+              PROCEED_WITH_PRECAUTIONS: 'সতর্কতা (PROCEED WITH PRECAUTIONS)',
+              MODIFY: 'কার্যক্রম সীমিত (MODIFY)',
+              MOVE_INDOORS: 'ভেতরে নেওয়া (MOVE INDOORS)',
+            };
+            const targetDecBn = decisionBnMap[projEval.decision] || projEval.decision;
+
+            if (STRICTNESS_ORDER[projEval.decision] > STRICTNESS_ORDER[effectiveDecision]) {
+              changeForecastBn = `${hourStr}-এ পরিবেশগত পরিবর্তনে '${targetDecBn}' হতে পারে`;
+              changeForecastEn = `Conditions may change to ${projEval.decision} at ${hourStrEn}`;
+            } else {
+              changeForecastBn = `${hourStr}-এ পরিবেশ উন্নত হয়ে '${targetDecBn}' হতে পারে`;
+              changeForecastEn = `Conditions expected to improve to ${projEval.decision} at ${hourStrEn}`;
+            }
+            break;
+          }
+        }
+      }
+    }
+
     const decisionPayload = {
       school_id: latestItem.school_id,
       school_name: latestItem.school_name || `${auth.schoolNameBn} (${auth.schoolNameEn})`,
@@ -3221,6 +3300,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       provenance: latestItem.provenance || null,
       hourly_forecast: latestItem.hourly_forecast || [],
       last_updated: latestItem.timestamp || null,
+      confidence_level_pct: confidenceLevelPct,
+      confidence_label_bn: confidenceLabelBn,
+      confidence_label_en: confidenceLabelEn,
+      change_forecast_bn: changeForecastBn,
+      change_forecast_en: changeForecastEn,
+      expected_change_at: expectedChangeAt,
       current_activity_bn: currentActivityBn,
       current_activity_en: currentActivityEn,
       next_activity_bn: nextActivityBn,
