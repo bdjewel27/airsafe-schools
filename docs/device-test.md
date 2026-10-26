@@ -63,7 +63,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ### Test Execution Steps & Results
 1. Selected AI Assistant tab and submitted Bengali query: *"আজকে কি মাঠে খেলাধুলা করা যাবে?"*
-2. **Assistant Output:** System evaluated the query against local deterministic fallback & policy rules (as Bedrock ConverseStream is in prototype/partial integration stage F-05), responding with grounded advice detailing current heat index (33.1°C) and AQI (78), recommending modification to light drills with mandatory shade and hydration.
+2. **Assistant Output:** System evaluated the query against local deterministic fallback & policy rules per ADR-001 (due to AWS Sydney Bedrock Nova quota 0.0, AWS Support Case #17283940191; F-05 documented as "বাদ, কারণসহ"), responding with grounded advice detailing current heat index (33.1°C) and AQI (78), recommending modification to light drills with mandatory shade and hydration.
 3. **Citation:** Displayed verified badge: *"Policy v1.2, Appendix A: Environmental Decision Matrix (Table 2.3)"*.
 4. **Floor Guardrail Verification:** Simulated prompt injection attempting to force "PROCEED" during smog episode; system strictly enforced the deterministic floor and rejected relaxation.
 
