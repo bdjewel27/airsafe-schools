@@ -1,6 +1,6 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { fetchOpenAQReadings, OpenAQReading } from './openaq';
 import { fetchOpenMeteoData, OpenMeteoData } from './openmeteo';
 import { calculateHeatIndex } from './heatindex';
@@ -32,11 +32,35 @@ async function getSecret(paramName: string): Promise<string | null> {
 }
 
 /**
- * F-06 Quiet Hours Check: 20:00 (8 PM) to 06:00 (6 AM) BST (Asia/Dhaka, UTC+6)
+ * F-06 Quiet Hours Check: 21:00 (9 PM) to 06:00 (6 AM) BST (Asia/Dhaka, UTC+6)
  */
 export function isQuietHoursBst(now: Date = new Date()): boolean {
   const bstHour = (now.getUTCHours() + 6) % 24;
-  return bstHour >= 20 || bstHour < 6;
+  return bstHour >= 21 || bstHour < 6;
+}
+
+/**
+ * F-06 State Transition Check: Determines whether an environmental safety condition has worsened.
+ * Alerts are triggered when condition worsens (e.g. PROCEED -> MODIFY, MODIFY -> MOVE_INDOORS),
+ * eliminating redundant hourly pushes when conditions remain unchanged.
+ */
+export function hasConditionWorsened(
+  previousDecision: string | null | undefined,
+  currentDecision: string
+): boolean {
+  const STRICTNESS_ORDER: Record<string, number> = {
+    UNKNOWN: 0,
+    PROCEED: 1,
+    PROCEED_WITH_PRECAUTIONS: 2,
+    MODIFY: 3,
+    MOVE_INDOORS: 4,
+  };
+
+  const prevRank = previousDecision ? (STRICTNESS_ORDER[previousDecision] ?? 1) : 1;
+  const currentRank = STRICTNESS_ORDER[currentDecision] ?? 1;
+
+  // Condition has worsened if current tier is strictly stricter than previous tier AND reaches at least MODIFY
+  return currentRank > prevRank && currentRank >= STRICTNESS_ORDER.MODIFY;
 }
 
 export interface SourceMetricProvenance {
@@ -336,20 +360,45 @@ export const handler = async (_event: any): Promise<any> => {
         );
       }
 
-      // 5. Send FCM push notification if decision worsens to MODIFY or MOVE_INDOORS (respecting F-06 Quiet Hours 8 PM - 6 AM BST)
-      if (
-        (evaluation.decision === 'MODIFY' || evaluation.decision === 'MOVE_INDOORS') &&
-        !isQuietHoursBst()
-      ) {
+      // 5. Send FCM push notification ONLY when the condition WORSENED (State Transition Detection)
+      // and NOT during F-06 Quiet Hours (21:00 - 06:00 BST)
+      let previousDecision: string | null = null;
+      try {
+        const prevRes: any = await docClient.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid',
+            ExpressionAttributeValues: { ':sid': school.id },
+            ScanIndexForward: false,
+            Limit: 5,
+          })
+        );
+        const prevItems = prevRes.Items || [];
+        const priorItem = prevItems.find(
+          (it: any) => it.timestamp !== timestamp && !String(it.timestamp).startsWith('LATEST#')
+        );
+        if (priorItem?.evaluation?.decision) {
+          previousDecision = priorItem.evaluation.decision;
+        }
+      } catch (_prevErr) {
+        // Query error fallback
+      }
+
+      const conditionWorsened = hasConditionWorsened(previousDecision, evaluation.decision);
+
+      if (conditionWorsened && !isQuietHoursBst()) {
         await sendSchoolAlertPushNotification({
           schoolId: school.id,
           title: `⚠️ Alert: ${school.name}`,
-          body: `Outdoor decision changed to ${evaluation.decision}. ${evaluation.reasons.join(', ')}`,
+          body: `Outdoor decision worsened from ${previousDecision || 'SAFE'} to ${evaluation.decision}. ${evaluation.reasons.join(', ')}`,
           data: {
             schoolId: school.id,
             decision: evaluation.decision,
+            previousDecision: previousDecision || 'PROCEED',
             heatIndex: String(heatIndexC),
             aqi: String(aqi),
+            target_screen: 'EXPLANATION',
+            reason: evaluation.reasons.join(', '),
           },
         });
       }
