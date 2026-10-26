@@ -516,6 +516,8 @@ export class AirSafeMcpServer {
 /**
  * AWS Lambda HTTP Handler (API Gateway / Bedrock Agent MCP adapter - F-22 Deployable)
  */
+let sharedServerInstance: AirSafeMcpServer | null = null;
+
 export const handler = async (event: any) => {
   const headers = event?.headers || {};
   const corsHeaders = {
@@ -532,7 +534,10 @@ export const handler = async (event: any) => {
 
   let server: AirSafeMcpServer;
   try {
-    server = new AirSafeMcpServer();
+    if (!sharedServerInstance) {
+      sharedServerInstance = new AirSafeMcpServer();
+    }
+    server = sharedServerInstance;
   } catch (initErr: any) {
     return {
       statusCode: 500,
