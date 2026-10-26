@@ -470,7 +470,10 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             try {
                 val resp = AirSafeApiClient.service.getNotes(schoolId)
                 if (resp.notes.isNotEmpty()) {
-                    _activityNotes.value = resp.notes.map { it.note }
+                    _activityNotes.value = resp.notes.map { n ->
+                        val actLabel = if (!n.activityName.isNullOrBlank()) " [" + n.activityName + "]" else if (!n.activityId.isNullOrBlank() && n.activityId != "current") " [" + n.activityId + "]" else ""
+                        n.note + actLabel
+                    }
                     if (resp.notes.any { it.hasRespiratory == true }) {
                         hasRespiratoryNote = true
                     }
@@ -509,17 +512,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
      * F-08 & Policy v1.2 Section 3: Teacher activity notes.
      * If respiratory symptoms are reported, steps up the Policy v1.2 decision by 1 safety tier immediately.
      */
-    fun addActivityNote(note: String) {
+    fun addActivityNote(note: String, activityId: String? = null, activityName: String? = null) {
         val cleanNote = note.trim()
         if (cleanNote.isBlank()) return
-        AppLog.d(TAG, "addActivityNote called: $cleanNote")
+        AppLog.d(TAG, "addActivityNote called: $cleanNote (activity: $activityId)")
 
         val triggersRespiratoryStepUp = Regex(
             "(asthma|respiratory|breathing|cough|wheez|আজমা|অ্যাজমা|হাঁপানি|শ্বাসকষ্ট|কাশি|সংবেদনশীল|sensitive|ajma|ajmao)",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(cleanNote)
 
-        _activityNotes.value = _activityNotes.value + cleanNote
+        val displayLabel = if (!activityName.isNullOrBlank()) " [" + activityName + "]" else if (!activityId.isNullOrBlank() && activityId != "current") " [" + activityId + "]" else ""
+        _activityNotes.value = _activityNotes.value + (cleanNote + displayLabel)
         if (triggersRespiratoryStepUp) {
             hasRespiratoryNote = true
         }
@@ -534,13 +538,19 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                AppLog.d(TAG, "Sending submitNote to schools/$schoolId/notes")
+                AppLog.d(TAG, "Sending submitNote to schools/$schoolId/notes with activityId=$activityId")
                 val resp = AirSafeApiClient.service.submitNote(
                     schoolId,
-                    NoteRequest(note = cleanNote, hasRespiratoryCondition = triggersRespiratoryStepUp)
+                    NoteRequest(
+                        note = cleanNote,
+                        hasRespiratoryCondition = triggersRespiratoryStepUp,
+                        activityId = activityId ?: "current",
+                        activityName = activityName
+                    )
                 )
                 AppLog.d(TAG, "submitNote API Success: $resp")
                 loadCurrentDecision(schoolId)
+                loadNotes(schoolId)
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in submitNote API call: ${e.message}", e)
                 val errNotice = if (_isBengali.value) {
