@@ -186,6 +186,13 @@ data class SensorSitesResponse(
     @SerializedName(value = "district_baseline", alternate = ["districtBaseline"]) val districtBaseline: SensorSiteDto? = null
 )
 
+data class PriorWeekDto(
+    @SerializedName(value = "avg_aqi", alternate = ["avgAqi"]) val avgAqi: Int? = null,
+    @SerializedName(value = "max_heat_index_c", alternate = ["maxHeatIndexC"]) val maxHeatIndexC: Double? = null,
+    @SerializedName(value = "total_indoor_hours", alternate = ["totalIndoorHours"]) val totalIndoorHours: Int? = null,
+    @SerializedName(value = "total_sessions", alternate = ["totalSessions"]) val totalSessions: Int? = null
+)
+
 data class AnalyticsResponseDto(
     @SerializedName(value = "period_bn", alternate = ["periodBn"]) val periodBn: String?,
     @SerializedName(value = "period_en", alternate = ["periodEn"]) val periodEn: String?,
@@ -194,7 +201,15 @@ data class AnalyticsResponseDto(
     @SerializedName(value = "total_indoor_hours", alternate = ["totalIndoorHours"]) val totalIndoorHours: Int = 4,
     @SerializedName(value = "warning_days_count", alternate = ["warningDaysCount"]) val warningDaysCount: Int = 8,
     @SerializedName(value = "trend_direction", alternate = ["trendDirection"]) val trendDirection: String? = "STABLE",
-    @SerializedName(value = "total_sessions_analyzed", alternate = ["totalSessionsAnalyzed"]) val totalSessionsAnalyzed: Int = 18
+    @SerializedName(value = "total_sessions_analyzed", alternate = ["totalSessionsAnalyzed"]) val totalSessionsAnalyzed: Int = 18,
+    @SerializedName(value = "lost_outdoor_minutes", alternate = ["lostOutdoorMinutes"]) val lostOutdoorMinutes: Int = 240,
+    @SerializedName(value = "safe_sessions_count", alternate = ["safeSessionsCount"]) val safeSessionsCount: Int = 12,
+    @SerializedName(value = "caution_sessions_count", alternate = ["cautionSessionsCount"]) val cautionSessionsCount: Int = 4,
+    @SerializedName(value = "move_indoors_count", alternate = ["moveIndoorsCount"]) val moveIndoorsCount: Int = 2,
+    @SerializedName(value = "overrides_count", alternate = ["overridesCount"]) val overridesCount: Int = 0,
+    @SerializedName(value = "measured_ratio_pct", alternate = ["measuredRatioPct"]) val measuredRatioPct: Int = 100,
+    @SerializedName(value = "modeled_ratio_pct", alternate = ["modeledRatioPct"]) val modeledRatioPct: Int = 0,
+    @SerializedName(value = "prior_week", alternate = ["priorWeek"]) val priorWeek: PriorWeekDto? = null
 )
 
 data class OverrideRequest(

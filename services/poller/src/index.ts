@@ -7,6 +7,7 @@ import { calculateHeatIndex } from './heatindex';
 import { evaluatePolicy, calculateAqiFromPm25 } from './policy';
 import { initializeFirebase, sendSchoolAlertPushNotification } from './fcm';
 import { DEMO_SCHOOLS, BANGLADESH_64_DISTRICTS } from './districts';
+import { performDeltaCheck, classifyAnomalyWithNovaMicro, SensorTelemetryInput } from './plausibility';
 
 const region = process.env.PROJECT_REGION || 'ap-southeast-2';
 const ssm = new SSMClient({ region });
@@ -303,6 +304,32 @@ export const handler = async (_event: any): Promise<any> => {
       };
       const evaluation = evaluations.VIGOROUS;
 
+      // F-23: Sensor plausibility and delta-check validation
+      let plausibility: any = null;
+      if (Number.isFinite(tempC) && Number.isFinite(rhPct) && Number.isFinite(pm25)) {
+        const telemetryInput: SensorTelemetryInput = {
+          temp_c: tempC,
+          rh_pct: rhPct,
+          pm25_ugm3: pm25,
+          ts: timestamp,
+          school_id: school.id,
+        };
+        const deltaCheck = performDeltaCheck(telemetryInput);
+        let anomalyClassification: any = null;
+        if (deltaCheck.isAnomalous) {
+          anomalyClassification = await classifyAnomalyWithNovaMicro({
+            current: telemetryInput,
+            flags: deltaCheck.flags,
+            deltas: deltaCheck.deltas,
+          });
+        }
+        plausibility = {
+          is_anomalous: deltaCheck.isAnomalous,
+          flags: deltaCheck.flags,
+          nova_micro: anomalyClassification,
+        };
+      }
+
       // 4. Save to DynamoDB with full source provenance and multi-intensity evaluations (P3, P4)
       const record = {
         school_id: school.id,
@@ -322,6 +349,7 @@ export const handler = async (_event: any): Promise<any> => {
         evaluation,
         source: primarySource,
         is_modeled: isModeled,
+        plausibility,
         ttl,
       };
 
