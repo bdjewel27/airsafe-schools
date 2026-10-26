@@ -9,11 +9,12 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1157.0",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
     "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
