@@ -322,7 +322,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 }
                 AirSafeApiClient.authToken = loginResp.token
                 val resolvedSchoolId = loginResp.user.schoolId
-                    ?: (if (normalizedEmail.contains("chittagong") || normalizedEmail.contains("chs")) "school-chittagong-002" else "school-dhaka-001")
+                    ?: (if (normalizedEmail.contains("chittagong") || normalizedEmail.contains("chattogram") || normalizedEmail.contains("chs") || normalizedEmail.contains("ctg")) "school-chattogram-001" else "school-dhaka-001")
                 val userSessionObj = UserSession(
                     email = loginResp.user.email,
                     nameBn = loginResp.user.nameBn ?: "স্কুল স্টাফ",
@@ -1004,14 +1004,14 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 _analyticsData.value = SchoolAnalyticsSummary(
                     weekLabelBn = resp.periodBn ?: "গত ৭ দিন",
                     weekLabelEn = resp.periodEn ?: "Past 7 Days",
-                    lostOutdoorMinutes = resp.totalIndoorHours * 60,
-                    prevWeekLostMinutes = 0,
+                    lostOutdoorMinutes = if (resp.lostOutdoorMinutes > 0) resp.lostOutdoorMinutes else resp.totalIndoorHours * 60,
+                    prevWeekLostMinutes = (resp.priorWeek?.totalIndoorHours ?: 0) * 60,
                     hoursAboveThreshold = resp.totalIndoorHours.toDouble(),
-                    proceedCount = resp.totalSessionsAnalyzed,
-                    cautionCount = resp.warningDaysCount,
-                    moveIndoorsCount = resp.totalIndoorHours,
-                    overridesCount = 0,
-                    measuredRatioPct = 100
+                    proceedCount = resp.safeSessionsCount,
+                    cautionCount = resp.cautionSessionsCount,
+                    moveIndoorsCount = resp.moveIndoorsCount,
+                    overridesCount = resp.overridesCount,
+                    measuredRatioPct = resp.measuredRatioPct
                 )
                 AppLog.d(TAG, "Analytics loaded successfully")
             } catch (e: Exception) {
