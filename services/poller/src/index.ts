@@ -5,6 +5,7 @@ import { fetchOpenAQReadings, OpenAQReading } from './openaq';
 import { fetchOpenMeteoData, OpenMeteoData } from './openmeteo';
 import { calculateHeatIndex } from './heatindex';
 import { evaluatePolicy, calculateAqiFromPm25 } from './policy';
+import { evaluateHybridDecision } from './decisionEngine';
 import { initializeFirebase, sendSchoolAlertPushNotification } from './fcm';
 import { DEMO_SCHOOLS, BANGLADESH_64_DISTRICTS } from './districts';
 import { performDeltaCheck, classifyAnomalyWithNovaMicro, SensorTelemetryInput } from './plausibility';
@@ -296,13 +297,23 @@ export const handler = async (_event: any): Promise<any> => {
           if (typeof pt.heatIndexC === 'number' && pt.heatIndexC > evalHeatIndex) evalHeatIndex = pt.heatIndexC;
         }
       }
+      // A-1: Hybrid decision engine integrating Bedrock Nova record_decision and max(floor, ai)
+      const hybridEvaluation = await evaluateHybridDecision({
+        schoolId: school.id,
+        schoolName: school.name,
+        aqi: evalAqi,
+        heatIndexC: evalHeatIndex,
+        intensity: 'VIGOROUS',
+        isModeled,
+      });
+
       // P4: Multi-intensity evaluations across LIGHT, MODERATE, VIGOROUS
       const evaluations = {
         LIGHT: evaluatePolicy(evalAqi, evalHeatIndex, 'LIGHT', isModeled),
         MODERATE: evaluatePolicy(evalAqi, evalHeatIndex, 'MODERATE', isModeled),
-        VIGOROUS: evaluatePolicy(evalAqi, evalHeatIndex, 'VIGOROUS', isModeled),
+        VIGOROUS: hybridEvaluation,
       };
-      const evaluation = evaluations.VIGOROUS;
+      const evaluation = hybridEvaluation;
 
       // F-23: Sensor plausibility and delta-check validation
       let plausibility: any = null;
