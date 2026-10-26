@@ -676,24 +676,49 @@ fun DecisionCardScreen(
         )
     }
 
-    // Teacher Note Dialog (F-08)
+    // Teacher Note Dialog (F-08: Tied to Activity)
     if (showNoteDialog) {
+        val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
+        val currentActName = if (isBengali)
+            (safeData?.currentActivityBn ?: "সকালের বহিরাঙ্গন ক্লাস")
+        else
+            (safeData?.currentActivityEn ?: "Morning Outdoor Session")
+
         AlertDialog(
             onDismissRequest = { showNoteDialog = false },
-            title = { Text(if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট" else "Add Activity Context") },
+            title = { Text(if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট" else "Add Activity Context Note") },
             text = {
-                OutlinedTextField(
-                    value = noteInput,
-                    onValueChange = { noteInput = it },
-                    label = { Text(if (isBengali) "নোটের বিবরণ" else "Note Description") },
-                    placeholder = { Text(if (isBengali) "যেমন: দুজন শিক্ষার্থীর আজমা/হাঁপানি আছে" else "e.g. 2 students have asthma") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                    ) {
+                        Text(
+                            text = if (isBengali) "নির্দিষ্ট অ্যাক্টিভিটি: $currentActName" else "Target Activity: $currentActName",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SafeGreen,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                    OutlinedTextField(
+                        value = noteInput,
+                        onValueChange = { noteInput = it },
+                        label = { Text(if (isBengali) "নোটের বিবরণ" else "Note Description") },
+                        placeholder = { Text(if (isBengali) "যেমন: দুজন শিক্ষার্থীর আজমা/হাঁপানি আছে" else "e.g. 2 students have asthma") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 Button(onClick = {
                     if (noteInput.isNotBlank()) {
-                        viewModel.addActivityNote(noteInput)
+                        viewModel.addActivityNote(
+                            note = noteInput,
+                            activityId = "current",
+                            activityName = currentActName
+                        )
                         noteInput = ""
                         showNoteDialog = false
                     }
