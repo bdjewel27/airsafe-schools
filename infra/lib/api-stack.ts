@@ -271,6 +271,35 @@ export class ApiStack extends cdk.Stack {
     const mcpResource = this.restApi.root.addResource('mcp');
     mcpResource.addMethod('POST', mcpIntegration);
 
+    
+    // F-03 & P6: AWS AppSync Events API for real-time WebSocket decision event fan-out
+    const eventApi = new cdk.CfnResource(this, 'AirSafeEventApi', {
+      type: 'AWS::AppSync::EventApi',
+      properties: {
+        Name: `airsafe-events-${props.environmentName}`,
+        AuthProviders: [
+          {
+            AuthType: 'API_KEY',
+          },
+        ],
+        EventConfig: {
+          AuthProviders: [{ AuthType: 'API_KEY' }],
+          ConnectionAuthModes: [{ AuthType: 'API_KEY' }],
+          DefaultPublishAuthModes: [{ AuthType: 'API_KEY' }],
+          DefaultSubscribeAuthModes: [{ AuthType: 'API_KEY' }],
+        },
+      },
+    });
+
+    const channelNamespace = new cdk.CfnResource(this, 'AirSafeChannelNamespace', {
+      type: 'AWS::AppSync::ChannelNamespace',
+      properties: {
+        ApiId: eventApi.getAtt('ApiId').toString(),
+        Name: 'default',
+      },
+    });
+    channelNamespace.addDependency(eventApi);
+
     // Outputs for testing with curl and Android app integration
     new cdk.CfnOutput(this, 'ApiUrlOutput', {
       value: this.restApi.url,
@@ -282,6 +311,19 @@ export class ApiStack extends cdk.Stack {
       value: `${this.restApi.url}mcp`,
       description: 'AirSafe Hardened MCP Server Endpoint (F-22)',
       exportName: `AirSafe-McpUrl-${props.environmentName}`,
+    });
+
+    
+    new cdk.CfnOutput(this, 'AppSyncEventsHttpEndpoint', {
+      value: eventApi.getAtt('Dns.Http').toString(),
+      description: 'AirSafe AppSync Events HTTP Endpoint (F-03)',
+      exportName: `AirSafe-AppSyncHttp-${props.environmentName}`,
+    });
+
+    new cdk.CfnOutput(this, 'AppSyncEventsRealtimeEndpoint', {
+      value: eventApi.getAtt('Dns.Realtime').toString(),
+      description: 'AirSafe AppSync Events Realtime WebSocket Endpoint (F-03)',
+      exportName: `AirSafe-AppSyncRealtime-${props.environmentName}`,
     });
 
     cdk.Tags.of(this).add('project', 'airsafe');
