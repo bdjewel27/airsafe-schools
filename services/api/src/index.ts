@@ -397,6 +397,12 @@ export function isOverrideActive(
     if (Number.isFinite(expMs) && Date.now() >= expMs) {
       return false;
     }
+  } else if (override.timestamp) {
+    const tsMs = Date.parse(override.timestamp);
+    const durationMs = (override.duration_minutes || 120) * 60 * 1000;
+    if (Number.isFinite(tsMs) && Date.now() >= tsMs + durationMs) {
+      return false;
+    }
   }
 
   // 2. Date binding check (P7: override bound to specific calendar date)
@@ -1688,6 +1694,54 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       };
     }
 
+    // Route: GET /schools/{schoolId}/overrides/audit or GET /schools/{schoolId}/audit (F-11 — Immutable Audit Trail)
+    if ((path.endsWith('/overrides/audit') || path.endsWith('/audit')) && event.httpMethod === 'GET') {
+      try {
+        const queryRes = await docClient.send(
+          new QueryCommand({
+            TableName: DECISIONS_TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid AND begins_with(activity_id, :prefix)',
+            ExpressionAttributeValues: {
+              ':sid': schoolId,
+              ':prefix': 'OVERRIDE_AUDIT#',
+            },
+            ScanIndexForward: false,
+          })
+        );
+        const auditItems = (queryRes.Items || []).map((item: any) => ({
+          id: item.activity_id,
+          timestamp: item.timestamp,
+          requested_decision: item.requested_decision,
+          decision: item.requested_decision,
+          policy_floor: item.policy_floor,
+          relaxes_floor: Boolean(item.relaxes_floor),
+          reason: item.reason,
+          coordinator_email: item.coordinator_email,
+          target_activity_id: item.target_activity_id || 'current',
+          duration_minutes: item.duration_minutes,
+          expires_at: item.expires_at,
+          date: item.date,
+        }));
+
+        return {
+          statusCode: 200,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({
+            schoolId,
+            audit_logs: auditItems,
+            count: auditItems.length,
+          }),
+        };
+      } catch (err: any) {
+        console.error('[Audit Query Error] Failed to read override audit logs:', err);
+        return {
+          statusCode: 500,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({ error: 'Failed to retrieve override audit logs' }),
+        };
+      }
+    }
+
     // Route: GET /schools/{schoolId}/overrides (F-11 & P7 — Retrieve active override and status)
     if (path.endsWith('/overrides') && event.httpMethod === 'GET') {
       const overrideRes = await docClient.send(
@@ -1698,6 +1752,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
       const activeOverride = overrideRes.Item || null;
       const isActive = isOverrideActive(activeOverride);
+
+      let auditLogs: any[] = [];
+      try {
+        const auditRes = await docClient.send(
+          new QueryCommand({
+            TableName: DECISIONS_TABLE_NAME,
+            KeyConditionExpression: 'school_id = :sid AND begins_with(activity_id, :prefix)',
+            ExpressionAttributeValues: {
+              ':sid': schoolId,
+              ':prefix': 'OVERRIDE_AUDIT#',
+            },
+            ScanIndexForward: false,
+            Limit: 10,
+          })
+        );
+        auditLogs = auditRes.Items || [];
+      } catch (_e) {}
+
       return {
         statusCode: 200,
         headers: getCorsHeaders(event),
@@ -1708,6 +1780,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           expires_at: activeOverride?.expires_at || null,
           target_activity_id: activeOverride?.target_activity_id || null,
           date: activeOverride?.date || null,
+          audit_logs: auditLogs,
         }),
       };
     }
