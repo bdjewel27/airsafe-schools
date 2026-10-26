@@ -33,7 +33,8 @@ data class DecisionResponse(
     @SerializedName(value = "active_override", alternate = ["activeOverride"]) val activeOverride: String? = null,
     @SerializedName(value = "confidence_level_pct", alternate = ["confidenceLevelPct"]) val confidenceLevelPct: Int? = null,
     @SerializedName(value = "weather_trend_bn", alternate = ["weatherTrendBn"]) val weatherTrendBn: String? = null,
-    @SerializedName(value = "weather_trend_en", alternate = ["weatherTrendEn"]) val weatherTrendEn: String? = null
+    @SerializedName(value = "weather_trend_en", alternate = ["weatherTrendEn"]) val weatherTrendEn: String? = null,
+    @SerializedName(value = "activities") val activities: List<ActivityScheduleItem>? = emptyList()
 ) {
     /**
      * Hard Gate 4 Fail-Closed Sanitizer:
@@ -86,7 +87,8 @@ data class DecisionResponse(
             nextActivityBn = if (nextActivityBn.isNullOrBlank()) null else nextActivityBn,
             nextActivityEn = if (nextActivityEn.isNullOrBlank()) null else nextActivityEn,
             routineIntensity = routineIntensity,
-            confidenceLevelPct = if (confidenceLevelPct != null && confidenceLevelPct > 0) confidenceLevelPct else null
+            confidenceLevelPct = if (confidenceLevelPct != null && confidenceLevelPct > 0) confidenceLevelPct else null,
+            activities = if (!activities.isNullOrEmpty()) activities else this.activities
         )
     }
 }
