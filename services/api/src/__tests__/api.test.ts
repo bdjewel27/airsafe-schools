@@ -548,15 +548,19 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(body.heatBands).toBeDefined();
   });
 
-  test('F-08: POST and GET /schools/{schoolId}/notes saves and returns structured context note', async () => {
-    let storedItem: any = null;
+  test('F-08: POST and GET /schools/{schoolId}/notes saves, ties to activity, and returns notes list without overwriting', async () => {
+    const storedItems: any[] = [];
     jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
       if (command.input?.Item) {
-        storedItem = command.input.Item;
+        storedItems.push(command.input.Item);
         return {} as never;
       }
+      if (command.input?.KeyConditionExpression) {
+        return { Items: storedItems } as never;
+      }
       if (command.input?.Key) {
-        return { Item: storedItem } as never;
+        const item = storedItems.find((i) => i.activity_id === command.input.Key.activity_id) || storedItems[storedItems.length - 1];
+        return { Item: item } as never;
       }
       return {} as never;
     });
@@ -568,12 +572,15 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
         headers: { Authorization: `Bearer ${teacherToken}` },
         body: JSON.stringify({
           note: 'ক্লাস ৩ এর এক শিশুর কাশি ও শ্বাসকষ্ট হচ্ছে',
+          activity_id: 'morning-pe',
+          activity_name: 'সকালের পিই ক্লাস',
         }),
       })
     );
     expect(postRes.statusCode).toBe(200);
     const postBody = JSON.parse(postRes.body);
     expect(postBody.status).toBe('SAVED');
+    expect(postBody.activity_id).toBe('morning-pe');
     expect(postBody.has_respiratory_condition).toBe(true);
     expect(postBody.safety_tier_stepped_up).toBe(true);
 
@@ -588,6 +595,9 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     const getBody = JSON.parse(getRes.body);
     expect(getBody.activeNote).toBeDefined();
     expect(getBody.hasRespiratoryCondition).toBe(true);
+    expect(getBody.notes).toBeDefined();
+    expect(getBody.notes.length).toBeGreaterThan(0);
+    expect(getBody.notes[0].activity_id).toBe('morning-pe');
   });
   test('S4: Coordinator Override fails-closed with 503 when DynamoDB read throws an error', async () => {
     let putCalled = false;
