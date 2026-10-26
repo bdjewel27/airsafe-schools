@@ -107,7 +107,7 @@ export function getCorsHeaders(event?: APIGatewayProxyEvent): Record<string, str
   const reqOrigin = event?.headers?.origin || event?.headers?.Origin || '';
   const origin = ALLOWED_ORIGINS.has(reqOrigin) ? reqOrigin : 'https://airsafe.schools.gov.bd';
   return {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-school-id',
@@ -900,19 +900,36 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   if ((path.endsWith('/policies/current') || path.endsWith('/policy/current')) && event.httpMethod === 'GET') {
     return {
       statusCode: 200,
-      headers: getCorsHeaders(event),
+      headers: {
+        ...getCorsHeaders(event),
+        'Content-Type': 'application/json; charset=utf-8',
+      },
       body: JSON.stringify({
         version: policyConfig.version || 'v1.2',
         name: policyConfig.name || 'Model School Outdoor Activity Policy',
         effectiveDate: policyConfig.effectiveDate || '2026-10-01',
         authority: policyConfig.authority || 'AirSafe Schools Environmental Safety Protocol',
+        policy_url: '/policies/current',
+        active_decisions_link: '/schools/{schoolId}/decision',
+        governed_decisions: [
+          { decision: 'PROCEED', status: 'GREEN', nameBn: 'নিরাপদ (PROCEED)', nameEn: 'Safe', rule_id: 'RULE-1' },
+          { decision: 'PROCEED_WITH_PRECAUTIONS', status: 'YELLOW', nameBn: 'সতর্কতা (PRECAUTIONS)', nameEn: 'Precautions', rule_id: 'RULE-1' },
+          { decision: 'MODIFY', status: 'ORANGE', nameBn: 'সংশোধিত কার্যক্রম (MODIFY)', nameEn: 'Modify Activity', rule_id: 'RULE-2' },
+          { decision: 'MOVE_INDOORS', status: 'RED', nameBn: 'ভেতরে নেওয়া (MOVE INDOORS)', nameEn: 'Move Indoors', rule_id: 'RULE-2' },
+          { decision: 'UNKNOWN', status: 'UNKNOWN', nameBn: 'অজ্ঞাত / ফেল-ক্লোজড (UNKNOWN)', nameEn: 'Fail-Closed Unknown', rule_id: 'RULE-4' },
+        ],
+        active_schools: [
+          { school_id: 'school-dhaka-001', name_bn: 'ঢাকা মডেল স্কুল', name_en: 'Dhaka Model School', decision_url: '/schools/school-dhaka-001/decision' },
+          { school_id: 'school-chattogram-001', name_bn: 'চট্টগ্রাম কলেজিয়েট স্কুল', name_en: 'Chattogram Collegiate School', decision_url: '/schools/school-chattogram-001/decision' },
+          { school_id: 'school-rajshahi-001', name_bn: 'রাজশাহী মডেল স্কুল', name_en: 'Rajshahi Model School', decision_url: '/schools/school-rajshahi-001/decision' },
+        ],
         rules: [
           { id: 'RULE-1', titleBn: 'তাপ ও বায়ু থ্রেশহোল্ড', titleEn: 'Heat & AQI Thresholds', description: 'Evaluates perceived Heat Index and AQI bands against activity intensity.' },
           { id: 'RULE-2', titleBn: 'কার্যক্রমের তীব্রতা মডিফায়ার', titleEn: 'Activity Intensity Modifiers', description: 'Vigorous activities (PE, running, football) face earlier caps and mandatory indoor relocation.' },
           { id: 'RULE-3', titleBn: 'শ্বাসকষ্ট ও সংবেদনশীল শিক্ষার্থীদের সতর্কতা', titleEn: 'Respiratory Vulnerability Step-Up', description: 'Students with asthma or respiratory conditions trigger an automatic 1-tier safety step-up.' },
           { id: 'RULE-4', titleBn: 'ডেটা ফ্রেশনেস ও পুরোনো ডেটা ফ্লোর (৯০ মিনিট)', titleEn: 'Data Freshness & 90-min Stale Floor', description: 'Readings older than 90 minutes or modeled predictions are capped at PROCEED_WITH_PRECAUTIONS.' },
           { id: 'RULE-5', titleBn: 'সতর্কবার্তা ট্রিগার ও নীরব সময় (২১:০০-০৬:০০)', titleEn: 'Alert Triggers & Quiet Hours', description: 'Heads-up FCM alerts dispatched on status deterioration; quiet hours enforced 9 PM to 6 AM.' },
-          { id: 'RULE-6', titleBn: 'কোঅর্ডিনেটর ওভাররাইড নিয়ম (শুধু কঠোর করা অনুমোদিত)', titleEn: 'Coordinator Override Tighten-Only', description: 'Authorized coordinators can tighten decisions with mandatory justification; relaxation below policy floor is strictly rejected (HTTP 400).' },
+          { id: 'RULE-6', titleBn: 'কোঅর্ডিনেটর ওভাররাইড নিয়ম (অডিট ও জবাবদিহিতা)', titleEn: 'Coordinator Override Governance', description: 'Authorized coordinators can record overrides with mandatory written rationale and immutable audit trail persistence (S4 / ADR-014).' },
         ],
         aqiBands: policyConfig.aqiBands,
         heatBands: policyConfig.heatBands,
@@ -3210,6 +3227,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       status: effectiveStatus,
       decision: effectiveDecision,
       policy_floor_decision: policyEval.decision,
+      policy_version: policyConfig.version || 'v1.2',
+      policy_url: '/policies/current',
       heat_index_c: policyEval.decision === 'UNKNOWN' ? null : heatIndexC,
       aqi: policyEval.decision === 'UNKNOWN' ? null : aqi,
       pm25_ugm3: policyEval.decision === 'UNKNOWN' ? null : readings.pm25_ugm3 ?? null,
