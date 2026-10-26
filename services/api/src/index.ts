@@ -203,7 +203,7 @@ export function mintMcpTokenForChat(schoolId: string, role: string = 'TEACHER'):
 }
 
 import policyConfig from './policy/v1.2.json';
-import { executeBedrockAssistant } from './bedrock';
+import { executeBedrockAssistant, executeBedrockStreamAssistantWithMcp } from './bedrock';
 import {
   evaluatePolicy,
   PolicyDecision as SharedPolicyDecision,
@@ -2910,13 +2910,24 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       }
 
-      // Bedrock / Grounded Assistant Execution with Dynamic Follow-up Suggestions (F-05, A-1, A-3)
-      const assistantResp = await executeBedrockAssistant({
+      // Mint strictly scoped MCP token for AI Assistant (Hard Gate 2, Section A-3, A-6)
+      const mcpToken = mintMcpTokenForChat(schoolId, auth.role);
+
+      const isSse =
+        body.stream === true ||
+        (event.headers?.accept || event.headers?.Accept || "").includes("text/event-stream");
+
+      let sseBody = "";
+
+      // Bedrock ConverseStream + MCP Tool Calling Execution (A-3)
+      const assistantResp = await executeBedrockStreamAssistantWithMcp({
         query,
         schoolId,
         schoolNameBn: auth.schoolNameBn,
         schoolNameEn: auth.schoolNameEn,
         isBengali,
+        mcpToken,
+        docClient,
         decision: finalDecision,
         policyFloorDecision: evalResult.decision,
         heatIndexC: hi,
@@ -2932,40 +2943,41 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         primaryReason: evalResult.reasons[0],
         maxDurationMinutes: evalResult.maxDurationMinutes,
         requiresShade: evalResult.requiresShade,
+        onTokenChunk: (delta: string) => {
+          if (isSse) {
+            sseBody += "event: token\ndata: " + JSON.stringify({ delta }) + "\n\n";
+          }
+        },
+        onToolCall: (toolCall) => {
+          if (isSse) {
+            sseBody += "event: tool_call\ndata: " + JSON.stringify(toolCall) + "\n\n";
+          }
+        },
       });
 
-      const isSse =
-        body.stream === true ||
-        (event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream');
-
       if (isSse) {
-        // Stream tokens in chunked SSE format for real-time progressive typing (F-05)
-        const words = assistantResp.answer.split(' ');
-        let sseBody = '';
-        for (let i = 0; i < words.length; i += 3) {
-          const chunk = words.slice(i, i + 3).join(' ') + (i + 3 < words.length ? ' ' : '');
-          sseBody += `event: token\ndata: ${JSON.stringify({ delta: chunk })}\n\n`;
-        }
-        sseBody += `event: completion\ndata: ${JSON.stringify({
+        sseBody += "event: completion\ndata: " + JSON.stringify({
           answer: assistantResp.answer,
           decision: assistantResp.decision,
           policy_floor_decision: assistantResp.policyFloorDecision,
           heat_index_c: assistantResp.heatIndexC,
           aqi: assistantResp.aqi,
+          tools_called_count: assistantResp.tools_called_count ?? 0,
+          tool_calls: assistantResp.tool_calls ?? [],
           citation_id: assistantResp.citationId,
           citation_excerpt: assistantResp.citationExcerpt,
           doc_id: assistantResp.docId,
           suggested_follow_ups: assistantResp.suggestedFollowUps,
           used_bedrock_model: assistantResp.usedBedrockModel,
-        })}\n\n`;
+        }) + "\n\n";
 
         return {
           statusCode: 200,
           headers: {
             ...getCorsHeaders(event),
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
           },
           body: sseBody,
         };
@@ -2980,6 +2992,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           policy_floor_decision: assistantResp.policyFloorDecision,
           heat_index_c: assistantResp.heatIndexC,
           aqi: assistantResp.aqi,
+          tools_called_count: assistantResp.tools_called_count ?? 0,
+          tool_calls: assistantResp.tool_calls ?? [],
           routine_intensity: routineNameBn ? activeIntensity : null,
           current_activity_bn: routineNameBn,
           activities: evaluatedActs.activities,
