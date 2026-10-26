@@ -52,6 +52,19 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         _actionError.value = null
     }
 
+    // F-06: Tap notification navigation to explanation
+    private val _showExplanationDialog = MutableStateFlow(false)
+    val showExplanationDialog: StateFlow<Boolean> = _showExplanationDialog.asStateFlow()
+
+    fun triggerExplanationFromNotification() {
+        _currentTab.value = AppTab.HOME
+        _showExplanationDialog.value = true
+    }
+
+    fun dismissExplanationDialog() {
+        _showExplanationDialog.value = false
+    }
+
     private val prefs by lazy {
         getApplication<Application>().getSharedPreferences("airsafe_offline_cache", Context.MODE_PRIVATE)
     }

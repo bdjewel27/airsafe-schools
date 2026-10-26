@@ -37,6 +37,8 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
         }
 
+        handleNotificationIntent(intent)
+
         setContent {
             AirSafeTheme {
                 val userSession by viewModel.userSession.collectAsState()
@@ -60,6 +62,21 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         viewModel.stopForegroundSync()
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        val showExplanation = intent.getBooleanExtra("SHOW_EXPLANATION", false)
+        val targetScreen = intent.getStringExtra("target_screen")
+        if (showExplanation || targetScreen == "EXPLANATION") {
+            viewModel.triggerExplanationFromNotification()
+        }
     }
 }
 
