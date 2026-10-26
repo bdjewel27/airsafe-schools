@@ -77,6 +77,7 @@ fun DecisionCardScreen(
     var overrideValidationError by remember { mutableStateOf<String?>(null) }
 
     var showRoutineDialog by remember { mutableStateOf(false) }
+    var showPolicyDialog by remember { mutableStateOf(false) }
     var routineActivityName by remember { mutableStateOf("সকালের পিই ক্লাস (Morning PE)") }
     var routineNextActivityName by remember { mutableStateOf("স্কুল সমাবেশ (School Assembly)") }
     var routineTimeSlot by remember { mutableStateOf("০৮:৪৫ – ০৯:৩০") }
@@ -508,6 +509,61 @@ fun DecisionCardScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // F-15: Authoritative Policy Attribution & Rule Viewer Link
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Gavel,
+                                    contentDescription = null,
+                                    tint = SafeGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = if (isBengali) "কার্যকর নীতি: Policy v1.2" else "Active Policy: Policy v1.2",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = if (isBengali) "সিদ্ধান্ত লিংক: ${state.data.decision} • ১ অক্টোবর ২০২৬" else "Governed: ${state.data.decision} • Oct 1, 2026",
+                                        fontSize = 11.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                            TextButton(
+                                onClick = { showPolicyDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (isBengali) "নীতি দেখুন" else "View Rules",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SafeGreen
+                                )
+                            }
+                        }
+                    }
+
                     // F-03: School Sensor Sites (Field, Courtyard, Classroom)
                     SensorSitesView(viewModel = viewModel)
                 }
@@ -673,6 +729,98 @@ fun DecisionCardScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
                 ) {
                     Text(if (isBengali) "ঠিক আছে" else "Dismiss", color = Color.White)
+                }
+            }
+        )
+    }
+
+    // F-15: Authoritative Policy Rules & Decision Attribution Viewer Dialog
+    if (showPolicyDialog) {
+        val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
+        val activeDec = safeData?.decision ?: "UNKNOWN"
+        AlertDialog(
+            onDismissRequest = { showPolicyDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Gavel, contentDescription = null, tint = SafeGreen, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isBengali) "মডেল স্কুল আউটডোর পলিসি v1.2" else "Model School Outdoor Policy v1.2",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = if (isBengali) "কার্যকর তারিখ: ১ অক্টোবর ২০২৬ • কর্তৃপক্ষ: AirSafe Protocol" else "Effective: Oct 1, 2026 • Authority: AirSafe Protocol",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = SafeGreenBackground,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = if (isBengali) "বর্তমান সক্রিয় সিদ্ধান্ত:" else "Current Active Decision:",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = "$activeDec (${if (isBengali) "এই নীতি দ্বারা মূল্যায়িত" else "Governed by Policy v1.2"})",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SafeGreen
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = if (isBengali) "মূল নিরাপত্তা বিধি ও নিয়মাবলী (F-15):" else "Governing Safety Rules (F-15):",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val rules = listOf(
+                        Pair("RULE-1: তাপ ও বায়ু থ্রেশহোল্ড", "Heat & AQI Thresholds (Table 1 & 2)"),
+                        Pair("RULE-2: কার্যক্রমের তীব্রতা মডিফায়ার", "Activity Intensity Modifiers (Light, Moderate, Vigorous)"),
+                        Pair("RULE-3: শ্বাসকষ্ট ও সংবেদনশীল শিক্ষার্থীর সতর্কতা", "Respiratory Vulnerability Step-Up (Asthma Protection)"),
+                        Pair("RULE-4: ডেটা ফ্রেশনেস ও পুরোনো ডেটা ফ্লোর (৯০ মি.)", "Data Freshness Floor (Fail-closed on stale data)"),
+                        Pair("RULE-5: সতর্কবার্তা ট্রিগার ও নীরব সময়", "Alert Triggers & Quiet Hours (21:00–06:00 BST)"),
+                        Pair("RULE-6: কোঅর্ডিনেটর ওভাররাইড ও অডিট ট্রেইল", "Coordinator Override Governance (S4 / ADR-014)")
+                    )
+
+                    rules.forEach { r ->
+                        Text(
+                            text = "• " + (if (isBengali) r.first else r.second),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "API Endpoint: /policies/current",
+                        fontSize = 10.sp,
+                        color = TextSecondary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showPolicyDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                ) {
+                    Text(if (isBengali) "বুঝেছি" else "Dismiss", color = Color.White)
                 }
             }
         )
