@@ -268,7 +268,42 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     expect(inviteRes.statusCode).toBe(200);
     expect(capturedItem.role).toBe('TEACHER');
     expect(capturedItem.school_id).toBe('school-dhaka-001');
-    expect(JSON.parse(inviteRes.body).temporary_password).toBeUndefined();
+    const body = JSON.parse(inviteRes.body);
+    expect(body.temporary_password).toBeUndefined();
+    expect(body.password).toBeUndefined();
+    expect(body.password_hash).toBeUndefined();
+    expect(body.staff.password).toBeUndefined();
+    expect(body.staff.password_hash).toBeUndefined();
+  });
+
+  test('F-12 & S3: Staff invitation by non-coordinator returns HTTP 403 Forbidden', async () => {
+    const inviteRes = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/staff/invite',
+        headers: { Authorization: `Bearer ${teacherToken}` },
+        body: JSON.stringify({
+          email: 'unauthorized.teacher@dms.edu.bd',
+        }),
+      })
+    );
+    expect(inviteRes.statusCode).toBe(403);
+    expect(JSON.parse(inviteRes.body).error).toContain('Forbidden');
+  });
+
+  test('F-12 & S3: Staff invitation with invalid email returns HTTP 400 Bad Request', async () => {
+    const inviteRes = await handler(
+      makeEvent({
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/staff/invite',
+        headers: { Authorization: `Bearer ${coordinatorToken}` },
+        body: JSON.stringify({
+          email: 'not-an-email',
+        }),
+      })
+    );
+    expect(inviteRes.statusCode).toBe(400);
+    expect(JSON.parse(inviteRes.body).error).toContain('Valid school email is required');
   });
 
   test('Hard Gate 2: mintMcpTokenForChat produces short-lived token (<= 5m) with airsafe-chat issuer', () => {
