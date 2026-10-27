@@ -1,3 +1,78 @@
 <resources>
+    <!-- App Brand & Identity -->
     <string name="app_name">AirSafe Schools</string>
+    <string name="app_tagline">Outdoor Activity Safety &amp; Environmental Intelligence</string>
+    <string name="app_subtitle">Reliable guidance grounded in live sensor data &amp; safety policy</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_trends">Trends</string>
+    <string name="tab_assistant">AI Assistant</string>
+    <string name="tab_analytics">Analytics</string>
+    <string name="tab_staff">Staff</string>
+
+    <!-- Policy Decision Outcomes (Hard Gate 4 / Policy v1.2) -->
+    <string name="decision_proceed_title">PROCEED</string>
+    <string name="decision_proceed_desc">Proceed with Normal Outdoor Activities</string>
+    <string name="decision_precautions_title">PROCEED WITH PRECAUTIONS</string>
+    <string name="decision_precautions_desc">Proceed with Caution &amp; Hydration Breaks</string>
+    <string name="decision_modify_title">MODIFY</string>
+    <string name="decision_modify_desc">Modify or Limit Outdoor Physical Exertion</string>
+    <string name="decision_move_indoors_title">MOVE INDOORS</string>
+    <string name="decision_move_indoors_desc">Move Indoors Immediately</string>
+    <string name="decision_unknown_title">UNKNOWN STATUS</string>
+    <string name="decision_unknown_desc">Fail-Closed: Keep Students Indoors Until Verified</string>
+
+    <!-- Environmental Sensor Metrics -->
+    <string name="metric_heat_index">Heat Index</string>
+    <string name="metric_aqi">Air Quality Index (AQI)</string>
+    <string name="metric_pm25">PM2.5</string>
+    <string name="metric_temp">Ambient Temp</string>
+    <string name="metric_wet_bulb">Wet Bulb Temp</string>
+    <string name="metric_humidity">Relative Humidity</string>
+
+    <!-- Durations & Precautions -->
+    <string name="max_outdoor_duration">Max Outdoor Duration</string>
+    <string name="minutes_suffix">%1$d minutes</string>
+    <string name="requires_shade">Mandatory Shade</string>
+    <string name="requires_hydration">Hydration Breaks Required</string>
+
+    <!-- Status Banners & Warnings -->
+    <string name="banner_stale_warning">Warning: Sensor data is stale (>90 mins). Fallback policy applied.</string>
+    <string name="banner_offline">Offline Mode: Operating from local authoritative policy cache.</string>
+    <string name="banner_override_active">Coordinator Override Active: %1$s</string>
+    <string name="banner_recalculating">Recalculating decision in-place...</string>
+
+    <!-- Coordinator Controls -->
+    <string name="btn_coordinator_override">Coordinator Override</string>
+    <string name="btn_override_apply">Apply Override</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="dialog_override_title">Emergency Decision Override</string>
+    <string name="dialog_override_desc">This override will be logged to the immutable audit trail and broadcast to all staff.</string>
+    <string name="label_override_reason">Override Reason (Min 5 chars)</string>
+    <string name="err_override_reason_short">Reason must be at least 5 characters</string>
+
+    <!-- Routine & Activities -->
+    <string name="current_activity">Current Activity</string>
+    <string name="next_activity">Next Activity</string>
+    <string name="btn_manage_routine">Activity Routine</string>
+    <string name="btn_add_note">Add Class Note</string>
+    <string name="btn_refresh">Refresh Now</string>
+    <string name="btn_logout">Logout</string>
+
+    <!-- AI Assistant -->
+    <string name="assistant_title">AI Environmental Assistant</string>
+    <string name="assistant_greeting">Hello! I am your AirSafe Assistant. Ask any question about today\'s verified telemetry, heat index, or Policy v1.2 safety guidelines.</string>
+    <string name="assistant_placeholder">Ask a question (e.g. Can we hold PE class outside?)</string>
+    <string name="assistant_mcp_tool_step">Calling MCP tool: %1$s...</string>
+    <string name="assistant_policy_check_step">Verifying Model School Outdoor Activity Policy v1.2...</string>
+    <string name="assistant_suggested_followups">Suggested Follow-ups:</string>
+    <string name="chip_outdoor_pe">Can PE be outside today?</string>
+    <string name="chip_heat_rules">Heat Index Policy Rules</string>
+
+    <!-- Roles & Authentication -->
+    <string name="role_teacher">Teacher</string>
+    <string name="role_coordinator">Coordinator</string>
+    <string name="school_label">School: %1$s</string>
+    <string name="auth_failed">Authentication failed: Check credentials or server connection.</string>
 </resources>
