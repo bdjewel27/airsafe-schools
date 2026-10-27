@@ -93,7 +93,7 @@ object AirSafePdfReportGenerator {
                 ),
                 Pair(
                     if (isBengali) "মোট বিশ্লেষণকৃত সেশন" else "Total Sessions Analyzed",
-                    "${analytics.totalSessionsAnalyzed}"
+                    "${analytics.proceedCount + analytics.cautionCount + analytics.moveIndoorsCount}"
                 ),
                 Pair(
                     if (isBengali) "অন-সাইট সেন্সর পরিমাপ অনুপাত" else "Measured Sensor Telemetry",
