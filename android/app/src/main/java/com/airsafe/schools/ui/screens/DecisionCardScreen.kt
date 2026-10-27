@@ -501,7 +501,7 @@ fun DecisionCardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isBengali) "🔄 লাইভ ক্লাউড ডেটায় ফিরুন" else "🔄 Reset to Live Cloud Data",
+                                text = "🔄 " + stringResource(R.string.decision_cloud_reset),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
@@ -540,7 +540,7 @@ fun DecisionCardScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = if (isBengali) "কার্যকর নীতি: Policy v1.2" else "Active Policy: Policy v1.2",
+                                        text = stringResource(R.string.active_policy_tag),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = TextPrimary
@@ -557,7 +557,7 @@ fun DecisionCardScreen(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = if (isBengali) "নীতি দেখুন" else "View Rules",
+                                    text = stringResource(R.string.view_policy_rules),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SafeGreen
