@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface StorageStackProps extends cdk.StackProps {
@@ -9,6 +10,7 @@ export interface StorageStackProps extends cdk.StackProps {
 export class StorageStack extends cdk.Stack {
   public readonly readingsTable: dynamodb.Table;
   public readonly decisionsTable: dynamodb.Table;
+  public readonly vectorsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -33,6 +35,16 @@ export class StorageStack extends cdk.Stack {
       timeToLiveAttribute: 'ttl',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       pointInTimeRecovery: false,
+    });
+
+    // A-5: S3 Bucket for Titan Policy Vectors & Knowledge Base
+    this.vectorsBucket = new s3.Bucket(this, 'PolicyVectorsBucket', {
+      bucketName: `airsafe-policy-vectors-${props.environmentName}`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
     });
 
     // Add tags for cost tracking per Section 9
