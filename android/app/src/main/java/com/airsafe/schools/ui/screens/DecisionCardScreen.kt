@@ -1,5 +1,6 @@
 package com.airsafe.schools.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -1355,7 +1356,7 @@ fun DecisionCardContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             // F-02 MUST: Dedicated "Next Activity" Card (পরের অ্যাক্টিভিটি কার্ড)
-            val nextActItem = safeData.nextActivity ?: safeData.activities?.find { !it.isCurrent && it.order == 2 }
+            val nextActItem = safeData.nextActivity ?: safeData.activities?.find { it.isCurrent == false && it.order == 2 }
             val nextActName = (if (isBengali) nextActItem?.nameBn ?: safeData.nextActivityBn else nextActItem?.nameEn ?: safeData.nextActivityEn)
                 ?: (if (isBengali) "স্কুল সমাবেশ (School Assembly)" else "School Assembly")
             val nextActTime = nextActItem?.timeSlot ?: (if (isBengali) "০৯:৫০ – ১০:৩৫" else "09:50 – 10:35")
@@ -1492,12 +1493,12 @@ fun DecisionCardContent(
                         safeData.activities.forEach { act ->
                             val actStatusColor = when (act.status?.uppercase()) {
                                 "RED" -> DangerRed
-                                "ORANGE" -> WarningOrange
+                                "ORANGE" -> ModifyOrange
                                 "YELLOW" -> CautionYellow
                                 else -> SafeGreen
                             }
                             val actName = if (isBengali) (act.nameBn ?: act.nameEn ?: "") else (act.nameEn ?: act.nameBn ?: "")
-                            val isCurrentAct = act.isCurrent
+                            val isCurrentAct = act.isCurrent == true
 
                             Surface(
                                 shape = RoundedCornerShape(6.dp),

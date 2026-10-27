@@ -200,7 +200,7 @@ class AppSyncEventsClient(
                                 val contentType = response.header("Content-Type") ?: ""
                                 if (contentType.contains("text/event-stream", ignoreCase = true)) {
                                     val reader = BufferedReader(InputStreamReader(body.byteStream()))
-                                    var line: String?
+                                    var line: String? = null
                                     while (isForeground && reader.readLine().also { line = it } != null) {
                                         val curLine = line?.trim() ?: continue
                                         if (curLine.startsWith("data:", ignoreCase = true)) {
