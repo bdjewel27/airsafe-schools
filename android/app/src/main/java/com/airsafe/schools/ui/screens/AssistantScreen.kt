@@ -402,14 +402,15 @@ fun AssistantScreen(
                                     )
                                     followUpSuggestions = apiResp.suggestedFollowUps
 
-                                    // Real progressive streaming animation
+                                    // Progressive output display
                                     val fullText = apiResp.answer
                                     responseAnswer = ""
+                                    isThinking = false
                                     val stepSize = 4
                                     for (i in 0 until fullText.length step stepSize) {
                                         val end = (i + stepSize).coerceAtMost(fullText.length)
                                         responseAnswer = fullText.substring(0, end)
-                                        kotlinx.coroutines.delay(10)
+                                        kotlinx.coroutines.delay(8)
                                     }
                                     responseAnswer = fullText
                                 } catch (e: Exception) {
