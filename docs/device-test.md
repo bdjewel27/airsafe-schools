@@ -9,7 +9,7 @@
 **Build Artifact:** Signed Release APK (`android/app/build/outputs/apk/release/app-release.apk`)  
 **Verified Commit SHA:** `7a32bce` (`origin/main` HEAD)  
 **Verification Date:** October 18–21, 2026  
-**Overall Status:** **Physical Hardware Verified (J-1, J-2, J-3, J-4, Offline, Accessibility, Timezone)**; **Bilingual AI Assistant & Row-Level CSV Export Fully Operational**.
+**Overall Status:** **Physical Hardware Verified (J-1, J-3, J-4, Offline, Accessibility, Timezone)**; **J-2 / F-05 Bedrock Cloud Model বাদ, কারণসহ (ADR-001 Deterministic Policy Fallback Hardware-Verified)**; **Row-Level CSV Export Fully Operational**.
 
 ---
 
@@ -53,6 +53,10 @@ A teacher standing in a bustling corridor or assembly ground needs to glance at 
 ---
 
 ## 3. Journey J-2: বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন) / Bengali Inquiry & AI Response (Streaming + Citation)
+
+### Scope Status (Hard Gate 5 Compliance)
+**Classification:** **বাদ, কারণসহ (Omitted with Rationale)**  
+**Rationale:** AWS Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to `0.0 tokens/min` (AWS Support Case `#17283940191`, Service Quotas Request `#quota-req-ap-se-2-nova-0019284`). Per Project Brief Gate 5 (*"কোনো Must বাদ দিলে তা 'done' নয়, 'বাদ, কারণসহ' হিসেবে দেখাতে হয়"*), live cloud Bedrock invocation is not marked as "done". On physical hardware, the system executes the verified deterministic policy engine fallback per ADR-001.
 
 ### Objective & Benchmark
 A teacher inquires in Bengali about outdoor sports safety during active PE class (*"আজকে কি মাঠে খেলাধুলা করা যাবে?"*). The system must:
@@ -134,7 +138,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 | Journey ID | Requirement Description | Benchmark Target | Measured Result & Scope | Status |
 | :---: | :--- | :---: | :---: | :---: |
 | **J-1** | Morning Check (Glance & Decisions) | $\le 10\text{ s}$, $\le 3$ taps | **2.8 seconds, 3 taps (0.79s paint)** (Hardware Measured) | ✅ **PASS** |
-| **J-2** | Bengali Inquiry & Grounded AI Assistant | Bilingual RAG, Policy Citations | **Grounded Bengali responses & ADR-001 Policy Engine Fallback verified** | ✅ **PASS** |
+| **J-2** | Bengali Inquiry & Grounded AI Assistant (F-05) | Bilingual Policy Citations & Monotonic Floor | **ক্লাউড Bedrock মডেল লাইভ বাদ, কারণসহ (সিডনিতে কোটা 0.0, Support Case #17283940191); অন-ডিভাইস ADR-001 ডিটারমিনিস্টিক পলিসি ইঞ্জিন ফলব্যাক হার্ডওয়্যার-ভেরিফাইড** | **বাদ, কারণসহ (Fallback Verified)** |
 | **J-3** | Emergency Push & Tighten-Only Override | High-Pri Heads-Up & RBAC | **Verified on Hardware Device** | ✅ **PASS** |
 | **J-4** | Friday Safety Report & Share Sheet | Weekly Report & 30m+ Stability | **Real API (/schools/{id}/analytics), Row-Level CSV Export & 44MB heap verified** | ✅ **PASS** |
 | **U-6** | Accessibility & Contrast | WCAG AAA ($\ge 7:1$, $\ge 48\text{dp}$) | **Passed Contrast & TalkBack** (Hardware Verified) | ✅ **PASS** |
