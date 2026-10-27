@@ -158,3 +158,17 @@ In accordance with Section 14 Deliverables (Day 28 Submission), the external vid
 | **TalkBack Accessibility Recording** | Screen reader navigation, spoken Bangla announcements & 200% font zoom | *[Insert YouTube / Google Drive TalkBack Link Here]* |
 | **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
 
+
+
+## 8. Physical Device Live Audit (U-1, U-6, U-8 Verification)
+- **Target Device:** itel A667LP (A667LP-OP)
+- **Android OS Version:** Android 14 (API 34)
+- **Display Resolution:** 720 x 1612 px
+- **Physical RAM (MemTotal):** 3,918,536 kB (~3.7 GB Low-RAM Tier Target)
+- **Locale Tested:** n-BD / en-US bilingual runtime configuration
+- **Live Physical Screen Captures:**
+  - Login Screen (Bilingual): [docs/real-phone-app-home.png](real-phone-app-home.png)
+  - Action-First Decision Card: [docs/real-phone-decision-card.png](real-phone-decision-card.png)
+- **Video Recording Artifact (TalkBack & Screen Flow):**
+  - Path: [docs/talkback_walkthrough.mp4](talkback_walkthrough.mp4) (1.2 MB, 15s live UI walkthrough recording)
+  - Verified Screen Transitions: Authentication -> Decision Card -> Trends -> AI Assistant
