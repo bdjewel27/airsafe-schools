@@ -265,11 +265,25 @@ data class StaffInviteRequest(
 
 data class AssistantChatRequest(
     @SerializedName("query") val query: String,
-    @SerializedName("is_bengali") val isBengali: Boolean = true
+    @SerializedName("is_bengali") val isBengali: Boolean = true,
+    @SerializedName("stream") val stream: Boolean = false
+)
+
+data class ToolCallItemDto(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("status") val status: String? = null,
+    @SerializedName(value = "duration_ms", alternate = ["durationMs"]) val durationMs: Long? = null
 )
 
 data class AssistantChatResponse(
     @SerializedName("answer") val answer: String,
+    @SerializedName("decision") val decision: String? = null,
+    @SerializedName(value = "policy_floor_decision", alternate = ["policyFloorDecision"]) val policyFloorDecision: String? = null,
+    @SerializedName(value = "heat_index_c", alternate = ["heatIndexC"]) val heatIndexC: Double? = null,
+    @SerializedName("aqi") val aqi: Int? = null,
+    @SerializedName(value = "is_stale", alternate = ["isStale"]) val isStale: Boolean? = null,
+    @SerializedName(value = "tools_called_count", alternate = ["toolsCalledCount"]) val toolsCalledCount: Int? = null,
+    @SerializedName(value = "tool_calls", alternate = ["toolCalls"]) val toolCalls: List<ToolCallItemDto>? = emptyList(),
     @SerializedName("citation_id") val citationId: String? = null,
     @SerializedName("citation_excerpt") val citationExcerpt: String? = null,
     @SerializedName("doc_id") val docId: String? = null,

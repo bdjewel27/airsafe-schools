@@ -2,12 +2,13 @@ package com.airsafe.schools.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Accessible Status Colors (High contrast, color-blind friendly)
+// Accessible Status Colors (High contrast, color-blind friendly WCAG AAA / AA compliant)
 val SafeGreen = Color(0xFF1B5E20) // WCAG AAA on light background
 val SafeGreenBackground = Color(0xFFE8F5E9)
 
 val CautionYellow = Color(0xFFE65100) // Deep Amber / Orange for readability
 val CautionYellowBackground = Color(0xFFFFF3E0)
+val CautionText = Color(0xFFBF360C) // WCAG AA compliant (5.11:1 on #FFF3E0)
 
 val DangerRed = Color(0xFFB71C1C) // Deep Crimson
 val DangerRedBackground = Color(0xFFFFEBEE)
