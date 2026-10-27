@@ -29,6 +29,7 @@ export interface ApiStackProps extends cdk.StackProps {
 export class ApiStack extends cdk.Stack {
   public readonly restApi: apigateway.RestApi;
   public readonly apiFunction: lambda.Function;
+  public readonly mcpFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -71,7 +72,7 @@ export class ApiStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    const mcpFunction = new lambda.Function(this, 'McpHandlerFunction', {
+    this.mcpFunction = new lambda.Function(this, 'McpHandlerFunction', {
       functionName: `airsafe-mcp-${props.environmentName}`,
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
@@ -89,7 +90,8 @@ export class ApiStack extends cdk.Stack {
       logGroup: mcpLogGroup,
     });
 
-    props.readingsTable.grantReadData(mcpFunction);
+    props.readingsTable.grantReadData(this.mcpFunction);
+    this.mcpFunction.grantInvoke(this.apiFunction);
 
     // Grant least-privilege permissions to DynamoDB tables (S-4, S7)
     props.readingsTable.grantReadData(this.apiFunction);
@@ -281,7 +283,7 @@ export class ApiStack extends cdk.Stack {
     chat.addMethod('POST', lambdaIntegration, methodOptions);
 
     // F-22: Deployable Hardened MCP Server Route: POST /mcp
-    const mcpIntegration = new apigateway.LambdaIntegration(mcpFunction, {
+    const mcpIntegration = new apigateway.LambdaIntegration(this.mcpFunction, {
       proxy: true,
     });
     const mcpResource = this.restApi.root.addResource('mcp');

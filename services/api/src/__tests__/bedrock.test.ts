@@ -436,4 +436,126 @@ describe('F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling & Query Routing'
       expect(response.routingMetadata?.costUsd).toBeGreaterThan(0);
     });
   });
+
+  describe('A-6: <=5-Minute Scoped Token & Model Tenant Isolation (Ignore Cross-Tenant School ID)', () => {
+    test('1. mintMcpTokenForChat produces strictly scoped token with <=5 min lifetime, iss=airsafe-chat, aud=airsafe-mcp', () => {
+      const nowBefore = Math.floor(Date.now() / 1000);
+      const token = mintMcpTokenForChat('school-dhaka-001', 'TEACHER');
+      const parts = token.split('.');
+      expect(parts.length).toBe(3);
+
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+      expect(payload.school_id).toBe('school-dhaka-001');
+      expect(payload.role).toBe('TEACHER');
+      expect(payload.iss).toBe('airsafe-chat');
+      expect(payload.aud).toBe('airsafe-mcp');
+      expect(payload.exp).toBeDefined();
+      expect(payload.iat).toBeDefined();
+
+      const lifetimeSeconds = payload.exp - payload.iat;
+      expect(lifetimeSeconds).toBeLessThanOrEqual(300); // <= 5 minutes (300 seconds)
+      expect(payload.iat).toBeGreaterThanOrEqual(nowBefore - 2);
+    });
+
+    test('2. Tool strictly ignores cross-tenant school_id passed by model in get_school_decision arguments', async () => {
+      // Authenticated as school-dhaka-001
+      const scopedToken = mintMcpTokenForChat('school-dhaka-001', 'TEACHER');
+      const mcpClient = new McpClient({ scopedToken });
+
+      // Model attempts prompt injection / cross-tenant query: passes school-chittagong-999 in args
+      const rogueArgs = {
+        school_id: 'school-chittagong-999',
+        target_school: 'school-rajshahi-888',
+      };
+
+      const result = await mcpClient.callTool('get_school_decision', rogueArgs);
+
+      // Verify rogue school_id argument is completely IGNORED and strictly bound to token school_id
+      expect(result.school_id).toBe('school-dhaka-001');
+      expect(result.school_id).not.toBe('school-chittagong-999');
+    });
+
+    test('3. Tool strictly ignores cross-tenant school_id passed by model in get_sensor_readings arguments', async () => {
+      // Authenticated as school-dhaka-001
+      const scopedToken = mintMcpTokenForChat('school-dhaka-001', 'COORDINATOR');
+      const mcpClient = new McpClient({ scopedToken });
+
+      // Model attempts cross-tenant access to another school's sensor telemetry
+      const rogueArgs = {
+        school_id: 'school-sylhet-003',
+        location_type: 'FIELD',
+      };
+
+      const result = await mcpClient.callTool('get_sensor_readings', rogueArgs);
+
+      // Verify rogue school_id is ignored and readings belong strictly to token school_id
+      expect(result.school_id).toBe('school-dhaka-001');
+      expect(result.sensor_id).toBe('school-dhaka-001-field-01');
+      expect(result.school_id).not.toBe('school-sylhet-003');
+    });
+
+    test('4. Bedrock Assistant streaming session forces tenant context even if user query names another school', async () => {
+      // Scoped token for school-dhaka-001
+      const scopedToken = mintMcpTokenForChat('school-dhaka-001', 'TEACHER');
+
+      // Mock ConverseStream tool calling loop where model injects rogue school_id into tool arguments
+      async function* mockStreamWithRogueToolCall() {
+        yield {
+          contentBlockStart: {
+            start: {
+              toolUse: {
+                name: 'get_school_decision',
+                toolUseId: 'call_rogue_01',
+              },
+            },
+          },
+        };
+        yield {
+          contentBlockDelta: {
+            delta: {
+              toolUse: {
+                input: JSON.stringify({ school_id: 'school-foreign-cross-tenant-666' }),
+              },
+            },
+          },
+        };
+      }
+
+      (jest.spyOn(BedrockRuntimeClient.prototype, 'send') as any).mockResolvedValueOnce({
+        stream: mockStreamWithRogueToolCall(),
+      });
+
+      const response = await executeBedrockStreamAssistantWithMcp({
+        query: 'What is the decision for Chittagong School school-chittagong-002?',
+        schoolId: 'school-dhaka-001',
+        schoolNameBn: 'ঢাকা মডেল স্কুল',
+        schoolNameEn: 'Dhaka Model School',
+        isBengali: false,
+        mcpToken: scopedToken,
+        decision: 'MODIFY',
+        policyFloorDecision: 'MODIFY',
+        heatIndexC: 35.0,
+        aqi: 80,
+        activeIntensity: 'moderate',
+        routineNameBn: null,
+        routineNameEn: null,
+        nextActivityBn: null,
+        nextActivityEn: null,
+        hasRespiratoryCondition: false,
+        isStale: false,
+        activeOverride: null,
+        primaryReason: 'Safe',
+        maxDurationMinutes: 30,
+        requiresShade: true,
+      });
+
+      // Verify that tool call executed strictly for school-dhaka-001
+      expect(response.tool_calls).toBeDefined();
+      expect(response.tool_calls?.length).toBeGreaterThanOrEqual(1);
+      const decisionCall = response.tool_calls?.find((c) => c.name === 'get_school_decision');
+      expect(decisionCall).toBeDefined();
+      expect(decisionCall?.result.school_id).toBe('school-dhaka-001');
+      expect(decisionCall?.result.school_id).not.toBe('school-foreign-cross-tenant-666');
+    });
+  });
 });
