@@ -36,7 +36,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private val _currentTab = MutableStateFlow(AppTab.HOME)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
-    private val _isBengali = MutableStateFlow(true)
+    private val _isBengali = MutableStateFlow(java.util.Locale.getDefault().language == "bn")
     val isBengali: StateFlow<Boolean> = _isBengali.asStateFlow()
 
     private val _userSession = MutableStateFlow<UserSession?>(null)
