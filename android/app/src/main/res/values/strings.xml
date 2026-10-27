@@ -75,4 +75,37 @@
     <string name="role_coordinator">Coordinator</string>
     <string name="school_label">School: %1$s</string>
     <string name="auth_failed">Authentication failed: Check credentials or server connection.</string>
+
+    <!-- Extended Comprehensive UI Strings (U-7) -->
+    <string name="portal_title">AirSafe Portal</string>
+    <string name="login_subtitle">Invite-only Staff Authentication</string>
+    <string name="login_email_label">School Email</string>
+    <string name="login_password_label">Password</string>
+    <string name="login_button">Login to School Dashboard</string>
+    <string name="login_demo_credentials">Demo Credentials:</string>
+    <string name="login_as_teacher">Login as Teacher</string>
+    <string name="login_as_coordinator">Login as Coordinator</string>
+    <string name="trends_title">Temperature &amp; AQI Trends</string>
+    <string name="trends_subtitle">24-Hour Continuous Telemetry &amp; School Hours</string>
+    <string name="trends_offline_banner">Offline Mode: Displaying cached history from local database.</string>
+    <string name="trends_compare_label">Compare Location:</string>
+    <string name="trends_all_sites">Campus Average</string>
+    <string name="trends_chart_title">24-Hour Environmental Timeline</string>
+    <string name="trends_table_title">Hourly Telemetry Log (Accessible View)</string>
+    <string name="staff_title">Staff &amp; Teacher Roster</string>
+    <string name="staff_subtitle">Scoped strictly to your school campus</string>
+    <string name="staff_invite_header">Invite New Teacher</string>
+    <string name="staff_invite_button">Send Invite</string>
+    <string name="sites_title">Campus Sensor Locations</string>
+    <string name="sites_subtitle">Verified IoT Telemetry across campus</string>
+    <string name="sites_avg_heat_index">Campus Average Heat Index</string>
+    <string name="sites_avg_aqi">Campus Average AQI</string>
+    <string name="sites_classroom_notice">Indoor Classrooms (Shielded)</string>
+    <string name="rule_viewer_title">Active Safety Policy Rules (Policy v1.2)</string>
+    <string name="rule_viewer_subtitle">Governing outdoor physical activities &amp; environmental safety</string>
+    <string name="decision_cloud_reset">Reset to Live Cloud Data</string>
+    <string name="view_policy_rules">View Rules</string>
+    <string name="active_policy_tag">Active Policy: Policy v1.2</string>
+    <string name="metric_dialog_title">Sensor Metric Details &amp; Clinical Thresholds</string>
+    <string name="metric_clinical_guidance">Clinical Guidance &amp; Policy Impact:</string>
 </resources>

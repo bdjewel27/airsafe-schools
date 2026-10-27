@@ -76,4 +76,37 @@
     <string name="role_coordinator">কোঅর্ডিনেটর</string>
     <string name="school_label">বিদ্যালয়: %1$s</string>
     <string name="auth_failed">প্রবেশ ব্যর্থ হয়েছে: তথ্য যাচাই করুন অথবা সার্ভার সংযোগ পরীক্ষা করুন।</string>
+
+    <!-- Extended Comprehensive UI Strings (U-7) -->
+    <string name="portal_title">এয়ারসেফ পোর্টাল</string>
+    <string name="login_subtitle">শুধু আমন্ত্রিত স্কুল স্টাফদের প্রবেশাধিকার</string>
+    <string name="login_email_label">স্কুল ইমেইল</string>
+    <string name="login_password_label">পাসওয়ার্ড</string>
+    <string name="login_button">স্কুল ড্যাশবোর্ডে প্রবেশ করুন</string>
+    <string name="login_demo_credentials">ডেমো লগইন তথ্য:</string>
+    <string name="login_as_teacher">শিক্ষক হিসেবে লগইন</string>
+    <string name="login_as_coordinator">কোঅর্ডিনেটর হিসেবে লগইন</string>
+    <string name="trends_title">তাপমাত্রা ও বায়ুমান ট্রেন্ড</string>
+    <string name="trends_subtitle">২৪ ঘণ্টার ধারাবাহিক পর্যবেক্ষণ ও ক্লাস সময়</string>
+    <string name="trends_offline_banner">অফলাইন মোড: ক্যাশড ঐতিহাসিক ট্রেন্ড প্রদর্শন করা হচ্ছে।</string>
+    <string name="trends_compare_label">সাইট তুলনা:</string>
+    <string name="trends_all_sites">ক্যাম্পাস গড়</string>
+    <string name="trends_chart_title">২৪ ঘণ্টার পরিবেশগত ট্রেন্ডলাইন</string>
+    <string name="trends_table_title">ঘণ্টাভিত্তিক পরিবেশগত লগ (অ্যাক্সেসিবল টেবিল)</string>
+    <string name="staff_title">স্টাফ ও শিক্ষক তালিকা</string>
+    <string name="staff_subtitle">শুধুমাত্র আপনার স্কুলের শিক্ষকদের তালিকা</string>
+    <string name="staff_invite_header">নতুন শিক্ষক যুক্ত করুন</string>
+    <string name="staff_invite_button">আমন্ত্রণ পাঠান</string>
+    <string name="sites_title">স্কুল সেন্সর সাইটসমূহ</string>
+    <string name="sites_subtitle">ক্যাম্পাসের বিভিন্ন পয়েন্টে পরিবেশগত সেন্সর</string>
+    <string name="sites_avg_heat_index">ক্যাম্পাস গড় হিট ইনডেক্স</string>
+    <string name="sites_avg_aqi">ক্যাম্পাস গড় বায়ুমান (AQI)</string>
+    <string name="sites_classroom_notice">ইনডোর ক্লাসরুম (সুরক্ষিত এলাকা)</string>
+    <string name="rule_viewer_title">কার্যকর নিরাপত্তা নীতি ও নিয়মাবলী (Policy v1.2)</string>
+    <string name="rule_viewer_subtitle">বহিরাঙ্গন ক্লাস, খেলাধুলা ও শারীরিক কসরতের নীতি</string>
+    <string name="decision_cloud_reset">লাইভ ক্লাউড ডেটায় ফিরুন</string>
+    <string name="view_policy_rules">নীতি দেখুন</string>
+    <string name="active_policy_tag">কার্যকর নীতি: Policy v1.2</string>
+    <string name="metric_dialog_title">সেন্সর পরিমাপ ও স্বাস্থ্য ঝুঁকির মানদণ্ড</string>
+    <string name="metric_clinical_guidance">স্বাস্থ্যগত নির্দেশনা ও পলিসি প্রভাব:</string>
 </resources>
