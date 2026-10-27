@@ -10,13 +10,29 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.data.model.SensorSite
 import com.airsafe.schools.data.model.toBengaliDigits
@@ -33,7 +49,7 @@ fun SensorSitesView(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = if (isBengali) "স্কুল সেন্সর সাইটসমূহ (Live Sites)" else "School Sensor Locations",
+            text = stringResource(R.string.sites_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary

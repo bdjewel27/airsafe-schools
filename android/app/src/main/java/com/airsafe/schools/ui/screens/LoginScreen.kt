@@ -10,13 +10,29 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
@@ -103,7 +119,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text(if (isBengali) "স্কুল ইমেইল" else "School Email") },
+                label = { Text(stringResource(R.string.login_email_label)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -115,7 +131,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text(if (isBengali) "পাসওয়ার্ড" else "Password") },
+                label = { Text(stringResource(R.string.login_password_label)) },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 trailingIcon = {
                     val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
