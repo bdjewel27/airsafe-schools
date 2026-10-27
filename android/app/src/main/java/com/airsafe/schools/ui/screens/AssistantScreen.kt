@@ -150,30 +150,43 @@ fun AssistantScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Step-by-step thinking indicators (U-5: Real tool steps)
-                    if (isThinking && thinkingSteps.isNotEmpty()) {
+                    // Step-by-step thinking indicators (U-5: Real tool steps retained)
+                    if (thinkingSteps.isNotEmpty()) {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                thinkingSteps.forEach { step ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(vertical = 2.dp)
-                                    ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                                ) {
+                                    if (isThinking) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(12.dp),
                                             strokeWidth = 2.dp,
                                             color = CautionText
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = if (isBengali) "যুক্তি ও যাচাইকরণের ধাপসমূহ:" else "Reasoning & Grounding Steps:",
+                                        fontSize = 11.sp,
+                                        color = CautionText,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                thinkingSteps.forEach { step ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    ) {
                                         Text(
-                                            text = step,
+                                            text = "• $step",
                                             fontSize = 12.sp,
                                             color = CautionText,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.Normal
                                         )
                                     }
                                 }
@@ -441,7 +454,7 @@ fun AssistantScreen(
                                     }
                                 } finally {
                                     isThinking = false
-                                    thinkingSteps = emptyList()
+                                    // U-5: Retain thinking steps in collapsible view after stream completes
                                 }
                             }
                         }

@@ -1031,7 +1031,20 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 AppLog.d(TAG, "Analytics loaded successfully")
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in loadAnalytics: ${e.message}", e)
-                _analyticsData.value = getSeedAnalytics()
+                if (_analyticsData.value == null) {
+                    _analyticsData.value = SchoolAnalyticsSummary(
+                        weekLabelBn = "তথ্য অনুপলব্ধ",
+                        weekLabelEn = "Data Unavailable",
+                        lostOutdoorMinutes = 0,
+                        prevWeekLostMinutes = 0,
+                        hoursAboveThreshold = 0.0,
+                        proceedCount = 0,
+                        cautionCount = 0,
+                        moveIndoorsCount = 0,
+                        overridesCount = 0,
+                        measuredRatioPct = 0
+                    )
+                }
             }
         }
     }
@@ -1056,7 +1069,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in loadStaff: ${e.message}", e)
                 if (_invitedStaff.value.isEmpty()) {
-                    _invitedStaff.value = getSeedStaff()
+                    _invitedStaff.value = emptyList()
                 }
             }
         }
@@ -1114,19 +1127,30 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
 
         val override = _activeOverride.value
 
+        // U-9 & Policy v1.2: Enforce hard environmental sensor safety floors first
+        val isSensorRed = heatIndex >= 40.0 || aqiVal >= 201 || (pm25Val != null && pm25Val >= 150.4)
+        val isSensorOrange = heatIndex >= 38.0 || aqiVal >= 151 || (pm25Val != null && pm25Val >= 55.4)
+
         val plan: LocalDecisionPlan = when {
-            // 1. Coordinator Emergency Override to MOVE_INDOORS (Red Card)
-            override != null && override.startsWith("MOVE_INDOORS", ignoreCase = true) -> {
-                val reasonText = override.substringAfter(":", "").trim().ifBlank {
-                    if (_isBengali.value) "কোঅর্ডিনেটরের জরুরি নির্দেশ" else "Coordinator emergency order"
+            // 1. Environmental Sensor RED Floor (or Coordinator Override to MOVE_INDOORS)
+            isSensorRed || (override != null && override.startsWith("MOVE_INDOORS", ignoreCase = true)) -> {
+                val reasonText = if (override != null && override.startsWith("MOVE_INDOORS", ignoreCase = true)) {
+                    val r = override.substringAfter(":", "").trim()
+                    if (r.isNotBlank()) r else (if (_isBengali.value) "কোঅর্ডিনেটরের জরুরি নির্দেশ" else "Coordinator emergency order")
+                } else {
+                    if (heatIndex >= 40.0) {
+                        if (_isBengali.value) "চরম তাপদাহ (হিট ইনডেক্স ${heatIndex}°C >= ৪০°C)" else "Extreme Heat (Heat Index ${heatIndex}°C >= 40°C)"
+                    } else {
+                        if (_isBengali.value) "বিপজ্জনক বায়ুদূষণ (AQI $aqiVal >= ২০১)" else "Very Unhealthy Air Quality (AQI $aqiVal >= 201)"
+                    }
                 }
                 LocalDecisionPlan(
                     status = "RED",
                     decision = "MOVE_INDOORS",
                     primaryReason = if (_isBengali.value)
-                        "🚨 জরুরি ওভাররাইড (ভেতরে নেওয়া আবশ্যক): $reasonText"
+                        "🚨 জরুরি স্বাস্থ্য সতর্কতা (ভেতরে নেওয়া আবশ্যক): $reasonText"
                     else
-                        "🚨 Emergency Override (MOVE INDOORS): $reasonText",
+                        "🚨 Mandatory Safety Rule (MOVE INDOORS): $reasonText",
                     maxDuration = 0,
                     requiresShade = true
                 )
@@ -1147,33 +1171,40 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     requiresShade = true
                 )
             }
-            // 3. Teacher Asthma / Sensitive Group Note (Policy v1.2 Rule 5 Tier Step-Up) -> Orange Card (MODIFY)
-            hasRespiratoryNote -> {
+            // 3. Sensor Orange Floor OR Teacher Asthma Note OR Vigorous Exertion -> Orange Card (MODIFY)
+            isSensorOrange || hasRespiratoryNote || currentRoutineIntensity.equals("VIGOROUS", ignoreCase = true) -> {
+                val reasonText = when {
+                    isSensorOrange -> {
+                        if (heatIndex >= 38.0) {
+                            if (_isBengali.value) "উচ্চ তাপপ্রবাহ (হিট ইনডেক্স ${heatIndex}°C): Policy v1.2 অনুযায়ী সতর্কতা বৃদ্ধি (MODIFY)"
+                            else "High Heat Index (${heatIndex}°C): Policy v1.2 step-up to MODIFY"
+                        } else {
+                            if (_isBengali.value) "অস্বাস্থ্যকর বায়ুমান (AQI $aqiVal): Policy v1.2 অনুযায়ী সতর্কতা বৃদ্ধি (MODIFY)"
+                            else "Unhealthy Air Quality (AQI $aqiVal): Policy v1.2 step-up to MODIFY"
+                        }
+                    }
+                    hasRespiratoryNote -> {
+                        if (_isBengali.value)
+                            "সংবেদনশীল শিক্ষার্থী (আজমা/হাঁপানি): Policy v1.2 (রুল ৫) অনুযায়ী ১ ধাপ সতর্কতায় কার্যক্রম পরিবর্তন (MODIFY) আবশ্যক — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
+                        else
+                            "Sensitive students (Asthma/Respiratory): Policy v1.2 Rule 5 step-up requires MODIFY (max 30m, mandatory shade)"
+                    }
+                    else -> {
+                        if (_isBengali.value)
+                            "তীব্র শারীরিক কসরত (Vigorous Activity): Policy v1.2 অনুযায়ী সতর্কতা বৃদ্ধি — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
+                        else
+                            "Vigorous Physical Exercise: Policy v1.2 steps up to MODIFY (max 30 mins, shade mandatory)"
+                    }
+                }
                 LocalDecisionPlan(
                     status = "ORANGE",
                     decision = "MODIFY",
-                    primaryReason = if (_isBengali.value)
-                        "সংবেদনশীল শিক্ষার্থী (আজমা/হাঁপানি): Policy v1.2 (রুল ৫) অনুযায়ী ১ ধাপ সতর্কতায় কার্যক্রম পরিবর্তন (MODIFY) আবশ্যক — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
-                    else
-                        "Sensitive students (Asthma/Respiratory): Policy v1.2 Rule 5 step-up requires MODIFY (max 30m, mandatory shade)",
+                    primaryReason = reasonText,
                     maxDuration = 30,
                     requiresShade = true
                 )
             }
-            // 4. Vigorous Physical Exercise intensity step up
-            currentRoutineIntensity.equals("VIGOROUS", ignoreCase = true) -> {
-                LocalDecisionPlan(
-                    status = "ORANGE",
-                    decision = "MODIFY",
-                    primaryReason = if (_isBengali.value)
-                        "তীব্র শারীরিক কসরত (Vigorous Activity): Policy v1.2 অনুযায়ী সতর্কতা বৃদ্ধি — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
-                    else
-                        "Vigorous Physical Exercise: Policy v1.2 steps up to MODIFY (max 30 mins, shade mandatory)",
-                    maxDuration = 30,
-                    requiresShade = true
-                )
-            }
-            // 5. Default Baseline (Caution Yellow)
+            // 4. Default Baseline (Caution Yellow)
             else -> {
                 LocalDecisionPlan(
                     status = "YELLOW",
