@@ -723,8 +723,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                         nextActivityEn = nextActivityNameEn,
                         intensity = normalizedIntensity,
                         durationMinutes = durationMinutes,
-                        targetClass = targetClass,
-                        timeSlot = timeSlot
+                        targetClass = targetClass
                     )
                 )
                 AppLog.d(TAG, "updateRoutine API Success: $resp")

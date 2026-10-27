@@ -13,26 +13,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import com.airsafe.schools.R
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
-import com.airsafe.schools.R
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
@@ -177,6 +163,35 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // One-tap quick credentials helper for phone testing
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        email = "fatema.teacher@dms.edu.bd"
+                        password = "AirSafe@2026!"
+                        viewModel.authenticateStaff("fatema.teacher@dms.edu.bd", "AirSafe@2026!")
+                    },
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(if (isBengali) "শিক্ষক (ফাতিমা)" else "Teacher (Fatema)", fontSize = 11.sp)
+                }
+                OutlinedButton(
+                    onClick = {
+                        email = "rafiq.principal@dms.edu.bd"
+                        password = "AirSafe@2026!"
+                        viewModel.authenticateStaff("rafiq.principal@dms.edu.bd", "AirSafe@2026!")
+                    },
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(if (isBengali) "কোঅর্ডিনেটর (রফিক)" else "Coordinator (Rafiq)", fontSize = 11.sp)
+                }
+            }
 
             // Notice: Invite-only access
             Text(
