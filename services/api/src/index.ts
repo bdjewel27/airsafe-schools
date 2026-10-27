@@ -203,7 +203,13 @@ export function mintMcpTokenForChat(schoolId: string, role: string = 'TEACHER'):
 }
 
 import policyConfig from './policy/v1.2.json';
-import { executeBedrockAssistant, executeBedrockStreamAssistantWithMcp } from './bedrock';
+import {
+  executeBedrockAssistant,
+  executeBedrockStreamAssistantWithMcp,
+  checkAndIncrementUserDailyQuota,
+  getCachedAssistantResponse,
+  setCachedAssistantResponse,
+} from './bedrock';
 import {
   evaluatePolicy,
   PolicyDecision as SharedPolicyDecision,
@@ -2910,6 +2916,97 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         }
       }
 
+      // A-8: In-Memory Response Caching (TTL = 5 minutes)
+      const cached = getCachedAssistantResponse(schoolId, query, aqi, hi);
+      if (cached) {
+        console.log(`[Cache Hit (A-8)] Returning cached assistant response for school ${schoolId}, query: "${query}"`);
+        if (
+          body.stream === true ||
+          (event.headers?.accept || event.headers?.Accept || "").includes("text/event-stream")
+        ) {
+          const sseBody = "event: token\ndata: " + JSON.stringify({ delta: cached.answer }) + "\n\nevent: completion\ndata: " + JSON.stringify({
+            ...cached,
+            cached: true,
+          }) + "\n\n";
+          return {
+            statusCode: 200,
+            headers: {
+              ...getCorsHeaders(event),
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              "Connection": "keep-alive",
+              "X-Cache": "HIT",
+            },
+            body: sseBody,
+          };
+        }
+        return {
+          statusCode: 200,
+          headers: {
+            ...getCorsHeaders(event),
+            "X-Cache": "HIT",
+          },
+          body: JSON.stringify({
+            answer: cached.answer,
+            decision: cached.decision,
+            policy_floor_decision: cached.policyFloorDecision,
+            heat_index_c: hi,
+            aqi,
+            tools_called_count: cached.tools_called_count ?? 0,
+            tool_calls: cached.tool_calls ?? [],
+            routine_intensity: routineNameBn ? activeIntensity : null,
+            current_activity_bn: routineNameBn,
+            activities: evaluatedActs.activities,
+            current_activity: evaluatedActs.current_activity,
+            next_activity: evaluatedActs.next_activity,
+            current_activity_en: routineNameEn,
+            next_activity_bn: nextActivityBn,
+            next_activity_en: nextActivityEn,
+            has_respiratory_condition: hasRespiratoryCondition,
+            is_stale: isStale,
+            citation_id: cached.citationId,
+            citation_excerpt: cached.citationExcerpt,
+            doc_id: cached.docId,
+            suggested_follow_ups: cached.suggestedFollowUps,
+            used_bedrock_model: cached.usedBedrockModel,
+            cached: true,
+          }),
+        };
+      }
+
+      // A-8: Enforce User Daily Quota via DynamoDB Atomic Counter (Teacher=30, Coordinator=100)
+      const quotaResult = await checkAndIncrementUserDailyQuota({
+        docClient,
+        tableName: DECISIONS_TABLE_NAME,
+        schoolId,
+        userEmail: auth.email,
+        userRole: auth.role,
+      });
+
+      if (!quotaResult.allowed) {
+        console.warn(`[Quota Exceeded (A-8)] User ${auth.email} (${auth.role}) reached query #${quotaResult.currentCount} (limit: ${quotaResult.limit}). Returning HTTP 429.`);
+        return {
+          statusCode: 429,
+          headers: {
+            ...getCorsHeaders(event),
+            'Retry-After': String(quotaResult.retryAfterSeconds),
+            'X-RateLimit-Limit': String(quotaResult.limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(quotaResult.resetEpoch),
+          },
+          body: JSON.stringify({
+            error: 'Daily AI Assistant query quota exceeded',
+            message: isBengali
+              ? `আপনার দৈনিক AI অ্যাসিস্ট্যান্ট কোটা (${quotaResult.limit}টি প্রশ্ন) শেষ হয়ে গেছে। অনুগ্রহ করে অপেক্ষা করুন।`
+              : `Daily assistant query quota exceeded (${quotaResult.limit} queries allowed for role ${auth.role}). Please try again later.`,
+            limit: quotaResult.limit,
+            current_count: quotaResult.currentCount,
+            role: auth.role,
+            retry_after_seconds: quotaResult.retryAfterSeconds,
+          }),
+        };
+      }
+
       // Mint strictly scoped MCP token for AI Assistant (Hard Gate 2, Section A-3, A-6)
       const mcpToken = mintMcpTokenForChat(schoolId, auth.role);
 
@@ -2955,6 +3052,22 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         },
       });
 
+      // A-8: Save successfully generated response into cache
+      setCachedAssistantResponse(schoolId, query, aqi, hi, {
+        answer: assistantResp.answer,
+        decision: assistantResp.decision,
+        policyFloorDecision: assistantResp.policyFloorDecision,
+        citationId: assistantResp.citationId,
+        citationExcerpt: assistantResp.citationExcerpt,
+        docId: assistantResp.docId,
+        suggestedFollowUps: assistantResp.suggestedFollowUps,
+        tools_called_count: assistantResp.tools_called_count,
+        tool_calls: assistantResp.tool_calls,
+        usedBedrockModel: assistantResp.usedBedrockModel,
+      });
+
+      const quotaRemaining = Math.max(0, quotaResult.limit - quotaResult.currentCount);
+
       if (isSse) {
         sseBody += "event: completion\ndata: " + JSON.stringify({
           answer: assistantResp.answer,
@@ -2969,6 +3082,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           doc_id: assistantResp.docId,
           suggested_follow_ups: assistantResp.suggestedFollowUps,
           used_bedrock_model: assistantResp.usedBedrockModel,
+          tokens_used: assistantResp.tokens_used,
+          cost_usd: assistantResp.cost_usd,
+          quota_remaining: quotaRemaining,
+          quota_limit: quotaResult.limit,
         }) + "\n\n";
 
         return {
@@ -2978,6 +3095,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-RateLimit-Limit": String(quotaResult.limit),
+            "X-RateLimit-Remaining": String(quotaRemaining),
+            "X-RateLimit-Reset": String(quotaResult.resetEpoch),
           },
           body: sseBody,
         };
@@ -2985,7 +3105,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
       return {
         statusCode: 200,
-        headers: getCorsHeaders(event),
+        headers: {
+          ...getCorsHeaders(event),
+          "X-RateLimit-Limit": String(quotaResult.limit),
+          "X-RateLimit-Remaining": String(quotaRemaining),
+          "X-RateLimit-Reset": String(quotaResult.resetEpoch),
+        },
         body: JSON.stringify({
           answer: assistantResp.answer,
           decision: assistantResp.decision,
@@ -3009,6 +3134,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           doc_id: assistantResp.docId,
           suggested_follow_ups: assistantResp.suggestedFollowUps,
           used_bedrock_model: assistantResp.usedBedrockModel,
+          tokens_used: assistantResp.tokens_used,
+          cost_usd: assistantResp.cost_usd,
+          quota_remaining: quotaRemaining,
+          quota_limit: quotaResult.limit,
         }),
       };
     }

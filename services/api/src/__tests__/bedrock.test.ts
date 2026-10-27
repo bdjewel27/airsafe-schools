@@ -14,6 +14,11 @@ import {
   executeBedrockAssistant,
   executeBedrockStreamAssistantWithMcp,
   sanitizePromptInput,
+  getUserDailyQuotaLimit,
+  checkAndIncrementUserDailyQuota,
+  getCachedAssistantResponse,
+  setCachedAssistantResponse,
+  clearAssistantCache,
 } from '../bedrock';
 import { McpClient } from '../mcpClient';
 import { S3VectorStore } from '../ragIngest';
@@ -691,6 +696,238 @@ describe('F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling & Query Routing'
       expect(response.answer).toContain('MOVE_INDOORS');
       expect(response.answer).not.toContain('PROCEED (অনুমোদিত)');
       expect(response.answer).toContain('ইনডোরে স্থানান্তর');
+    });
+  });
+
+  describe('A-8: Daily Quota, Rate Limiting, maxTokens, Caching & 429 Retry-After', () => {
+    beforeEach(() => {
+      clearAssistantCache();
+    });
+
+    test('1. getUserDailyQuotaLimit allocates 30 queries for TEACHER and 100 queries for COORDINATOR / PLATFORM_ADMIN', () => {
+      expect(getUserDailyQuotaLimit('TEACHER')).toBe(30);
+      expect(getUserDailyQuotaLimit('teacher')).toBe(30);
+      expect(getUserDailyQuotaLimit('COORDINATOR')).toBe(100);
+      expect(getUserDailyQuotaLimit('coordinator')).toBe(100);
+      expect(getUserDailyQuotaLimit('PLATFORM_ADMIN')).toBe(100);
+    });
+
+    test('2. checkAndIncrementUserDailyQuota allows up to 30 requests and rejects on request 31 with retryAfterSeconds', async () => {
+      // Mock DynamoDB UpdateCommand returning request_count: 30
+      const mockDocClient = {
+        send: jest.fn().mockResolvedValueOnce({
+          Attributes: { request_count: 30 },
+        }),
+      };
+      const res30 = await checkAndIncrementUserDailyQuota({
+        docClient: mockDocClient as any,
+        tableName: 'AirSafe-Decisions-dev',
+        schoolId: 'school-dhaka-001',
+        userEmail: 'teacher@dms.edu.bd',
+        userRole: 'TEACHER',
+      });
+      expect(res30.allowed).toBe(true);
+      expect(res30.currentCount).toBe(30);
+      expect(res30.limit).toBe(30);
+      expect(res30.retryAfterSeconds).toBeGreaterThan(0);
+
+      // On 31st request: rejects with allowed=false
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: { request_count: 31 },
+      });
+      const res31 = await checkAndIncrementUserDailyQuota({
+        docClient: mockDocClient as any,
+        tableName: 'AirSafe-Decisions-dev',
+        schoolId: 'school-dhaka-001',
+        userEmail: 'teacher@dms.edu.bd',
+        userRole: 'TEACHER',
+      });
+      expect(res31.allowed).toBe(false);
+      expect(res31.currentCount).toBe(31);
+      expect(res31.limit).toBe(30);
+      expect(res31.retryAfterSeconds).toBeGreaterThan(0);
+    });
+
+    test('3. POST /schools/{schoolId}/assistant/chat returns HTTP 429 and Retry-After header on 31st question for Teacher', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation((command: any) => {
+        if (command?.input?.UpdateExpression) {
+          return Promise.resolve({ Attributes: { request_count: 31 } } as any);
+        }
+        if (command?.input?.TableName === 'AirSafe-Decisions-dev') {
+          return Promise.resolve({ Item: null, Items: [] } as any);
+        }
+        return Promise.resolve({
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as any);
+      });
+
+      const teacherToken = createSignedJwt({
+        email: 'salma.teacher@dms.edu.bd',
+        school_id: 'school-dhaka-001',
+        role: 'TEACHER',
+      });
+
+      const chatEvent = {
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/assistant/chat',
+        headers: {
+          Authorization: `Bearer ${teacherToken}`,
+        },
+        body: JSON.stringify({
+          query: 'আজকে কি বাইরে খেলাধুলা নিরাপদ?',
+          is_bengali: true,
+        }),
+      };
+
+      const res = await handler(chatEvent);
+      expect(res.statusCode).toBe(429);
+      expect(res.headers).toBeDefined();
+      expect(res.headers?.['Retry-After']).toBeDefined();
+      expect(Number(res.headers?.['Retry-After'])).toBeGreaterThan(0);
+      expect(res.headers?.['X-RateLimit-Limit']).toBe('30');
+      expect(res.headers?.['X-RateLimit-Remaining']).toBe('0');
+
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('quota exceeded');
+      expect(body.current_count).toBe(31);
+      expect(body.limit).toBe(30);
+      expect(body.role).toBe('TEACHER');
+      expect(body.retry_after_seconds).toBeGreaterThan(0);
+    });
+
+    test('4. POST /schools/{schoolId}/assistant/chat logs tokens and cost on successful response with quota metadata', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation((command: any) => {
+        if (command?.input?.UpdateExpression) {
+          return Promise.resolve({ Attributes: { request_count: 1 } } as any);
+        }
+        if (command?.input?.TableName === 'AirSafe-Decisions-dev') {
+          return Promise.resolve({ Item: null, Items: [] } as any);
+        }
+        return Promise.resolve({
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as any);
+      });
+
+      const teacherToken = createSignedJwt({
+        email: 'salma.teacher@dms.edu.bd',
+        school_id: 'school-dhaka-001',
+        role: 'TEACHER',
+      });
+
+      const chatEvent = {
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/assistant/chat',
+        headers: {
+          Authorization: `Bearer ${teacherToken}`,
+        },
+        body: JSON.stringify({
+          query: 'আজকের আবহাওয়ায় কি ড্রিল সেশন চলবে?',
+          is_bengali: true,
+        }),
+      };
+
+      const res = await handler(chatEvent);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers?.['X-RateLimit-Limit']).toBe('30');
+      expect(res.headers?.['X-RateLimit-Remaining']).toBe('29');
+
+      const body = JSON.parse(res.body);
+      expect(body.tokens_used).toBeDefined();
+      expect(body.tokens_used.total_tokens).toBeGreaterThan(0);
+      expect(body.cost_usd).toBeGreaterThan(0);
+      expect(body.quota_remaining).toBe(29);
+      expect(body.quota_limit).toBe(30);
+    });
+
+    test('5. In-Memory Response Caching (A-8) returns X-Cache: HIT and skips LLM execution on repeated identical queries', async () => {
+      // Manually set cache
+      setCachedAssistantResponse('school-dhaka-001', 'আজকে কি বৃষ্টি হবে?', 75, 32, {
+        answer: 'পলিসি v1.2 অনুযায়ী আবহাওয়া সংক্রান্ত পরামর্শ ইনডোরে যাওয়ার জন্য।',
+        decision: 'MOVE_INDOORS',
+        policyFloorDecision: 'MOVE_INDOORS',
+        citationId: 'Policy v1.2',
+        citationExcerpt: 'Outdoor Policy guidelines',
+        docId: 'airsafe-policy-v1.2',
+      });
+
+      // DynamoDB: 1: reading query
+      jest
+        .spyOn(docClient, 'send')
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as never)
+        .mockResolvedValueOnce({ Item: null } as never)
+        .mockResolvedValueOnce({ Item: null } as never)
+        .mockResolvedValueOnce({ Item: null } as never);
+
+      const teacherToken = createSignedJwt({
+        email: 'salma.teacher@dms.edu.bd',
+        school_id: 'school-dhaka-001',
+        role: 'TEACHER',
+      });
+
+      const chatEvent = {
+        httpMethod: 'POST',
+        path: '/schools/school-dhaka-001/assistant/chat',
+        headers: {
+          Authorization: `Bearer ${teacherToken}`,
+        },
+        body: JSON.stringify({
+          query: 'আজকে কি বৃষ্টি হবে?',
+          is_bengali: true,
+        }),
+      };
+
+      const res = await handler(chatEvent);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers?.['X-Cache']).toBe('HIT');
+      const body = JSON.parse(res.body);
+      expect(body.cached).toBe(true);
+      expect(body.answer).toContain('পলিসি v1.2');
+    });
+
+    test('6. Coordinator role allows up to 100 requests and rejects on request 101 with HTTP 429', async () => {
+      const mockDocClient = {
+        send: jest.fn().mockResolvedValueOnce({
+          Attributes: { request_count: 101 },
+        }),
+      };
+      const res101 = await checkAndIncrementUserDailyQuota({
+        docClient: mockDocClient as any,
+        tableName: 'AirSafe-Decisions-dev',
+        schoolId: 'school-dhaka-001',
+        userEmail: 'coordinator@dms.edu.bd',
+        userRole: 'COORDINATOR',
+      });
+      expect(res101.allowed).toBe(false);
+      expect(res101.currentCount).toBe(101);
+      expect(res101.limit).toBe(100);
+      expect(res101.role).toBe('COORDINATOR');
+      expect(res101.retryAfterSeconds).toBeGreaterThan(0);
     });
   });
 });
