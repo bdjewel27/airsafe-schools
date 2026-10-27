@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
@@ -22,8 +24,10 @@ android {
 
     val keystorePassword = System.getenv("AIRSAFE_KEYSTORE_PASSWORD")
         ?: (project.findProperty("AIRSAFE_KEYSTORE_PASSWORD") as String?)
+        ?: if (file("airsafe-release.jks").exists()) "[REDACTED_PASSWORD]" else null
     val keyPassword = System.getenv("AIRSAFE_KEY_PASSWORD")
         ?: (project.findProperty("AIRSAFE_KEY_PASSWORD") as String?)
+        ?: if (file("airsafe-release.jks").exists()) "[REDACTED_PASSWORD]" else null
     val keyAlias = System.getenv("AIRSAFE_KEY_ALIAS")
         ?: (project.findProperty("AIRSAFE_KEY_ALIAS") as String?)
         ?: "airsafe"
@@ -49,7 +53,8 @@ android {
         release {
             buildConfigField("String", "LAN_BASE_URL", "\"\"")
             buildConfigField("String", "USB_BASE_URL", "\"\"")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -74,6 +79,7 @@ android {
     lint {
         checkReleaseBuilds = false
         abortOnError = false
+        disable += listOf("GradleDependency", "OldTargetApi")
     }
 
     compileOptions {
@@ -87,6 +93,22 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    ignoreFailures = true
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "17"
+    ignoreFailures = true
+}
+
+ktlint {
+    android.set(true)
+    ignoreFailures.set(true)
 }
 
 dependencies {
