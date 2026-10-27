@@ -99,6 +99,8 @@ Tapping the button opens an `AlertDialog` (`DecisionCardScreen.kt#L887-L975`):
 | **Trends: Accessible Table**<br>*(WCAG Non-Graphic Alternative)* | ![Trends Accessible Table](state-trends-table-view.png) | • High-contrast tabular breakdown for TalkBack<br>• School hours shading (08:00–16:00 Asia/Dhaka)<br>• Semantic color chips with redundant text |
 | **Assistant: Clean Empty State**<br>*(One-Tap Quick Prompts)* | ![Assistant Empty State](state-assistant-empty-prompt.png) | • Welcoming teacher-oriented AI introduction<br>• 4 one-tap chips for common PE & heat policy queries |
 | **Assistant: Streaming & Citations**<br>*(Telemetry Grounded & Policy v1.2)* | ![Assistant Streaming](state-assistant-stream-citation.png) | • Step indicator: `⚡ বাস্তব টুল কল: get_school_decision`<br>• Verified campus telemetry badge (HI 30.2°C • AQI 42)<br>• Interactive Policy Citation: `§2.3 Table 2.3` |
+| **Trends: Stale & Error / Retry**<br>*(Offline & Gateway Failure)* | ![Trends Stale Error](state-trends-stale-error.png) | • CautionText warning banner (`#BF360C`)<br>• Gateway 503 error card with in-situ "পুনরায় চেষ্টা (Retry)" action<br>• Retains SQLite local backup history to prevent blank screen |
+| **Assistant: Offline Policy & Error**<br>*(Fail-Closed Telemetry)* | ![Assistant Offline Error](state-assistant-stale-error.png) | • Offline safety policy banner (`#BF360C` on `#FFF3E0`)<br>• ConnectException failure card<br>• Grounded offline Fail-Closed decision (UNKNOWN or Local Sensor Baseline) |
 
 ---
 
@@ -134,6 +136,12 @@ Calculated using the official WCAG 2.1 relative luminance formula $\left(L_1 + 0
 ---
 
 ## 11. Wireframes, Storyboards & High-Fidelity Design Specifications (U-10)
+
+### Visual Wireframe Architecture (Core 3 Screens)
+![Core UI Wireframes](wireframe-3-screens.png)
+
+### Teacher & Coordinator Decision Journey Storyboard
+![Teacher & Coordinator Decision Flow Storyboard](storyboard-teacher-flow.png)
 
 ### A. Screen Architecture & User Navigation Flow
 ```mermaid
