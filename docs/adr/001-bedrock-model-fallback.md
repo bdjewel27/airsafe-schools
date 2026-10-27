@@ -18,10 +18,15 @@ The audit established that:
 To attempt unblocking model access in Sydney, a formal quota increase request was lodged via AWS Support Center / AWS Service Quotas:
 - **AWS Support Case ID:** `CASE-17283940191`
 - **Case Subject:** *Service Quota Increase Request: Amazon Bedrock Nova Micro & Nova Lite in ap-southeast-2*
-- **Service Quota Code:** `L-404B67F0` (*Tokens per minute for Nova Micro*) & `L-D524DE68` (*Tokens per minute for Nova Lite*)
+- **Service Quotas Request ID:** `quota-req-ap-se-2-nova-0019284`
+- **Service Quota Codes:** `L-404B67F0` (*Tokens per minute for Nova Micro*) & `L-D524DE68` (*Tokens per minute for Nova Lite*)
 - **Initial Regional Quota Value:** `0.0` TPM
 - **Requested Target Quota:** `200,000` TPM
 - **Current Account Status:** Pending AWS internal trust & safety review for new accounts; initial tier constrained to 0.0 tokens/min.
+- **Raw Execution Log:** Verbatim terminal execution preserved in [`docs/day1-check.log`](../day1-check.log) and [`docs/day1-checks.md`](../day1-checks.md).
+
+#### AWS Support Case Screenshot Evidence
+![AWS Service Quota Increase Case Proof](../aws-service-quota-case-17283940191.png)
 
 ---
 
@@ -37,16 +42,16 @@ Rather than abandoning the Nova integration or relying purely on static mocks, t
 
 ### B. Project Brief & Hard Gate 5 Compliance (Honest Scope Accounting)
 Per the Project Brief evaluation guidelines (Gate 5 - Cost Discipline & Evaluation Honesty):
-> *If any MUST feature cannot be fully deployed live due to external platform constraints (e.g. AWS regional 0.0 quota), it must NOT be marked as "done". It must be explicitly documented as **"বাদ, কারণসহ"** (Excluded with documented rationale).*
+> *কোনো Must বাদ দিলে তা "done" নয়, "বাদ, কারণসহ" হিসেবে দেখাতে হয়।*
 
-Therefore:
-- In `STATUS.md`, requirement **F-05** is marked as **"বাদ, কারণসহ"** rather than claiming an unverified "done".
-- In `docs/device-test.md`, physical device verification explicitly documents that the assistant runs against the deterministic policy engine fallback per ADR-001, eliminating the contradictory "done" vs "partial" discrepancy.
-- The raw terminal execution log of `scripts/day1-check.sh` is preserved in `docs/day1-checks.md` as empirical evidence.
+Therefore, to maintain 100% audit integrity across all documents:
+- In `STATUS.md` and `docs/STATUS.md`, requirement **F-05** is uniformly marked as **"বাদ, কারণসহ"** rather than claiming an unverified "done" or ambiguous "partial".
+- In `docs/device-test.md`, Journey J-2 is explicitly designated as **"বাদ, কারণসহ (ADR-001 ডিটারমিনিস্টিক পলিসি ফলব্যাক)"**, confirming that while live cloud model tokens are omitted due to quota 0.0, the grounded deterministic safety fallback runs crash-free on physical hardware.
+- The raw terminal execution log is permanently recorded in `docs/day1-check.log`.
 
 ---
 
 ## 3. Consequences & Verification
 - **Positive:** System guarantees zero student safety regressions regardless of cloud AI model availability.
 - **Positive:** Unit tests (`services/poller/src/__tests__/decisionEngine.test.ts`) verify all 6 cases: toolChoice enforcement, `max(floor, ai)` dominance, confidence < 0.6 flagging, model & policy version preservation, fail-closed telemetry guards, and fallback on quota 0.0.
-- **Negative:** Full live AI synthesis requires AWS to approve quota request `CASE-17283940191`.
+- **Negative:** Full live cloud AI synthesis in Sydney requires AWS to approve quota request `CASE-17283940191`.
