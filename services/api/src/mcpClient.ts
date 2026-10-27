@@ -85,7 +85,7 @@ export class McpClient {
       {
         name: 'get_school_decision',
         description:
-          'Fetch real-time environmental safety decision (PROCEED, PROCEED_WITH_PRECAUTIONS, MODIFY, MOVE_INDOORS), policy reasons, and metrics for the authenticated school.',
+          '[READ-ONLY] Fetch real-time environmental safety decision (PROCEED, PROCEED_WITH_PRECAUTIONS, MODIFY, MOVE_INDOORS), policy reasons, and metrics for the authenticated school. Pure lookup, zero write operations.',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -95,7 +95,7 @@ export class McpClient {
       {
         name: 'get_sensor_readings',
         description:
-          'Retrieve real-time microclimate sensor telemetry (temperature, humidity, heat index, PM2.5, AQI) for authenticated school locations.',
+          '[READ-ONLY] Retrieve real-time microclimate sensor telemetry (temperature, humidity, heat index, PM2.5, AQI) for authenticated school locations. Pure lookup, zero mutation.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -111,7 +111,7 @@ export class McpClient {
       {
         name: 'get_outdoor_policy',
         description:
-          'Retrieve official safety rules, threshold tables, and citations from Model School Outdoor Activity Policy v1.2.',
+          '[READ-ONLY] Retrieve official safety rules, threshold tables, and citations from Model School Outdoor Activity Policy. Pure lookup, zero modification.',
         inputSchema: {
           type: 'object',
           properties: {
