@@ -24,10 +24,8 @@ android {
 
     val keystorePassword = System.getenv("AIRSAFE_KEYSTORE_PASSWORD")
         ?: (project.findProperty("AIRSAFE_KEYSTORE_PASSWORD") as String?)
-        ?: if (file("airsafe-release.jks").exists()) "[REDACTED_PASSWORD]" else null
     val keyPassword = System.getenv("AIRSAFE_KEY_PASSWORD")
         ?: (project.findProperty("AIRSAFE_KEY_PASSWORD") as String?)
-        ?: if (file("airsafe-release.jks").exists()) "[REDACTED_PASSWORD]" else null
     val keyAlias = System.getenv("AIRSAFE_KEY_ALIAS")
         ?: (project.findProperty("AIRSAFE_KEY_ALIAS") as String?)
         ?: "airsafe"
