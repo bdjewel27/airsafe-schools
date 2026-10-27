@@ -81,6 +81,12 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     private val _trendData = MutableStateFlow<List<TrendPoint>>(emptyList())
     val trendData: StateFlow<List<TrendPoint>> = _trendData.asStateFlow()
 
+    private val _isTrendsLoading = MutableStateFlow(false)
+    val isTrendsLoading: StateFlow<Boolean> = _isTrendsLoading.asStateFlow()
+
+    private val _trendsError = MutableStateFlow<String?>(null)
+    val trendsError: StateFlow<String?> = _trendsError.asStateFlow()
+
     private val _selectedTrendRange = MutableStateFlow("24h")
     val selectedTrendRange: StateFlow<String> = _selectedTrendRange.asStateFlow()
 
@@ -164,11 +170,8 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             AppLog.e(TAG, "Error reading initial cached decision: ", e)
             cachedDecision = null
         }
-        _trendData.value = getSeedTrends()
         val cachedSites = try { dbHelper.getSensorSites(_selectedSchoolId.value) } catch (_: Exception) { null }
-        _sensorSites.value = if (!cachedSites.isNullOrEmpty()) cachedSites else getSeedSensorSites(_selectedSchoolId.value)
-        _analyticsData.value = getSeedAnalytics()
-        _invitedStaff.value = getSeedStaff()
+        _sensorSites.value = cachedSites ?: emptyList()
         setupNetworkMonitoring()
     }
 
@@ -199,7 +202,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         } catch (_: Exception) {
             null
         }
-        return fromPrefs ?: getSeedBaselineDecision(schoolId)
+        return fromPrefs
     }
 
     private fun saveDecisionToCache(response: DecisionResponse) {
@@ -518,7 +521,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 dataAgeMinutes = cachedFromDb.dataAgeMinutes ?: 15
             )
         } else {
-            computeLocalAuthoritativeDecision(target)
+            buildFailClosedUnknown(target)
         }
         saveDecisionToCache(fallback)
         _uiState.value = DecisionUiState.Success(fallback)
@@ -941,7 +944,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                         )
                     }
                 } else if (_sensorSites.value.isEmpty()) {
-                    _sensorSites.value = getSeedSensorSites(schoolId)
+                    _sensorSites.value = emptyList()
                 }
             }
         }
@@ -966,33 +969,44 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         compareSiteId: String? = _compareSiteId.value
     ) {
         viewModelScope.launch {
+            _isTrendsLoading.value = true
+            _trendsError.value = null
             try {
                 AppLog.d(TAG, "Loading trends from schools/" + schoolId + "/trends?range=" + range + "&compare_site_id=" + compareSiteId)
                 val resp = AirSafeApiClient.service.getTrends(schoolId, range, siteId, compareSiteId)
                 _trendPeriodLabel.value = if (_isBengali.value) resp.periodBn ?: "২৪ ঘণ্টার ট্রেন্ড" else resp.periodEn ?: "24-Hour Trend"
-                if (resp.points.isNotEmpty()) {
-                    _trendData.value = resp.points.map { p ->
-                        TrendPoint(
-                            timeLabelBn = p.timeLabelBn ?: "",
-                            timeLabelEn = p.timeLabelEn ?: "",
-                            heatIndexC = p.heatIndexC ?: 30.0,
-                            aqi = p.aqi ?: 50,
-                            isDangerous = p.isDangerous ?: false,
-                            isSchoolHours = p.isSchoolHours ?: false,
-                            isShaded = p.isShaded ?: false,
-                            comparisonHeatIndexC = p.comparisonHeatIndexC,
-                            comparisonAqi = p.comparisonAqi,
-                            deltaHeatIndexC = p.deltaHeatIndexC,
-                            deltaAqi = p.deltaAqi
-                        )
-                    }
-                } else {
-                    _trendData.value = getSeedTrends()
+                val validPoints = resp.points.mapNotNull { p ->
+                    val hi = p.heatIndexC
+                    val aqiVal = p.aqi
+                    if (hi == null || aqiVal == null) null
+                    else TrendPoint(
+                        timeLabelBn = p.timeLabelBn ?: "",
+                        timeLabelEn = p.timeLabelEn ?: "",
+                        heatIndexC = hi,
+                        aqi = aqiVal,
+                        isDangerous = p.isDangerous ?: (hi >= 39.0 || aqiVal >= 151),
+                        isSchoolHours = p.isSchoolHours ?: false,
+                        isShaded = p.isShaded ?: false,
+                        comparisonHeatIndexC = p.comparisonHeatIndexC,
+                        comparisonAqi = p.comparisonAqi,
+                        deltaHeatIndexC = p.deltaHeatIndexC,
+                        deltaAqi = p.deltaAqi
+                    )
+                }
+                _trendData.value = validPoints
+                if (validPoints.isEmpty()) {
+                    _trendsError.value = if (_isBengali.value) "নির্বাচিত সময়ের জন্য কোনো যাচাইকৃত ট্রেন্ড ডেটা পাওয়া যায়নি।" else "No verified trend telemetry available for the selected range."
                 }
                 AppLog.d(TAG, "Trends loaded successfully (" + _trendData.value.size + " points)")
             } catch (e: Exception) {
                 AppLog.e(TAG, "Error in loadTrends: " + e.message, e)
-                _trendData.value = getSeedTrends()
+                _trendsError.value = if (_isBengali.value) {
+                    "ট্রেন্ড ডেটা লোড করা যায়নি (${e.javaClass.simpleName}): অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+                } else {
+                    "Failed to load trends (${e.javaClass.simpleName}): Please retry."
+                }
+            } finally {
+                _isTrendsLoading.value = false
             }
         }
     }
@@ -1085,12 +1099,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
     )
 
     fun computeLocalAuthoritativeDecision(schoolId: String): DecisionResponse {
+        val verifiedBase = (_uiState.value as? DecisionUiState.Success)?.data
+            ?: cachedDecision
+            ?: (try { dbHelper.getDecision(schoolId) } catch (_: Exception) { null })
+        val heatIndex = verifiedBase?.heatIndexC
+        val aqiVal = verifiedBase?.aqi
+        val pm25Val = verifiedBase?.pm25Ugm3
+        if (heatIndex == null || aqiVal == null) {
+            return buildFailClosedUnknown(schoolId)
+        }
         val isChittagong = schoolId.contains("chittagong") || schoolId.contains("chs")
         val schoolNameBn = if (isChittagong) "চট্টগ্রাম হাই স্কুল" else "ঢাকা মডেল স্কুল"
         val schoolNameEn = if (isChittagong) "Chittagong High School" else "Dhaka Model School"
-        val heatIndex = if (isChittagong) 31.8 else 33.1
-        val aqiVal = if (isChittagong) 65 else 78
-        val pm25Val = if (isChittagong) 31.0 else 38.5
 
         val override = _activeOverride.value
 

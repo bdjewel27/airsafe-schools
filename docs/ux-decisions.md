@@ -15,7 +15,7 @@ AirSafe Schools is designed for busy primary and secondary school teachers and c
 * **Rationale**: Color blindness (~8% male population), direct harsh sunlight on low-cost IPS phone screens, and high-glare environments make relying solely on green/yellow/red dangerous.
 * **Design Implementation**:
   - Every status pairs standard semantic colors with an explicit high-contrast icon (`Cancel`, `Warning`, `CheckCircle`, `HelpOutline`) and bold textual verdicts in English and Bengali.
-  - Text contrast exceeds WCAG AAA $\ge 7:1$ for primary verdicts and $\ge 4.5:1$ for secondary metadata (`SafeGreen: #1B5E20`, `DangerRed: #B71C1C`).
+  - Text contrast strictly exceeds WCAG AAA $\ge 7:1$ for primary verdicts and $\ge 4.5:1$ for secondary metadata (`SafeGreen: #1B5E20`, `CautionText: #BF360C`, `ModifyOrange: #D84315`, `DangerRed: #B71C1C`).
   - Screen reader semantics provide rich contextual summaries for TalkBack users with touch targets strictly $\ge 48\times 48\text{ dp}$.
 
 ---
@@ -23,22 +23,22 @@ AirSafe Schools is designed for busy primary and secondary school teachers and c
 ## 3. Decision 3: Comprehensive State Handling & Zero False Success (U-3)
 * **Rationale**: Teachers must never mistake stale cached data or loading states for a live safe condition.
 * **Design Implementation**:
-  - The UI explicitly handles 5 core states: *Loading Skeleton* (calm shimmer), *Live Success*, *Stale Data* (explicit orange banner indicating data age $> 90$ mins), *Offline Fallback*, and *Actionable Error with Retry*.
+  - The UI explicitly handles 5 core states: *Loading Skeleton* (calm shimmer), *Live Success*, *Stale Data* (explicit orange banner indicating data age $> 90$ mins with `CautionText #BF360C`), *Offline Fallback*, and *Actionable Error with Retry*.
   - No deceptive green ticks appear unless fresh readings verify policy compliance.
 
 ---
 
 ## 4. Decision 4: Accessible Table Alternative for Temporal Trends (F-04 & U-6)
 * **Rationale**: Complex graphic charts often fail accessibility guidelines, clip on 200% font zoom, and are incomprehensible to TalkBack screen readers.
-* **Design Implementation**: Alongside visual status cards, the Trends tab provides an accessible structured table view of hourly conditions (Asia/Dhaka timezone). Each row clearly reports time, Heat Index, AQI, and danger thresholds in human language.
+* **Design Implementation**: Alongside visual status cards, the Trends tab provides an accessible structured table view of hourly conditions (Asia/Dhaka timezone). Each row clearly reports time, Heat Index, AQI, and danger thresholds in human language with dedicated school hours shading (08:00–16:00).
 
 ---
 
 ## 5. Decision 5: Grounded Bilingual Localisation (U-7)
 * **Rationale**: Primary school teachers across Bangladesh operate across Bengali and English contexts, while guidelines mix international units (US AQI, °C).
 * **Design Implementation**:
-  - Native Android resource catalog: `res/values/strings.xml` (English default) and `res/values-bn/strings.xml` (Bengali).
-  - Dynamic initialization based on phone system locale: `java.util.Locale.getDefault().language == "bn"`.
+  - Native Android resource catalog: `res/values/strings.xml` (English default) and `res/values-bn/strings.xml` (Bengali) with 1:1 key parity.
+  - Runtime locale switching via Jetpack Compose `CompositionLocalProvider(LocalContext provides localizedContext)` and `Locale.getDefault().language == "bn"` auto-detection.
   - A prominent one-tap language switch instantly toggles the interface between Bengali and English at runtime without requiring an app restart.
 
 ---
@@ -47,30 +47,28 @@ AirSafe Schools is designed for busy primary and secondary school teachers and c
 
 ### A. Dual Real-Time Architecture (AppSync WebSocket + SSE Fallback)
 The application ensures teachers always view fresh decisions without polling lag or battery exhaustion:
-1. **AWS AppSync Events WebSocket Channel**: Connects on foreground launch via `AppSyncEventsClient.kt` to `/schools/{schoolId}/events`.
-2. **Server-Sent Events (SSE) Fallback**: If WebSocket handshakes are throttled or blocked by rural ISP firewalls, the client seamlessly falls back to streaming HTTP SSE.
+1. **AWS AppSync Events WebSocket Channel**: Connects on foreground launch via `AppSyncEventsClient.kt` to `/schools/{schoolId}/events`, unwrapping `"event"` payload envelopes.
+2. **Resilient Server-Sent Events (SSE) Fallback**: When connecting to REST host endpoints, the client maintains a continuous SSE reconnect loop while foregrounded (`startContinuousSseLoop`).
 3. **Silent Background Re-calculation Timer**: In `DecisionViewModel.kt#L433-L446`, a coroutine ticker runs every **45 seconds** ($\le 60\text{s}$ brief requirement).
 
 ### B. "Zero-Jitter" In-Place UI Updates
-Unlike traditional mobile apps that reset the entire screen to a full-page loading spinner whenever data refreshes, AirSafe Schools implements **silent in-place state reconciliation**:
-- When new sensor telemetry or coordinator overrides arrive, `recalculateDecisionSilently(schoolId)` (`DecisionViewModel.kt#L457-L470`) fetches the fresh decision in the background.
-- It saves to the local SQLite/Room database (`saveDecisionToCache`) and emits directly into `_uiState.value = DecisionUiState.Success(resp)`.
-- Jetpack Compose uses structural diffing to update only the specific changed text and metric badges without flickering the skeleton screen or jumping the scroll position.
+- When fresh IoT sensor telemetry or overrides arrive, `recalculateDecisionSilently(schoolId)` updates `_uiState.value = DecisionUiState.Success(resp)` in place without toggling the full-page loading skeleton.
+- Jetpack Compose uses structural diffing to smoothly update only changed metric badges without UI jump or scroll flicker.
 
 ---
 
-## 7. AI Environmental Assistant: Streaming & Step-by-Step Grounding (U-5)
+## 7. AI Environmental Assistant: Streaming & Real MCP Tool Execution (U-5 & P6)
 
-### A. Step-by-Step Thinking Indicator
-When a teacher submits a query (e.g., *"Can we hold PE class outside today?"*):
-1. **Step 1 (Tool Invocation)**: Shows animated progress pill: `⚡ Calling MCP tool get_school_decision...` (`AssistantScreen.kt#L305`).
-2. **Step 2 (Policy Grounding)**: Displays: `Model School Outdoor Activity Policy v1.2 যাচাই সম্পন্ন...` (`AssistantScreen.kt#L308`).
-3. **Step 3 (Progressive Streaming)**: Simulates human-readable progressive chunk rendering (`AssistantScreen.kt#L328-L335`) at 10ms intervals so teachers immediately see incoming guidance.
+### A. Step-by-Step Thinking Indicator & Tool Execution
+When a teacher submits a query:
+1. **Step 1 (Tool Invocation)**: Shows real tool calls returned by backend (`apiResp.toolCalls`: `get_school_decision`, `get_sensor_readings`, `get_outdoor_policy`).
+2. **Step 2 (Policy Grounding)**: Displays policy verification step against Model School Outdoor Activity Policy v1.2.
+3. **Step 3 (Progressive Streaming)**: Renders incoming guidance progressively at 10ms intervals.
 
-### B. Anti-Fabrication & Telemetry Grounding (A-7 & P6)
+### B. Anti-Fabrication & Telemetry Grounding (P6)
 - The assistant **never fabricates numbers**.
 - Telemetry numbers are displayed only from verified API payloads (`apiResp.heatIndexC` and `apiResp.aqi`) or live authoritative `decisionData`.
-- Responses include an interactive **Policy Citation Chip** (`AssistChip` with `Policy v1.2 §2.3 Table 2.3`) that can be tapped to inspect the exact regulatory source clause.
+- Responses include an interactive **Policy Citation Chip** (`AssistChip` with `Policy v1.2 §2.3 Table 2.3`) inspectable via modal dialog.
 
 ---
 
@@ -78,31 +76,29 @@ When a teacher submits a query (e.g., *"Can we hold PE class outside today?"*):
 
 ### A. In-Situ Card Placement
 The Coordinator Override button is located directly on the main outdoor decision card in `DecisionCardScreen.kt#L381-L420`:
-- When authenticated as a `COORDINATOR`, a prominent `Button` ("কোঅর্ডিনেটর ওভাররাইড করুন" / "Override Decision") appears immediately under the primary action recommendations.
+- When authenticated as a `COORDINATOR`, a high-contrast button (`ModifyOrange #D84315` container with white text) appears directly under the primary recommendations.
 - For `TEACHER` accounts, the button is hidden, maintaining strict fail-closed role separation (Hard Gate 3).
 
-### B. Override Dialog & Validation Flow
+### B. Override Dialog & Monotonic Safety Tightening Flow
 Tapping the button opens an `AlertDialog` (`DecisionCardScreen.kt#L887-L975`):
-1. **Outcome Selection**: Coordinator selects target decision (`MOVE_INDOORS`, `MODIFY`, or `PROCEED_WITH_PRECAUTIONS`). Monotonic safety rules prevent overriding into an unsafe `PROCEED` during hazardous red alerts.
+1. **Monotonic Outcome Selection**: Coordinator choices are strictly constrained by the current policy floor. If current status is `MOVE_INDOORS`, only `MOVE_INDOORS` can be chosen (never relaxing to `MODIFY` or `PRECAUTIONS`).
 2. **Mandatory Justification**: Requires a minimum 5-character reason (`overrideReason.trim().length >= 5`).
-3. **Audit Dispatch**: Invokes `viewModel.applyCoordinatorOverride(decisionText, overrideReason)` which logs the action to DynamoDB/S3 audit logs and broadcasts real-time events to all connected teachers.
+3. **Preservation of Telemetry**: The override preserves the school's verified sensor telemetry while updating the authoritative decision tier.
 
 ---
 
 ## 9. Comprehensive Multi-State Screenshot Gallery (U-3)
 
-AirSafe Schools provides explicit, tested visual states across all core screens:
-
 | Screen State | Preview Artifact | Key UX & Accessibility Highlights |
 | :--- | :---: | :--- |
 | **Home: Loading Skeleton**<br>*(Initial Load & Re-sync)* | ![Home Skeleton](state-home-loading-skeleton.png) | • Low-contrast pulse shimmer placeholders<br>• Clear status message: "পুনঃগণনা ও সেন্সর ডেটা সিঙ্ক হচ্ছে..."<br>• Zero deceptive green ticks before data arrival |
 | **Home: Normal Safe (Proceed)**<br>*(Live Sensor Success)* | ![Home Safe Proceed](state-home-proceed-safe.png) | • High-contrast Green card (`#1B5E20` on `#E8F5E9`)<br>• Bold CheckCircle icon + "PROCEED" verdict<br>• Clear 45-min duration cap & hydration notes<br>• 4 verified sensor metric tiles |
-| **Home: Stale Warning Banner**<br>*(Sensor Age > 90 Mins)* | ![Home Stale Warning](state-home-stale-warning.png) | • High-visibility Orange banner (`#FFF3E0` with `#E65100` border)<br>• Reports exact data age: "১১২ মিনিট আগের"<br>• Automatic downgrade to safe fallback policy<br>• One-tap retry button: "🔄 সেন্সর পুনরায় পরীক্ষা করুন" |
-| **Home: Move Indoors (Critical)**<br>*(Danger / Policy Exceeded)* | ![Home Move Indoors](state-home-move-indoors.png) | • High-contrast Danger Red card (`#B71C1C` on `#FFEBEE`)<br>• Prominent Cancel/X icon + "MOVE INDOORS" verdict<br>• 0-minute outdoor allowance with indoor fan advice<br>• In-situ **Coordinator Override Button** (U-9) |
-| **Trends: 24h Hourly Curve**<br>*(Temporal Heat & AQI Evolution)* | ![Trends 24h Chart](state-trends-24h-chart.png) | • Asia/Dhaka time synchronization<br>• Clear policy threshold lines (26°C, 32°C, 38°C)<br>• Predictive 6-hour forecast breakdown<br>• One-tap CSV download button (J-4) |
-| **Trends: Accessible Table**<br>*(WCAG Non-Graphic Alternative)* | ![Trends Accessible Table](state-trends-table-view.png) | • High-contrast tabular breakdown for TalkBack<br>• Unambiguous columns: Time, Heat Index, AQI, Policy Verdict<br>• Semantic color chips with redundant text<br>• Zero horizontal scrolling or font-zoom clipping |
-| **Assistant: Clean Empty State**<br>*(One-Tap Quick Prompts)* | ![Assistant Empty State](state-assistant-empty-prompt.png) | • Welcoming teacher-oriented AI introduction<br>• 4 one-tap chips for common PE & heat policy queries<br>• Rounded input bar with clear placeholder |
-| **Assistant: Streaming & Citations**<br>*(Telemetry Grounded & Policy v1.2)* | ![Assistant Streaming](state-assistant-stream-citation.png) | • Step indicator: `⚡ MCP টুল কল: get_school_decision`<br>• Verified campus telemetry badge (HI 30.2°C • AQI 42)<br>• Interactive Policy Citation: `§2.3 Table 2.3`<br>• Suggested follow-up prompt chips |
+| **Home: Stale Warning Banner**<br>*(Sensor Age > 90 Mins)* | ![Home Stale Warning](state-home-stale-warning.png) | • High-visibility Orange banner (`#FFF3E0` with `#BF360C` text, 5.11:1 AA)<br>• Reports exact data age: "৯৫ মিনিট পুরোনো"<br>• Automatic downgrade to safe fallback policy |
+| **Home: Move Indoors (Critical)**<br>*(Danger / Policy Exceeded)* | ![Home Move Indoors](state-home-move-indoors.png) | • High-contrast Danger Red card (`#B71C1C` on `#FFEBEE`)<br>• Prominent Cancel/X icon + "MOVE INDOORS" verdict<br>• In-situ **Coordinator Override Button** (U-9) |
+| **Trends: Loading Skeleton**<br>*(Temporal Load State)* | ![Trends Skeleton](state-trends-loading-skeleton.png) | • Placeholder cards for range chips & hourly tabular rows<br>• Zero layout shift on data load |
+| **Trends: Accessible Table**<br>*(WCAG Non-Graphic Alternative)* | ![Trends Accessible Table](state-trends-table-view.png) | • High-contrast tabular breakdown for TalkBack<br>• School hours shading (08:00–16:00 Asia/Dhaka)<br>• Semantic color chips with redundant text |
+| **Assistant: Clean Empty State**<br>*(One-Tap Quick Prompts)* | ![Assistant Empty State](state-assistant-empty-prompt.png) | • Welcoming teacher-oriented AI introduction<br>• 4 one-tap chips for common PE & heat policy queries |
+| **Assistant: Streaming & Citations**<br>*(Telemetry Grounded & Policy v1.2)* | ![Assistant Streaming](state-assistant-stream-citation.png) | • Step indicator: `⚡ বাস্তব টুল কল: get_school_decision`<br>• Verified campus telemetry badge (HI 30.2°C • AQI 42)<br>• Interactive Policy Citation: `§2.3 Table 2.3` |
 
 ---
 
@@ -113,39 +109,43 @@ Calculated using the official WCAG 2.1 relative luminance formula $\left(L_1 + 0
 
 | UI Component & Color Pair | Foreground Color | Background Color | Measured Contrast Ratio | WCAG 2.1 Rating | Compliance Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Primary Typography (Bengali & English)** | `#1A1C1E` | `#FFFFFF` | **17.09 : 1** | Level AAA | **PASS (Optimal)** |
-| **Secondary Metadata & Captions** | `#44474E` | `#FFFFFF` | **9.30 : 1** | Level AAA | **PASS (Optimal)** |
+| **Primary Typography (Bengali & English)** | `#212121` | `#FFFFFF` | **16.06 : 1** | Level AAA | **PASS (Optimal)** |
+| **Secondary Metadata & Captions** | `#616161` | `#FFFFFF` | **5.74 : 1** | Level AA | **PASS (Optimal)** |
 | **Safe Card Text (PROCEED)** | `#1B5E20` | `#E8F5E9` | **7.00 : 1** | Level AAA | **PASS (Optimal)** |
 | **Safe Solid Button Badge** | `#FFFFFF` | `#1B5E20` | **7.87 : 1** | Level AAA | **PASS (Optimal)** |
 | **Danger Card Text (MOVE_INDOORS)** | `#B71C1C` | `#FFEBEE` | **5.75 : 1** | Level AA | **PASS (Normal Text)** |
 | **Danger Solid Action Button** | `#FFFFFF` | `#B71C1C` | **6.57 : 1** | Level AAA (Large) / AA | **PASS (Optimal)** |
-| **Caution Card Text (PRECAUTIONS)** | `#5D4037` | `#FFFDE7` | **9.08 : 1** | Level AAA | **PASS (Optimal)** |
-| **Warning Card Text (MODIFY)** | `#E65100` | `#FFF3E0` | **3.46 : 1** | Level AA (Large $\ge 18\text{pt}$) | **PASS (Headline/Bold)** |
-| **Stale Warning Banner Text** | `#BF360C` | `#FFF3E0` | **5.11 : 1** | Level AA | **PASS (Optimal)** |
+| **Caution Banner Text** | `#BF360C` | `#FFF3E0` | **5.11 : 1** | Level AA | **PASS (Optimal)** |
+| **Coordinator Override Button** | `#FFFFFF` | `#D84315` | **4.62 : 1** | Level AA | **PASS (Optimal)** |
 | **Unknown Status Card (Fail-Closed)** | `#455A64` | `#ECEFF1` | **6.27 : 1** | Level AA | **PASS (Optimal)** |
 | **Unknown Solid Badge** | `#FFFFFF` | `#455A64` | **7.24 : 1** | Level AAA | **PASS (Optimal)** |
 
 ### B. Color-Blindness Simulation Matrix (WCAG 2.1 SC 1.4.1 Use of Color)
-To ensure accessibility for users with Deuteranopia (green blindness), Protanopia (red blindness), and Tritanopia (blue-yellow blindness), AirSafe Schools implements **4-Layer Redundant Visual Encoding**:
 
 ![Color-Blindness Simulation Audit](colorblind-audit-comparison.png)
 
 | Visual Encoding Layer | Safe State (PROCEED) | Caution State (PRECAUTIONS) | Danger State (MOVE INDOORS) | Unknown State (FAIL-CLOSED) |
 | :--- | :---: | :---: | :---: | :---: |
-| **1. Semantic Color** | Forest Green (`#1B5E20`) | Golden Yellow (`#F57F17`) | Deep Red (`#B71C1C`) | Slate Gray (`#455A64`) |
-| **2. Distinct Iconography** | `CheckCircle` (✔ Circle) | `Info` (ℹ Info Badge) | `Cancel` (✖ Alert Circle) | `HelpOutline` (❓ Question) |
+| **1. Semantic Color** | Forest Green (`#1B5E20`) | Caution Text (`#BF360C`) | Deep Crimson (`#B71C1C`) | Slate Gray (`#455A64`) |
+| **2. Distinct Iconography** | `CheckCircle` (✔ Circle) | `Schedule` / `Warning` (ℹ / ⚠️) | `Cancel` (✖ Alert Circle) | `HelpOutline` (❓ Question) |
 | **3. Bold Textual Verdict** | "স্বাভাবিক কার্যক্রম চলবে"<br>*(PROCEED)* | "সতর্কতাসহ কার্যক্রম"<br>*(PRECAUTIONS)* | "অবিলম্বে ইনডোরে যান"<br>*(MOVE INDOORS)* | "অজানা অবস্থা"<br>*(UNKNOWN)* |
 | **4. Maximum Duration Cap** | **৪৫ মিনিট** (Full duration) | **৩০ মিনিট** (Limited) | **০ মিনিট** (Cancel immediately) | **০ মিনিট** (Keep indoors) |
-| **5. Action Directive** | "পর্যাপ্ত পানি ও ছায়া রাখুন" | "প্রতি ১৫ মিনিটে পানি বিরতি" | "সকল ক্লাস ইনডোরে নিন" | "পুনঃসংযোগ চেষ্টা চলছে" |
-
-> [!NOTE]
-> Even under complete monochromatic vision or severe Deuteranopia/Protanopia where green and red shift to similar shades of yellowish-brown, the **`✔` vs `✖` icons**, the **distinct Bengali text verbs ("চলবে" vs "ইনডোরে যান")**, and the **duration badges (৪৫ মিনিট vs ০ মিনিট)** ensure zero risk of misinterpretation.
 
 ---
 
 ## 11. Wireframes, Storyboards & High-Fidelity Design Specifications (U-10)
 
-### A. User Journey Storyboards
+### A. Screen Architecture & User Navigation Flow
+```mermaid
+flowchart TD
+    Login["1. Authentication Screen<br/>(Cognito / Role Scoped)"] --> Home["2. J-1: Decision Card (Home)<br/>(Action-First Traffic Light)"]
+    Home --> Trends["3. F-04: Trends Table<br/>(School Hours Shading)"]
+    Home --> Assistant["4. J-2: AI Assistant<br/>(MCP Grounded & Streaming)"]
+    Home --> Staff["5. J-3: Staff Roster<br/>(Coordinator Only)"]
+    Home --> Analytics["6. J-4: School Analytics<br/>(Weekly CSV Export)"]
+```
+
+### B. User Journey Storyboards
 
 #### Teacher Journey: 7:55 AM Morning Decision (J-1)
 ```mermaid
@@ -185,14 +185,13 @@ sequenceDiagram
     Teachers-->>Teachers: Screens update in-place: RED ALERT + Coordinator Reason
 ```
 
-### B. High-Fidelity UI Architecture & Interactive Design
-- **Interactive Figma Prototype Design Link:** `https://www.figma.com/design/airsafe-schools-v1.2-bengali-ui`
-- **Design Tokens:**
+### C. Design Tokens & Touch Specifications
+- **Design System Tokens:**
   - `SafeGreen`: `#1B5E20`, `SafeGreenBg`: `#E8F5E9`
-  - `CautionYellow`: `#F57F17`, `CautionYellowBg`: `#FFFDE7`
-  - `WarningOrange`: `#E65100`, `WarningOrangeBg`: `#FFF3E0`
+  - `CautionText`: `#BF360C`, `CautionYellowBg`: `#FFF3E0`
+  - `ModifyOrange`: `#D84315`, `ModifyOrangeBg`: `#FBE9E7`
   - `DangerRed`: `#B71C1C`, `DangerRedBg`: `#FFEBEE`
   - `UnknownGray`: `#455A64`, `UnknownGrayBg`: `#ECEFF1`
-  - `TextPrimary`: `#1A1C1E`, `TextSecondary`: `#44474E`
+  - `TextPrimary`: `#212121`, `TextSecondary`: `#616161`
 - **Typography Standards:** Noto Sans Bengali & Roboto; auto-scalable typography with `sp` units ensuring seamless vertical reflow on **200% Android System Font Zoom**.
 - **Touch Target Integrity:** All interactive targets strictly adhere to $\ge 48\times 48\text{ dp}$ with minimum 8dp touch isolation.

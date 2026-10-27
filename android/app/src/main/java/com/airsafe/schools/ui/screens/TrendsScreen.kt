@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -14,11 +18,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airsafe.schools.R
 import com.airsafe.schools.data.model.TrendPoint
 import com.airsafe.schools.data.model.toBengaliDigits
 import com.airsafe.schools.ui.theme.*
@@ -31,6 +38,9 @@ fun TrendsScreen(
 ) {
     val trends by viewModel.trendData.collectAsState()
     val isBengali by viewModel.isBengali.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
+    val isTrendsLoading by viewModel.isTrendsLoading.collectAsState()
+    val trendsError by viewModel.trendsError.collectAsState()
     val selectedRange by viewModel.selectedTrendRange.collectAsState()
     val compareSiteId by viewModel.compareSiteId.collectAsState()
     val periodLabel by viewModel.trendPeriodLabel.collectAsState()
@@ -56,6 +66,34 @@ fun TrendsScreen(
         )
 
         Spacer(modifier = Modifier.height(10.dp))
+
+        // U-3: Stale / Offline Warning Banner on Trends Screen
+        if (isOffline) {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.CloudOff, contentDescription = null, tint = CautionText)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isBengali)
+                            "অফলাইন মোড: ক্যাশড ঐতিহাসিক ট্রেন্ড তথ্য দেখানো হচ্ছে।"
+                        else
+                            "Offline Mode: Displaying cached historical trend telemetry.",
+                        color = CautionText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
 
         // 1. Time Range Selector Chips: 24h / 7d / 30d (F-04)
         Row(
@@ -160,53 +198,107 @@ fun TrendsScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 4. Table Header (Accessible Table per U-6 & F-04)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFFE8ECEF), RoundedCornerShape(8.dp))
-                .padding(vertical = 10.dp, horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isBengali) "সময় / তারিখ" else "Time/Date",
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                modifier = Modifier.weight(1.3f)
-            )
-            Text(
-                text = if (isBengali) "হিট ইনডেক্স" else "Heat Index",
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.weight(1.3f)
-            )
-            Text(
-                text = "US AQI",
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.weight(1.0f)
-            )
-            Text(
-                text = if (isBengali) "অবস্থা" else "Status",
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                modifier = Modifier.weight(1.1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 5. Trend Table Rows with School Hours Shading & Site Comparison (F-04)
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(trends) { item ->
-                TrendRow(item, isBengali, compareSiteId != null)
+        // 4. Content Area: Loading Skeleton, Error State, or Accessible Table (U-3)
+        when {
+            isTrendsLoading -> {
+                TrendsSkeleton()
             }
+            trendsError != null && trends.isEmpty() -> {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = CautionText, modifier = Modifier.size(36.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = trendsError ?: "",
+                            fontSize = 13.sp,
+                            color = CautionText,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.loadTrends() },
+                            colors = ButtonDefaults.buttonColors(containerColor = SafeGreen)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (isBengali) "পুনরায় চেষ্টা করুন" else "Retry")
+                        }
+                    }
+                }
+            }
+            else -> {
+                // Table Header (Accessible Table per U-6 & F-04)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFE8ECEF), RoundedCornerShape(8.dp))
+                        .padding(vertical = 10.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isBengali) "সময় / তারিখ" else "Time/Date",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1.3f)
+                    )
+                    Text(
+                        text = stringResource(R.string.metric_heat_index),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1.3f)
+                    )
+                    Text(
+                        text = "US AQI",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1.0f)
+                    )
+                    Text(
+                        text = if (isBengali) "অবস্থা" else "Status",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1.1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 5. Trend Table Rows with School Hours Shading & Site Comparison (F-04)
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(trends) { item ->
+                        TrendRow(item, isBengali, compareSiteId != null)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TrendsSkeleton() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    ) {
+        repeat(5) {
+            Card(
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEEEEE)),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {}
         }
     }
 }
@@ -248,92 +340,86 @@ fun TrendRow(item: TrendPoint, isBengali: Boolean, isComparisonActive: Boolean =
             .then(cardBorder)
             .semantics {
                 val label = if (isBengali) item.timeLabelBn else item.timeLabelEn
-                val schoolHoursTag = if (item.isSchoolHours) " (School Hour)" else ""
-                contentDescription = "$label$schoolHoursTag, $statusLabel, ${item.heatIndexC}°C, AQI ${item.aqi}"
+                val hi = item.heatIndexC.toString().toBengaliDigits(isBengali)
+                val aqiStr = item.aqi.toString().toBengaliDigits(isBengali)
+                contentDescription = "$label, হিট ইনডেক্স $hi ডিগ্রি, AQI $aqiStr, অবস্থা $statusLabel"
             }
     ) {
-        Column(modifier = Modifier.padding(vertical = 10.dp, horizontal = 10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1.3f)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1.3f)) {
+                Text(
+                    text = if (isBengali) item.timeLabelBn else item.timeLabelEn,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                if (item.isSchoolHours) {
                     Text(
-                        text = if (isBengali) item.timeLabelBn else item.timeLabelEn,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextPrimary
+                        text = if (isBengali) "স্কুল সময়" else "School hr",
+                        fontSize = 10.sp,
+                        color = Color(0xFF1976D2),
+                        fontWeight = FontWeight.SemiBold
                     )
-                    if (item.isSchoolHours || item.isShaded) {
-                        Text(
-                            text = if (isBengali) "স্কুল সময়" else "School Hour",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1565C0)
-                        )
-                    }
                 }
+            }
 
+            Column(
+                modifier = Modifier.weight(1.3f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = "${item.heatIndexC.toString().toBengaliDigits(isBengali)}°C",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.weight(1.3f)
-                )
-
-                Text(
-                    text = item.aqi.toString().toBengaliDigits(isBengali),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.weight(1.0f)
-                )
-
-                Text(
-                    text = statusLabel,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = statusColor,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                    modifier = Modifier.weight(1.1f)
+                    color = if (item.heatIndexC >= 38.0) DangerRed else TextPrimary
                 )
-            }
-
-            // Two-Site Comparison Sub-Row (F-04: Delta Display)
-            if (isComparisonActive && item.comparisonHeatIndexC != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (isComparisonActive && item.deltaHeatIndexC != null) {
+                    val deltaStr = item.deltaHeatIndexC.toString().toBengaliDigits(isBengali)
+                    val sign = if (item.deltaHeatIndexC > 0) "+$deltaStr" else deltaStr
                     Text(
-                        text = if (isBengali) "উঠান (তুলনা):" else "Courtyard:",
-                        fontSize = 11.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.weight(1.3f)
+                        text = "$sign°C (উঠান)",
+                        fontSize = 10.sp,
+                        color = if (item.deltaHeatIndexC > 0) DangerRed else SafeGreen,
+                        fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = "${item.comparisonHeatIndexC.toString().toBengaliDigits(isBengali)}°C (${if ((item.deltaHeatIndexC ?: 0.0) >= 0) "+" else ""}${item.deltaHeatIndexC})",
-                        fontSize = 11.sp,
-                        color = if ((item.deltaHeatIndexC ?: 0.0) > 0) DangerRed else TextSecondary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.weight(1.3f)
-                    )
-                    Text(
-                        text = "${item.comparisonAqi?.toString()?.toBengaliDigits(isBengali) ?: ""} (${if ((item.deltaAqi ?: 0) >= 0) "+" else ""}${item.deltaAqi})",
-                        fontSize = 11.sp,
-                        color = if ((item.deltaAqi ?: 0) > 0) DangerRed else TextSecondary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.weight(1.0f)
-                    )
-                    Spacer(modifier = Modifier.weight(1.1f))
                 }
             }
+
+            Column(
+                modifier = Modifier.weight(1.0f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = item.aqi.toString().toBengaliDigits(isBengali),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (item.aqi >= 150) DangerRed else TextPrimary
+                )
+                if (isComparisonActive && item.deltaAqi != null) {
+                    val deltaAqiStr = item.deltaAqi.toString().toBengaliDigits(isBengali)
+                    val sign = if (item.deltaAqi > 0) "+$deltaAqiStr" else deltaAqiStr
+                    Text(
+                        text = "$sign (উঠান)",
+                        fontSize = 10.sp,
+                        color = if (item.deltaAqi > 0) DangerRed else SafeGreen,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Text(
+                text = statusLabel,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = statusColor,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1.1f)
+            )
         }
     }
 }
