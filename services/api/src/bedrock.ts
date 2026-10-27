@@ -7,7 +7,7 @@ import {
   ConverseCommand,
   ConverseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { McpClient, McpToolCallLog } from './mcpClient';
 import { S3VectorStore } from './ragIngest';
 
@@ -68,6 +68,154 @@ export interface GroundedAssistantResponse {
   tools_called_count?: number;
   tool_calls?: McpToolCallLog[];
   routingMetadata?: QueryClassificationResult;
+  tokens_used?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+  cost_usd?: number;
+  cached?: boolean;
+}
+
+/**
+ * A-8: Daily Query Quotas, Rate Limiting & Retry-After
+ */
+export interface UserQuotaResult {
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+  role: string;
+  retryAfterSeconds: number;
+  resetEpoch: number;
+}
+
+export function getUserDailyQuotaLimit(role: string): number {
+  const normalized = (role || '').toUpperCase();
+  if (normalized === 'COORDINATOR' || normalized === 'PLATFORM_ADMIN' || normalized === 'ADMIN') {
+    return 100;
+  }
+  return 30; // TEACHER and other roles default to 30
+}
+
+export async function checkAndIncrementUserDailyQuota(params: {
+  docClient?: DynamoDBDocumentClient;
+  tableName?: string;
+  schoolId: string;
+  userEmail: string;
+  userRole: string;
+  dateStr?: string;
+}): Promise<UserQuotaResult> {
+  const { docClient, tableName = 'AirSafe-Decisions-dev', schoolId, userEmail, userRole } = params;
+  const limit = getUserDailyQuotaLimit(userRole);
+
+  const now = new Date();
+  const dateStr = params.dateStr || now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  const retryAfterSeconds = Math.max(1, Math.ceil((midnight.getTime() - now.getTime()) / 1000));
+  const resetEpoch = Math.floor(midnight.getTime() / 1000);
+  const ttlEpoch = Math.floor(now.getTime() / 1000) + 86400 * 2; // 48-hour retention
+
+  const userKey = (userEmail || 'unknown-user').toLowerCase().trim();
+  const quotaActivityId = `QUOTA#${userKey}#${dateStr}`;
+
+  let currentCount = 1;
+
+  if (docClient && typeof docClient.send === 'function') {
+    try {
+      const updateCmd = new UpdateCommand({
+        TableName: tableName,
+        Key: {
+          school_id: schoolId,
+          activity_id: quotaActivityId,
+        },
+        UpdateExpression: 'ADD #cnt :inc SET #role = :role, #email = :email, #ttl = :ttl, #updated = :now',
+        ExpressionAttributeNames: {
+          '#cnt': 'request_count',
+          '#role': 'user_role',
+          '#email': 'user_email',
+          '#ttl': 'ttl',
+          '#updated': 'updated_at',
+        },
+        ExpressionAttributeValues: {
+          ':inc': 1,
+          ':role': userRole,
+          ':email': userEmail,
+          ':ttl': ttlEpoch,
+          ':now': now.toISOString(),
+        },
+        ReturnValues: 'ALL_NEW',
+      });
+
+      const res = await docClient.send(updateCmd);
+      if (res && res.Attributes && typeof res.Attributes.request_count === 'number') {
+        currentCount = res.Attributes.request_count;
+      }
+    } catch (err: any) {
+      console.warn(`[Quota Warning] Failed to increment DynamoDB quota counter: ${err?.message || err}. Failing open to count=1.`);
+      currentCount = 1;
+    }
+  }
+
+  const allowed = currentCount <= limit;
+  return {
+    allowed,
+    currentCount,
+    limit,
+    role: userRole,
+    retryAfterSeconds,
+    resetEpoch,
+  };
+}
+
+/**
+ * A-8: In-Memory Response Caching (TTL = 5 minutes)
+ */
+export interface AssistantCacheEntry {
+  answer: string;
+  decision: string;
+  policyFloorDecision: string;
+  citationId: string;
+  citationExcerpt: string;
+  docId: string;
+  suggestedFollowUps?: string[];
+  tools_called_count?: number;
+  tool_calls?: McpToolCallLog[];
+  usedBedrockModel?: string | null;
+  timestamp: number;
+}
+
+const assistantCache = new Map<string, AssistantCacheEntry>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function getCachedAssistantResponse(
+  schoolId: string,
+  query: string,
+  aqi: number | null,
+  heatIndexC: number | null
+): AssistantCacheEntry | null {
+  const normQuery = (query || '').trim().toLowerCase();
+  const key = `${schoolId}#${normQuery}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
+  const entry = assistantCache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry;
+  }
+  return null;
+}
+
+export function setCachedAssistantResponse(
+  schoolId: string,
+  query: string,
+  aqi: number | null,
+  heatIndexC: number | null,
+  entry: Omit<AssistantCacheEntry, 'timestamp'>
+): void {
+  const normQuery = (query || '').trim().toLowerCase();
+  const key = `${schoolId}#${normQuery}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
+  assistantCache.set(key, { ...entry, timestamp: Date.now() });
+}
+
+export function clearAssistantCache(): void {
+  assistantCache.clear();
 }
 
 /**
@@ -656,6 +804,7 @@ export function buildContextualAnswer(params: {
 export async function executeBedrockStreamAssistantWithMcp(
   params: AssistantChatParams
 ): Promise<GroundedAssistantResponse> {
+  const startTime = Date.now();
   // A-4: Dynamic Nova Micro query routing with measured latency & cost savings
   let routingMeta: QueryClassificationResult | undefined;
   let router = routeUserQuery(params.query);
@@ -814,6 +963,15 @@ export async function executeBedrockStreamAssistantWithMcp(
     }
   }
 
+  const inTokens = 120 + Math.ceil(params.query.length / 4);
+  const outTokens = Math.max(30, Math.ceil(answer.length / 4));
+  const totalTokens = inTokens + outTokens;
+  const calculatedCostUsd = Number(((inTokens * 0.06 + outTokens * 0.24) / 1_000_000).toFixed(6));
+
+  console.log(
+    `[Bedrock Assistant Token & Cost Log (A-8)] School: ${params.schoolId}, Model: ${usedModel}, Input Tokens: ${inTokens}, Output Tokens: ${outTokens}, Total Tokens: ${totalTokens}, Cost: $${calculatedCostUsd}, Latency: ${Date.now() - startTime}ms`
+  );
+
   return {
     answer,
     decision: params.decision,
@@ -835,6 +993,12 @@ export async function executeBedrockStreamAssistantWithMcp(
     tools_called_count: mcpClient.getToolCallCount(),
     tool_calls: mcpClient.getToolCallHistory(),
     routingMetadata: routingMeta,
+    tokens_used: {
+      input_tokens: inTokens,
+      output_tokens: outTokens,
+      total_tokens: totalTokens,
+    },
+    cost_usd: calculatedCostUsd,
   };
 }
 
