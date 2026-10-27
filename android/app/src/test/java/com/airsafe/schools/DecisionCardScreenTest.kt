@@ -1,8 +1,8 @@
 package com.airsafe.schools
 
 import com.airsafe.schools.data.model.DecisionResponse
-import com.airsafe.schools.ui.screens.PolicyOutcome
-import com.airsafe.schools.ui.screens.resolveOutcome
+import com.airsafe.schools.ui.screens.components.PolicyOutcome
+import com.airsafe.schools.ui.screens.components.resolveOutcome
 import com.airsafe.schools.ui.theme.SafeGreen
 import com.airsafe.schools.ui.theme.UnknownGray
 import org.junit.Assert.assertEquals
