@@ -164,35 +164,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // One-tap quick credentials helper for phone testing
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        email = "fatema.teacher@dms.edu.bd"
-                        password = "[REDACTED_PASSWORD]"
-                        viewModel.authenticateStaff("fatema.teacher@dms.edu.bd", "[REDACTED_PASSWORD]")
-                    },
-                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(if (isBengali) "শিক্ষক (ফাতিমা)" else "Teacher (Fatema)", fontSize = 11.sp)
-                }
-                OutlinedButton(
-                    onClick = {
-                        email = "rafiq.principal@dms.edu.bd"
-                        password = "[REDACTED_PASSWORD]"
-                        viewModel.authenticateStaff("rafiq.principal@dms.edu.bd", "[REDACTED_PASSWORD]")
-                    },
-                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(if (isBengali) "কোঅর্ডিনেটর (রফিক)" else "Coordinator (Rafiq)", fontSize = 11.sp)
-                }
-            }
-
             // Notice: Invite-only access
             Text(
                 text = if (isBengali)
