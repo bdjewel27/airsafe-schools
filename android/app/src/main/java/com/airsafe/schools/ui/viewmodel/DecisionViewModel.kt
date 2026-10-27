@@ -1204,7 +1204,20 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     requiresShade = true
                 )
             }
-            // 4. Default Baseline (Caution Yellow)
+            // 4. Clean Safe Weather Baseline (Green PROCEED: HI < 32°C and AQI <= 50)
+            heatIndex < 32.0 && aqiVal <= 50 -> {
+                LocalDecisionPlan(
+                    status = "GREEN",
+                    decision = "PROCEED",
+                    primaryReason = if (_isBengali.value)
+                        "আবহাওয়া ও বায়ুমান সম্পূর্ণ অনুকূল — স্বাভাবিক বহিরাঙ্গন কার্যক্রম অব্যাহত রাখুন"
+                    else
+                        "Weather and air quality fully safe — proceed with normal outdoor activities",
+                    maxDuration = 60,
+                    requiresShade = false
+                )
+            }
+            // 5. Default Caution Baseline (Yellow PROCEED_WITH_PRECAUTIONS)
             else -> {
                 LocalDecisionPlan(
                     status = "YELLOW",
@@ -1305,103 +1318,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    private fun getSeedBaselineDecision(schoolId: String): DecisionResponse {
-        return computeLocalAuthoritativeDecision(schoolId)
-    }
-
-    private fun getSeedSensorSites(schoolId: String): List<SensorSite> {
-        return listOf(
-            SensorSite(
-                id = "$schoolId-field",
-                nameBn = "খেলার মাঠ",
-                nameEn = "School Playground",
-                locationType = "FIELD",
-                tempC = 31.5,
-                rhPct = 68.0,
-                pm25Ugm3 = 42.0,
-                heatIndexC = 36.2,
-                isOnline = true,
-                lastUpdatedBn = "১ মিনিট আগে",
-                lastUpdatedEn = "1 min ago"
-            ),
-            SensorSite(
-                id = "$schoolId-courtyard",
-                nameBn = "স্কুল উঠান",
-                nameEn = "School Courtyard",
-                locationType = "COURTYARD",
-                tempC = null,
-                rhPct = null,
-                pm25Ugm3 = null,
-                heatIndexC = null,
-                isOnline = false,
-                lastUpdatedBn = "সেন্সর সংযুক্ত নেই",
-                lastUpdatedEn = "Sensor unattached"
-            ),
-            SensorSite(
-                id = "$schoolId-classroom-101",
-                nameBn = "ক্লাসরুম ১০১",
-                nameEn = "Classroom 101",
-                locationType = "CLASSROOM",
-                tempC = null,
-                rhPct = null,
-                pm25Ugm3 = null,
-                heatIndexC = null,
-                isOnline = false,
-                lastUpdatedBn = "সেন্সর সংযুক্ত নেই",
-                lastUpdatedEn = "Sensor unattached"
-            ),
-            SensorSite(
-                id = "$schoolId-district-baseline",
-                nameBn = "জেলা পাবলিক স্টেশন",
-                nameEn = "District Baseline Station",
-                locationType = "DISTRICT",
-                tempC = 33.0,
-                rhPct = 65.0,
-                pm25Ugm3 = 48.0,
-                heatIndexC = 37.5,
-                isOnline = true,
-                lastUpdatedBn = "৪ মিনিট আগে",
-                lastUpdatedEn = "4 mins ago"
-            )
-        )
-    }
-
-    private fun getSeedTrends(): List<TrendPoint> {
-        return listOf(
-            TrendPoint("সকাল ৮:০০", "8:00 AM", 27.2, 45, false),
-            TrendPoint("সকাল ৯:০০", "9:00 AM", 29.5, 52, false),
-            TrendPoint("সকাল ১০:০০", "10:00 AM", 32.1, 78, false),
-            TrendPoint("সকাল ১১:০০", "11:00 AM", 35.8, 115, true),
-            TrendPoint("দুপুর ১২:০০", "12:00 PM", 38.4, 142, true),
-            TrendPoint("দুপুর ১:০০", "1:00 PM", 40.2, 158, true),
-            TrendPoint("দুপুর ২:০০", "2:00 PM", 39.5, 150, true),
-            TrendPoint("বিকেল ৩:০০", "3:00 PM", 36.0, 110, true),
-            TrendPoint("বিকেল ৪:০০", "4:00 PM", 32.8, 85, false)
-        )
-    }
-
-    private fun getSeedAnalytics(): SchoolAnalyticsSummary {
-        return SchoolAnalyticsSummary(
-            weekLabelBn = "গত সপ্তাহ (৭–১৩ অক্টোবর)",
-            weekLabelEn = "Past Week (Oct 7–13)",
-            lostOutdoorMinutes = 240,
-            prevWeekLostMinutes = 360,
-            hoursAboveThreshold = 14.5,
-            proceedCount = 18,
-            cautionCount = 8,
-            moveIndoorsCount = 4,
-            overridesCount = 2,
-            measuredRatioPct = 85
-        )
-    }
-
-    private fun getSeedStaff(): List<StaffItem> {
-        return listOf(
-            StaffItem("fatema.teacher@dms.edu.bd", "সহকারী শিক্ষক", "Assistant Teacher"),
-            StaffItem("karim.teacher@dms.edu.bd", "সহকারী শিক্ষক", "Assistant Teacher"),
-            StaffItem("rafiq.principal@dms.edu.bd", "প্রধান শিক্ষক ও কোঅর্ডিনেটর", "Principal & Coordinator")
-        )
-    }
+    // P6: Dead seed methods completely removed to prevent any fabricated metrics.
 
     fun getWeeklyAnalyticsCsv(): String {
         val a = _analyticsData.value
