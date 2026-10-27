@@ -1,5 +1,6 @@
 package com.airsafe.schools
 
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,15 +15,19 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.airsafe.schools.data.model.UserRole
 import com.airsafe.schools.ui.screens.*
 import com.airsafe.schools.ui.theme.AirSafeTheme
 import com.airsafe.schools.ui.theme.SafeGreen
 import com.airsafe.schools.ui.viewmodel.AppTab
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: DecisionViewModel by viewModels()
@@ -40,14 +45,23 @@ class MainActivity : ComponentActivity() {
         handleNotificationIntent(intent)
 
         setContent {
-            AirSafeTheme {
-                val userSession by viewModel.userSession.collectAsState()
+            val isBengali by viewModel.isBengali.collectAsState()
+            val targetLocale = Locale(if (isBengali) "bn" else "en")
+            val config = Configuration(resources.configuration).apply {
+                setLocale(targetLocale)
+            }
+            val localizedContext = createConfigurationContext(config)
 
-                // F-01 (MUST): If not authenticated, force LoginScreen (Self sign-up disabled)
-                if (userSession == null) {
-                    LoginScreen(viewModel = viewModel)
-                } else {
-                    MainContainer(viewModel = viewModel)
+            CompositionLocalProvider(LocalContext provides localizedContext) {
+                AirSafeTheme {
+                    val userSession by viewModel.userSession.collectAsState()
+
+                    // F-01 (MUST): If not authenticated, force LoginScreen (Self sign-up disabled)
+                    if (userSession == null) {
+                        LoginScreen(viewModel = viewModel)
+                    } else {
+                        MainContainer(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -95,21 +109,21 @@ fun MainContainer(viewModel: DecisionViewModel) {
                     selected = currentTab == AppTab.HOME,
                     onClick = { viewModel.setTab(AppTab.HOME) },
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text(if (isBengali) "এখন" else "Home") },
+                    label = { Text(stringResource(R.string.tab_home)) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = SafeGreen)
                 )
                 NavigationBarItem(
                     selected = currentTab == AppTab.TRENDS,
                     onClick = { viewModel.setTab(AppTab.TRENDS) },
                     icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null) },
-                    label = { Text(if (isBengali) "ট্রেন্ড" else "Trends") },
+                    label = { Text(stringResource(R.string.tab_trends)) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = SafeGreen)
                 )
                 NavigationBarItem(
                     selected = currentTab == AppTab.ASSISTANT,
                     onClick = { viewModel.setTab(AppTab.ASSISTANT) },
                     icon = { Icon(Icons.Default.SmartToy, contentDescription = null) },
-                    label = { Text(if (isBengali) "সহকারী" else "Ask AI") },
+                    label = { Text(stringResource(R.string.tab_assistant)) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = SafeGreen)
                 )
 
@@ -119,14 +133,14 @@ fun MainContainer(viewModel: DecisionViewModel) {
                         selected = currentTab == AppTab.STAFF_MANAGEMENT,
                         onClick = { viewModel.setTab(AppTab.STAFF_MANAGEMENT) },
                         icon = { Icon(Icons.Default.Group, contentDescription = null) },
-                        label = { Text(if (isBengali) "স্টাফ" else "Staff") },
+                        label = { Text(stringResource(R.string.tab_staff)) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = SafeGreen)
                     )
                     NavigationBarItem(
                         selected = currentTab == AppTab.ANALYTICS,
                         onClick = { viewModel.setTab(AppTab.ANALYTICS) },
                         icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                        label = { Text(if (isBengali) "রিপোর্ট" else "Analytics") },
+                        label = { Text(stringResource(R.string.tab_analytics)) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = SafeGreen)
                     )
                 }

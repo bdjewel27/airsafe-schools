@@ -235,14 +235,14 @@ fun DecisionCardScreen(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.CloudOff, contentDescription = null, tint = CautionYellow)
+                        Icon(Icons.Default.CloudOff, contentDescription = null, tint = CautionText)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isBengali)
                                 "ইন্টারনেট অফলাইন: ক্যাশ থেকে শেষ পাওয়া তথ্য দেখানো হচ্ছে।"
                             else
                                 "Offline: Displaying latest cached snapshot.",
-                            color = CautionYellow,
+                            color = CautionText,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -302,7 +302,7 @@ fun DecisionCardScreen(
                                 Icon(
                                     imageVector = Icons.Default.Schedule,
                                     contentDescription = null,
-                                    tint = CautionYellow,
+                                    tint = CautionText,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -311,7 +311,7 @@ fun DecisionCardScreen(
                                         "সতর্কতা: ডেটা $staleMinsStr মিনিট পুরোনো (পলিসি অনুযায়ী সতর্কতামূলক ক্যাপ প্রযোজ্য)।"
                                     else
                                         "Warning: Data is $staleMins mins old (Safety caps applied).",
-                                    color = CautionYellow,
+                                    color = CautionText,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -383,7 +383,7 @@ fun DecisionCardScreen(
                             onClick = { showOverrideDialog = true },
                             enabled = !isOffline,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = CautionYellow,
+                                containerColor = ModifyOrange,
                                 disabledContainerColor = Color(0xFFE0E0E0),
                                 disabledContentColor = Color(0xFF757575)
                             ),
@@ -910,11 +910,17 @@ fun DecisionCardScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
+                    val currentDec = (uiState as? DecisionUiState.Success)?.data?.decision ?: "UNKNOWN"
+                    val allowedOptions = when (currentDec) {
+                        "MOVE_INDOORS" -> listOf("MOVE_INDOORS")
+                        "MODIFY" -> listOf("MOVE_INDOORS", "MODIFY")
+                        else -> listOf("MOVE_INDOORS", "MODIFY", "PRECAUTIONS")
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        listOf("MOVE_INDOORS", "MODIFY", "PRECAUTIONS").forEach { opt ->
+                        allowedOptions.forEach { opt ->
                             FilterChip(
                                 selected = selectedOverrideDecision.contains(opt),
                                 onClick = { selectedOverrideDecision = opt },
