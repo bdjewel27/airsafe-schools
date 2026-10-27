@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Brand & Identity -->
+    <string name="app_name">এয়ারসেফ স্কুলস</string>
+    <string name="app_tagline">আউটডোর কার্যক্রম সুরক্ষা ও পরিবেশগত গোয়েন্দা ব্যবস্থা</string>
+    <string name="app_subtitle">বাস্তব সেন্সর ডেটা ও নিরাপত্তা নীতির ওপর ভিত্তি করে নির্ভরযোগ্য সিদ্ধান্ত</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_home">হোম</string>
+    <string name="tab_trends">ট্রেন্ডস</string>
+    <string name="tab_assistant">সহকারী</string>
+    <string name="tab_analytics">পরিসংখ্যান</string>
+    <string name="tab_staff">কর্মী</string>
+
+    <!-- Policy Decision Outcomes (Hard Gate 4 / Policy v1.2) -->
+    <string name="decision_proceed_title">স্বাভাবিক কার্যক্রম চলবে</string>
+    <string name="decision_proceed_desc">স্বাভাবিক বহিরঙ্গন কার্যক্রম পরিচালনা করা যাবে</string>
+    <string name="decision_precautions_title">সতর্কতাসহ কার্যক্রম চালু রাখা যাবে</string>
+    <string name="decision_precautions_desc">সতর্কতা মেনে ও পর্যাপ্ত পানির বিরতি দিয়ে বহিরঙ্গন ক্লাস চালু রাখুন</string>
+    <string name="decision_modify_title">কার্যক্রম পরিবর্তন করুন</string>
+    <string name="decision_modify_desc">শারীরিক পরিশ্রমের মাত্রা কমান অথবা খেলাধুলার সময়সীমা সংক্ষিপ্ত করুন</string>
+    <string name="decision_move_indoors_title">অবিলম্বে ইনডোরে যান</string>
+    <string name="decision_move_indoors_desc">বহিরঙ্গন কার্যক্রম বাতিল করে সকল শিক্ষার্থীকে শ্রেণিকক্ষে রাখুন</string>
+    <string name="decision_unknown_title">অজানা অবস্থা (Fail-Closed)</string>
+    <string name="decision_unknown_desc">নিরাপত্তা সতর্কতার খাতিরে শিক্ষার্থীদের ইনডোরে রাখুন</string>
+
+    <!-- Environmental Sensor Metrics -->
+    <string name="metric_heat_index">হিট ইনডেক্স</string>
+    <string name="metric_aqi">বায়ু মান সূচক (AQI)</string>
+    <string name="metric_pm25">পিএম ২.৫ মাত্রা</string>
+    <string name="metric_temp">পরিবেশ তাপমাত্রা</string>
+    <string name="metric_wet_bulb">ওয়েট বাল্ব তাপমাত্রা</string>
+    <string name="metric_humidity">আপেক্ষিক আর্দ্রতা</string>
+
+    <!-- Durations & Precautions -->
+    <string name="max_outdoor_duration">সর্বোচ্চ বহিরঙ্গন সময়সীমা</string>
+    <string name="minutes_suffix">%1$d মিনিট</string>
+    <string name="requires_shade">ছায়াযুক্ত স্থান বাধ্যতামূলক</string>
+    <string name="requires_hydration">পানির বিরতি বাধ্যতামূলক</string>
+
+    <!-- Status Banners & Warnings -->
+    <string name="banner_stale_warning">সতর্কতা: সেন্সর ডেটা পুরনো (>৯০ মিনিট)। স্থানীয় নিরাপত্তা নীতি সক্রিয়।</string>
+    <string name="banner_offline">অফলাইন মোড: ক্যাশড নিরাপত্তা নীতি থেকে পরিচালিত হচ্ছে।</string>
+    <string name="banner_override_active">কোঅর্ডিনেটর ওভাররাইড সক্রিয়: %1$s</string>
+    <string name="banner_recalculating">ঝাঁকুনিহীন পুনঃগণনা চলছে...</string>
+
+    <!-- Coordinator Controls -->
+    <string name="btn_coordinator_override">কোঅর্ডিনেটর ওভাররাইড</string>
+    <string name="btn_override_apply">ওভাররাইড নিশ্চিত করুন</string>
+    <string name="btn_cancel">বাতিল</string>
+    <string name="dialog_override_title">জরুরি সিদ্ধান্ত ওভাররাইড</string>
+    <string name="dialog_override_desc">এই সিদ্ধান্তটি অপরিবর্তনীয় অডিট লগে সংরক্ষিত হবে এবং সব শিক্ষক দেখতে পাবেন।</string>
+    <string name="label_override_reason">ওভাররাইডের কারণ (কমপক্ষে ৫ অক্ষর)</string>
+    <string name="err_override_reason_short">কারণ কমপক্ষে ৫ অক্ষরের হতে হবে</string>
+
+    <!-- Routine & Activities -->
+    <string name="current_activity">বর্তমান কার্যক্রম</string>
+    <string name="next_activity">পরবর্তী কার্যক্রম</string>
+    <string name="btn_manage_routine">কার্যক্রম রুটিন</string>
+    <string name="btn_add_note">ক্লাস নোট যোগ করুন</string>
+    <string name="btn_refresh">এখনই রিফ্রেশ করুন</string>
+    <string name="btn_logout">লগআউট</string>
+
+    <!-- AI Assistant -->
+    <string name="assistant_title">এআই পরিবেশ সহকারী</string>
+    <string name="assistant_greeting">নমস্কার! আমি AirSafe AI সহকারী। আজকের সেন্সর ডেটা, হিট ইনডেক্স বা পলিসি v1.2 সংক্রান্ত যেকোনো প্রশ্ন করুন।</string>
+    <string name="assistant_placeholder">প্রশ্ন করুন (যেমন: আজ মাঠে ক্লাস নেওয়া যাবে?)</string>
+    <string name="assistant_mcp_tool_step">এমসিপি টুল কল হচ্ছে: %1$s...</string>
+    <string name="assistant_policy_check_step">পলিসি v1.2 যাচাই করা হচ্ছে...</string>
+    <string name="assistant_suggested_followups">প্রস্তাবিত পরবর্তী প্রশ্ন:</string>
+    <string name="chip_outdoor_pe">আজ কি মাঠে পিই ক্লাস হবে?</string>
+    <string name="chip_heat_rules">হিট ইনডেক্সের নিয়মাবলি</string>
+
+    <!-- Roles & Authentication -->
+    <string name="role_teacher">শিক্ষক</string>
+    <string name="role_coordinator">কোঅর্ডিনেটর</string>
+    <string name="school_label">বিদ্যালয়: %1$s</string>
+    <string name="auth_failed">প্রবেশ ব্যর্থ হয়েছে: তথ্য যাচাই করুন অথবা সার্ভার সংযোগ পরীক্ষা করুন।</string>
+</resources>
