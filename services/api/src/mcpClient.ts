@@ -11,6 +11,7 @@
 import * as crypto from 'crypto';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import policyConfig from './policy/v1.2.json';
+import { S3VectorStore } from './ragIngest';
 
 export interface McpToolDefinition {
   name: string;
@@ -268,15 +269,17 @@ export class McpClient {
   }
 
   private executeGetOutdoorPolicy(section?: string): any {
+    const activePolicy = S3VectorStore.getInstance().getActivePolicyCitation();
     return {
-      policy_name: policyConfig.name || 'Model School Outdoor Activity Policy',
-      policy_version: policyConfig.version || 'v1.2',
-      doc_id: 'airsafe-policy-v1.2',
-      citation_id: 'Model School Outdoor Activity Policy v1.2, A 1–A 4',
+      policy_name: activePolicy?.title || policyConfig.name || 'Model School Outdoor Activity Policy',
+      policy_version: activePolicy?.version || policyConfig.version || 'v1.2',
+      doc_id: activePolicy?.doc_id || 'airsafe-policy-v1.2',
+      citation_id: activePolicy?.citation_id || 'Model School Outdoor Activity Policy v1.2, A 1–A 4',
       requested_section: section || 'ALL',
       summary:
         'Four-tier safety decision matrix (PROCEED, PROCEED_WITH_PRECAUTIONS, MODIFY, MOVE_INDOORS). Hard monotonicity safety floor enforced under US EPA AQI and NOAA Heat Index bands.',
       citation_excerpt:
+        activePolicy?.citation_excerpt ||
         'Decisions strictly bound by Policy v1.2 safety floors; AI assistant can only explain or tighten limits, never relax them.',
     };
   }

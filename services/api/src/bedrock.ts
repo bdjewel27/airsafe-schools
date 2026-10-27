@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { McpClient, McpToolCallLog } from './mcpClient';
+import { S3VectorStore } from './ragIngest';
 
 export interface BedrockToolSpec {
   name: string;
@@ -794,10 +795,9 @@ export async function executeBedrockStreamAssistantWithMcp(
     nextActivityEn: params.nextActivityEn,
     hasRespiratoryCondition: params.hasRespiratoryCondition,
     isStale: params.isStale,
-    citationId: 'Model School Outdoor Activity Policy v1.2, A 1–A 4',
-    citationExcerpt:
-      'Outdoor activity decisions strictly bound by deterministic Policy v1.2 safety floors; AI assistant cannot relax safety limits.',
-    docId: 'airsafe-policy-v1.2',
+    citationId: S3VectorStore.getInstance().getActivePolicyCitation().citation_id,
+    citationExcerpt: S3VectorStore.getInstance().getActivePolicyCitation().citation_excerpt,
+    docId: S3VectorStore.getInstance().getActivePolicyCitation().doc_id,
     usedBedrockModel: usedModel,
     suggestedFollowUps: followUps,
     tools_called_count: mcpClient.getToolCallCount(),
