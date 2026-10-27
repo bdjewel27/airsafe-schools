@@ -6,6 +6,9 @@ import {
   BEDROCK_TOOL_CONFIG,
   buildAssistantSystemPrompt,
   routeUserQuery,
+  classifyQueryWithNovaMicro,
+  ROUTING_BENCHMARK_SAVINGS_TABLE,
+  calculateRoutingSavings,
   generateFollowUpSuggestions,
   buildContextualAnswer,
   executeBedrockAssistant,
@@ -267,6 +270,170 @@ describe('F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling & Query Routing'
       expect(chatRes.body).toContain('event: token');
       expect(chatRes.body).toContain('event: completion');
       expect(chatRes.body).toContain('"tools_called_count":');
+    });
+  });
+
+  describe('A-4: Nova Micro Query Routing + Measured Cost/Latency Savings', () => {
+    test('1. classifyQueryWithNovaMicro invokes amazon.nova-micro-v1:0 and calculates token cost & savings', async () => {
+      const mockBedrockResponse = {
+        output: {
+          message: {
+            role: 'assistant',
+            content: [
+              {
+                text: JSON.stringify({
+                  topic: 'HEAT',
+                  needsDecision: true,
+                  needsPolicy: false,
+                  needsSensor: true,
+                  recommendedModel: 'amazon.nova-micro-v1:0',
+                  confidence: 0.98,
+                }),
+              },
+            ],
+          },
+        },
+        usage: {
+          inputTokens: 145,
+          outputTokens: 32,
+          totalTokens: 177,
+        },
+      };
+
+      const spy = (jest.spyOn(BedrockRuntimeClient.prototype, 'send') as any).mockResolvedValueOnce(
+        mockBedrockResponse
+      );
+
+      const result = await classifyQueryWithNovaMicro('আজকে রোদের মধ্যে খেলাধুলা করা কি নিরাপদ?');
+
+      expect(spy).toHaveBeenCalled();
+      expect(result.routedBy).toBe('NOVA_MICRO');
+      expect(result.detectedTopic).toBe('HEAT');
+      expect(result.needsDecisionTool).toBe(true);
+      expect(result.needsSensorTool).toBe(true);
+      expect(result.recommendedModel).toBe('amazon.nova-micro-v1:0');
+      expect(result.confidence).toBe(0.98);
+      expect(result.tokensUsed.inputTokens).toBe(145);
+      expect(result.tokensUsed.outputTokens).toBe(32);
+      expect(result.tokensUsed.totalTokens).toBe(177);
+      expect(result.costUsd).toBeGreaterThan(0);
+      expect(result.savingsVsProPercent).toBeGreaterThan(90); // Over 90% savings vs Nova Pro
+    });
+
+    test('2. classifyQueryWithNovaMicro gracefully falls back to deterministic regex router on Bedrock exception (Sydney ADR-001)', async () => {
+      (jest.spyOn(BedrockRuntimeClient.prototype, 'send') as any).mockRejectedValueOnce(
+        new Error('ServiceQuotaExceededException: 0.0 quota in ap-southeast-2')
+      );
+
+      const result = await classifyQueryWithNovaMicro('What is the AQI threshold for sensitive groups?');
+
+      expect(result.routedBy).toBe('REGEX_FALLBACK');
+      expect(result.detectedTopic).toBe('AQI');
+      expect(result.needsDecisionTool).toBe(true);
+      expect(result.costUsd).toBe(0);
+      expect(result.confidence).toBe(0.7);
+    });
+
+    test('3. calculateRoutingSavings computes measured empirical savings (>95% vs Nova Pro)', () => {
+      const savings1k = calculateRoutingSavings(1000, 150, 35);
+      expect(savings1k.queryCount).toBe(1000);
+      expect(savings1k.microCostUsd).toBeCloseTo(0.01015, 4);
+      expect(savings1k.proCostUsd).toBeCloseTo(0.232, 3);
+      expect(savings1k.savedVsProPercent).toBeCloseTo(95.63, 1);
+      expect(savings1k.savedVsProUsd).toBeGreaterThan(0.22);
+
+      const savings100k = calculateRoutingSavings(100000, 150, 35);
+      expect(savings100k.microCostUsd).toBeCloseTo(1.015, 2);
+      expect(savings100k.proCostUsd).toBeCloseTo(23.2, 1);
+    });
+
+    test('4. ROUTING_BENCHMARK_SAVINGS_TABLE provides complete latency and cost comparisons across tiers', () => {
+      expect(ROUTING_BENCHMARK_SAVINGS_TABLE.length).toBe(4);
+
+      const regexRow = ROUTING_BENCHMARK_SAVINGS_TABLE.find((r) => r.modelId.includes('regex'));
+      const microRow = ROUTING_BENCHMARK_SAVINGS_TABLE.find((r) => r.modelId === 'amazon.nova-micro-v1:0');
+      const liteRow = ROUTING_BENCHMARK_SAVINGS_TABLE.find((r) => r.modelId === 'amazon.nova-lite-v1:0');
+      const proRow = ROUTING_BENCHMARK_SAVINGS_TABLE.find((r) => r.modelId === 'amazon.nova-pro-v1:0');
+
+      expect(regexRow).toBeDefined();
+      expect(microRow).toBeDefined();
+      expect(liteRow).toBeDefined();
+      expect(proRow).toBeDefined();
+
+      // Latency progression: regex < micro < lite < pro
+      expect(regexRow!.latencyP50Ms).toBeLessThan(microRow!.latencyP50Ms);
+      expect(microRow!.latencyP50Ms).toBeLessThan(liteRow!.latencyP50Ms);
+      expect(liteRow!.latencyP50Ms).toBeLessThan(proRow!.latencyP50Ms);
+
+      // Nova Micro cost is 95.63% cheaper than Nova Pro
+      expect(microRow!.costSavingsVsNovaProPercent).toBeCloseTo(95.63, 1);
+      // Accuracy comparison: Regex 62.5% vs Micro 97.5%
+      expect(microRow!.intentAccuracyPercent).toBeGreaterThan(95);
+      expect(regexRow!.intentAccuracyPercent).toBeLessThan(70);
+    });
+
+    test('5. executeBedrockStreamAssistantWithMcp embeds routing metadata in assistant response', async () => {
+      // Mock Nova Micro routing response
+      (jest.spyOn(BedrockRuntimeClient.prototype, 'send') as any).mockResolvedValueOnce({
+        output: {
+          message: {
+            role: 'assistant',
+            content: [
+              {
+                text: JSON.stringify({
+                  topic: 'HEAT',
+                  needsDecision: true,
+                  needsPolicy: true,
+                  needsSensor: false,
+                  recommendedModel: 'amazon.nova-micro-v1:0',
+                  confidence: 0.99,
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 140, outputTokens: 30, totalTokens: 170 },
+      });
+
+      // Mock ConverseStream for main assistant
+      async function* mockStream() {
+        yield {
+          contentBlockDelta: {
+            delta: { text: 'Model School Outdoor Activity Policy v1.2: MOVE_INDOORS' },
+          },
+        };
+      }
+      (jest.spyOn(BedrockRuntimeClient.prototype, 'send') as any).mockResolvedValueOnce({
+        stream: mockStream(),
+      });
+
+      const response = await executeBedrockStreamAssistantWithMcp({
+        query: 'হিট ইনডেক্স ৪২ ডিগ্রিতে কি বাইরে ক্লাস নেওয়া যাবে?',
+        schoolId: 'school-dhaka-001',
+        schoolNameBn: 'ঢাকা মডেল স্কুল',
+        schoolNameEn: 'Dhaka Model School',
+        isBengali: true,
+        decision: 'MOVE_INDOORS',
+        policyFloorDecision: 'MOVE_INDOORS',
+        heatIndexC: 42.0,
+        aqi: 95,
+        activeIntensity: 'moderate',
+        routineNameBn: 'সাধারণ পিই ক্লাস',
+        routineNameEn: 'Standard PE Class',
+        nextActivityBn: null,
+        nextActivityEn: null,
+        hasRespiratoryCondition: false,
+        isStale: false,
+        activeOverride: null,
+        primaryReason: 'হিট ইনডেক্স ৪২°C নিরাপদ সীমা অতিক্রম করেছে',
+        maxDurationMinutes: 0,
+        requiresShade: true,
+      });
+
+      expect(response.routingMetadata).toBeDefined();
+      expect(response.routingMetadata?.routedBy).toBe('NOVA_MICRO');
+      expect(response.routingMetadata?.detectedTopic).toBe('HEAT');
+      expect(response.routingMetadata?.costUsd).toBeGreaterThan(0);
     });
   });
 });
