@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import com.airsafe.schools.data.model.DecisionResponse
 import com.airsafe.schools.data.model.DecisionUiState
 import com.airsafe.schools.data.model.toBengaliDigits
@@ -405,7 +407,7 @@ fun DecisionCardScreen(
                                 text = if (isOffline) {
                                     if (isBengali) "সিদ্ধান্ত ওভাররাইড (অফলাইনে নিষ্ক্রিয়)" else "Override Decision (Offline Disabled)"
                                 } else {
-                                    if (isBengali) "সিদ্ধান্ত ওভাররাইড করুন" else "Override Decision"
+                                    stringResource(R.string.btn_coordinator_override)
                                 },
                                 color = if (!isOffline) Color.White else Color(0xFF757575),
                                 fontSize = 13.sp,
@@ -614,7 +616,7 @@ fun DecisionCardScreen(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(if (isBengali) "পুনরায় চেষ্টা করুন" else "Retry Connection", color = Color.White)
+                                Text(stringResource(R.string.btn_refresh), color = Color.White)
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -878,7 +880,7 @@ fun DecisionCardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showNoteDialog = false }) {
-                    Text(if (isBengali) "বাতিল" else "Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -971,7 +973,7 @@ fun DecisionCardScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text(if (isBengali) "ওভাররাইড প্রয়োগ" else "Apply Override", color = Color.White)
+                    Text(stringResource(R.string.btn_override_apply), color = Color.White)
                 }
             },
             dismissButton = {
@@ -979,7 +981,7 @@ fun DecisionCardScreen(
                     showOverrideDialog = false
                     overrideValidationError = null
                 }) {
-                    Text(if (isBengali) "বাতিল" else "Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -989,7 +991,7 @@ fun DecisionCardScreen(
     if (showRoutineDialog) {
         AlertDialog(
             onDismissRequest = { showRoutineDialog = false },
-            title = { Text(if (isBengali) "রুটিন ও অ্যাক্টিভিটি কনফিগারেশন" else "Configure Routine & Activities") },
+            title = { Text(stringResource(R.string.btn_manage_routine)) },
             text = {
                 Column {
                     Text(
@@ -1003,7 +1005,7 @@ fun DecisionCardScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = if (isBengali) "চলমান অ্যাক্টিভিটি:" else "Current Activity:",
+                        text = stringResource(R.string.current_activity) + ":",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1097,7 +1099,7 @@ fun DecisionCardScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRoutineDialog = false }) {
-                    Text(if (isBengali) "বাতিল" else "Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -1336,7 +1338,7 @@ fun DecisionCardContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isBengali) "বর্তমান অ্যাক্টিভিটি: " else "Current Activity: ",
+                        text = stringResource(R.string.current_activity) + ": ",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
