@@ -51,7 +51,7 @@ fun TrendsScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = if (isBengali) "তাপমাত্রা ও বায়ুমান ট্রেন্ড" else "Temperature & AQI Trends",
+            text = stringResource(R.string.trends_title),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
@@ -134,7 +134,7 @@ fun TrendsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isBengali) "সাইট তুলনা:" else "Compare:",
+                text = stringResource(R.string.trends_compare_label),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextSecondary

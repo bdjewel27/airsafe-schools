@@ -10,11 +10,23 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.airsafe.schools.R
 import androidx.compose.ui.unit.sp
 import com.airsafe.schools.ui.theme.*
 import com.airsafe.schools.ui.viewmodel.DecisionViewModel
@@ -68,7 +80,7 @@ fun StaffManagementScreen(
         }
 
         Text(
-            text = if (isBengali) "স্টাফ ও শিক্ষক আমন্ত্রণ" else "Staff Management (Invite Only)",
+            text = stringResource(R.string.staff_title),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
@@ -94,7 +106,7 @@ fun StaffManagementScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = if (isBengali) "নতুন শিক্ষক যুক্ত করুন:" else "Invite New Teacher:",
+                    text = stringResource(R.string.staff_invite_header),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = TextPrimary
