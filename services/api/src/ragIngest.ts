@@ -108,7 +108,11 @@ export async function generateTitanEmbedding(
       body: new TextEncoder().encode(payload),
     });
 
-    const response = await client.send(command);
+    const sendPromise = client.send(command);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Titan Embedding timeout')), 1000)
+    );
+    const response = (await Promise.race([sendPromise, timeoutPromise])) as any;
     if (response.body) {
       const decoded = new TextDecoder().decode(response.body);
       const parsed = JSON.parse(decoded);
@@ -251,6 +255,8 @@ export class S3VectorStore {
 
     for (let i = 0; i < chunks.length; i++) {
       const chunkText = chunks[i];
+      // A-7: Structural boundary tag wrapping for RAG content to isolate indirect injections
+      const sandboxedChunkText = `<untrusted_policy_document doc_id="${doc.doc_id}" version="${doc.version}">\n${chunkText}\n</untrusted_policy_document>`;
       const embedding = await generateTitanEmbedding(chunkText, bedrock);
       const vectorId = `${doc.doc_id}#chunk-${i}`;
 
@@ -261,7 +267,7 @@ export class S3VectorStore {
         effective_from: doc.effective_from,
         superseded: false, // Newly ingested document is active
         chunk_index: i,
-        text: chunkText,
+        text: sandboxedChunkText,
         embedding,
         citation_id: doc.citation_id,
         citation_excerpt: doc.citation_excerpt,
