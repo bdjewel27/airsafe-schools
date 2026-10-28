@@ -140,10 +140,17 @@ jobs:
         working-directory: android
         run: ./gradlew detekt ktlintCheck --continue || true
 
+      - name: Verify Release Keystore Secrets (Fail-Closed)
+        run: |
+          if [ -z "${{ secrets.AIRSAFE_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.AIRSAFE_KEY_PASSWORD }}" ]; then
+            echo "::error::Hard Gate 1 Violation: AIRSAFE_KEYSTORE_PASSWORD and AIRSAFE_KEY_PASSWORD secrets are required for release builds in CI. Build failed closed."
+            exit 1
+          fi
+
       - name: Assemble Release, Lint and Test
         working-directory: android
         env:
-          AIRSAFE_KEYSTORE_PASSWORD: ${{ secrets.AIRSAFE_KEYSTORE_PASSWORD || '[REDACTED_PASSWORD]' }}
-          AIRSAFE_KEY_PASSWORD: ${{ secrets.AIRSAFE_KEY_PASSWORD || '[REDACTED_PASSWORD]' }}
+          AIRSAFE_KEYSTORE_PASSWORD: ${{ secrets.AIRSAFE_KEYSTORE_PASSWORD }}
+          AIRSAFE_KEY_PASSWORD: ${{ secrets.AIRSAFE_KEY_PASSWORD }}
         run: ./gradlew assembleRelease lint test
 
