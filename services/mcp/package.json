@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.712.0",
-    "@aws-sdk/lib-dynamodb": "^3.712.0"
+    "@aws-sdk/lib-dynamodb": "^3.1156.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
