@@ -1638,10 +1638,11 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
   });
 
   describe('F-20: 3 Demo Schools ID Alignment & 64 Districts Public Feed', () => {
+    const MOCK_TEST_PASSWORD = 'MockUnitTestCredential_OnlyForTesting#2026';
     beforeEach(() => {
       jest.restoreAllMocks();
       resetRateLimits();
-      const mockSeededHash = hashPassword('[REDACTED_PASSWORD]');
+      const mockSeededHash = hashPassword(MOCK_TEST_PASSWORD);
       jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
         if (command.input?.Key?.school_id === 'STAFF_LOOKUP') {
           const actId = command.input.Key.activity_id || '';
@@ -1687,7 +1688,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
           path: '/auth/login',
           body: JSON.stringify({
             email: 'nusrat.teacher@chs.edu.bd',
-            password: '[REDACTED_PASSWORD]',
+            password: MOCK_TEST_PASSWORD,
           }),
         })
       );
@@ -1707,7 +1708,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
           path: '/auth/login',
           body: JSON.stringify({
             email: 'tareq.teacher@rps.edu.bd',
-            password: '[REDACTED_PASSWORD]',
+            password: MOCK_TEST_PASSWORD,
           }),
         })
       );
@@ -1727,7 +1728,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
           path: '/auth/login',
           body: JSON.stringify({
             email: 'uninvited.stranger@external.edu.bd',
-            password: '[REDACTED_PASSWORD]',
+            password: MOCK_TEST_PASSWORD,
           }),
         })
       );
@@ -1786,7 +1787,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
             path: '/auth/login',
             body: JSON.stringify({
               email: 'nusrat.teacher@chs.edu.bd',
-              password: '[REDACTED_PASSWORD]',
+              password: MOCK_TEST_PASSWORD,
             }),
           })
         );
