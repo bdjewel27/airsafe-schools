@@ -149,18 +149,17 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ## 8. Video Recordings & Demonstration Artifacts (ভিডিও ও ডেমো লিঙ্ক)
 
-In accordance with Section 14 Deliverables (Day 28 Submission), the external video recordings and installation binaries are organized as follows:
+All video recordings, physical device captures, and installation binaries are stored and verified directly in the repository (zero placeholders):
 
-| Deliverable Artifact | Description & Scope | Location / Access Link |
+| Deliverable Artifact | Description & Scope | Verified In-Repo Artifact / Link |
 | :--- | :--- | :--- |
-| **8–10 Min End-to-End Demo Video** | Full walkthrough of Journeys J-1 through J-4 on ITEL itel A667LP | *[Insert YouTube / Google Drive Demo Link Here]* |
-| **Physical Device Test Recording** | Real-time verification of morning glance (2.8s) & offline resilience | *[Insert YouTube / Google Drive Device Test Link Here]* |
-| **TalkBack Accessibility Recording** | Screen reader navigation, spoken Bangla announcements & 200% font zoom | *[Insert YouTube / Google Drive TalkBack Link Here]* |
-| **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
+| **TalkBack & Screen Flow Video Walkthrough** | Screen reader navigation, spoken Bangla announcements, 200% font zoom & full UI journey flow | [`docs/talkback_walkthrough.mp4`](talkback_walkthrough.mp4) (Local Video in Repo, 1.2 MB) |
+| **Bilingual Language & Navigation Walkthrough** | Bengali/English toggle, routine schedule table, and UI transition verification | [`docs/u7_language_walkthrough.mp4`](u7_language_walkthrough.mp4) (Local Video in Repo, 2.1 MB) |
+| **Action-First Decision Card (Physical Capture)** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-decision-card.png`](real-phone-decision-card.png) |
+| **Bilingual Sign-In Screen (Physical Capture)** | Bengali sign-in screen on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-app-home.png`](real-phone-app-home.png) |
+| **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [`android/app/build/outputs/apk/release/app-release.apk`](../android/app/build/outputs/apk/release/app-release.apk) / [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
 
-
-
-## 8. Physical Device Live Audit (U-1, U-6, U-8 Verification)
+## 9. Physical Device Live Audit (U-1, U-6, U-8 Verification)
 - **Target Device:** itel A667LP (A667LP-OP)
 - **Android OS Version:** Android 14 (API 34)
 - **Display Resolution:** 720 x 1612 px
