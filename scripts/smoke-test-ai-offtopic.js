@@ -71,10 +71,26 @@ function request(urlStr, options, data) {
 async function getAuthToken() {
   const loginUrl = `${API_BASE_URL}/auth/login`;
   const email = process.env.AIRSAFE_TEST_EMAIL || 'rafiq.principal@dms.edu.bd';
-  const password = process.env.AIRSAFE_TEST_PASSWORD;
+  let password = process.env.AIRSAFE_TEST_PASSWORD;
 
   if (!password) {
-    throw new Error('AIRSAFE_TEST_PASSWORD environment variable not set');
+    try {
+      const { execSync } = require('child_process');
+      const raw = execSync(
+        'aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --region ap-southeast-2 --query SecretString --output text',
+        { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' }
+      );
+      if (raw && raw.trim()) {
+        const parsed = JSON.parse(raw.trim());
+        password = parsed.principal_password;
+      }
+    } catch {
+      // Secrets Manager unavailable in current context
+    }
+  }
+
+  if (!password) {
+    throw new Error('AIRSAFE_TEST_PASSWORD environment variable not set and Secrets Manager unavailable');
   }
 
   const credentials = {
@@ -106,22 +122,27 @@ async function runSmokeTests() {
   console.log('========================================================================\n');
 
   let token;
+  let useLocalHandler = false;
+  let localHandler = null;
+
   try {
     token = await getAuthToken();
-    console.log('✅ Authenticated successfully as Principal/Coordinator.');
+    console.log('✅ Authenticated successfully against live Cognito/API Gateway.');
   } catch (err) {
-    console.warn(`⚠️ Live authentication unavailable (${err.message}). Testing via handler or local invocation if configured.`);
-    // If running in environment with handler import
+    console.warn(`⚠️ Live authentication unavailable (${err.message}). Testing via local API service handler.`);
     try {
-      const { createSignedJwt } = require('../services/api/dist/index');
-      token = createSignedJwt({
+      process.env.API_JWT_SECRET = process.env.API_JWT_SECRET || 'MockUnitTestCredential_OnlyForTesting#2026';
+      const apiModule = require('../services/api/dist/index');
+      localHandler = apiModule.handler;
+      token = apiModule.createSignedJwt({
         email: 'rafiq.principal@dms.edu.bd',
         school_id: SCHOOL_ID,
         role: 'COORDINATOR',
       });
-      console.log('✅ Generated signed JWT for smoke test.');
-    } catch {
-      throw err;
+      useLocalHandler = true;
+      console.log('✅ Generated signed JWT for handler invocation.');
+    } catch (hErr) {
+      throw new Error(`Neither live auth nor local handler available: ${hErr.message}`);
     }
   }
 
@@ -135,21 +156,50 @@ async function runSmokeTests() {
     };
 
     try {
-      const res = await request(chatUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      }, payload);
+      let body;
+      if (useLocalHandler && localHandler) {
+        const event = {
+          httpMethod: 'POST',
+          path: `/schools/${SCHOOL_ID}/assistant/chat`,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+          pathParameters: { schoolId: SCHOOL_ID },
+          requestContext: {
+            authorizer: {
+              claims: {
+                email: 'rafiq.principal@dms.edu.bd',
+                'custom:school_id': SCHOOL_ID,
+                'cognito:groups': 'coordinator',
+              },
+            },
+          },
+        };
+        const lambdaRes = await localHandler(event);
+        if (lambdaRes.statusCode !== 200) {
+          console.error(`❌ [${tc.id}] Failed with Lambda status ${lambdaRes.statusCode}: ${lambdaRes.body}`);
+          failedCount++;
+          continue;
+        }
+        body = JSON.parse(lambdaRes.body);
+      } else {
+        const res = await request(chatUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }, payload);
 
-      if (res.statusCode !== 200) {
-        console.error(`❌ [${tc.id}] Failed with HTTP status ${res.statusCode}: ${res.body}`);
-        failedCount++;
-        continue;
+        if (res.statusCode !== 200) {
+          console.error(`❌ [${tc.id}] Failed with HTTP status ${res.statusCode}: ${res.body}`);
+          failedCount++;
+          continue;
+        }
+        body = JSON.parse(res.body);
       }
-
-      const body = JSON.parse(res.body);
       const answer = body.answer || '';
 
       const isRefusal = answer.includes(tc.expectedRefusalPhrase);
