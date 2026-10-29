@@ -18,6 +18,7 @@ const requireApi = createRequire(path.resolve(__dirname, '../services/api/packag
 const { DynamoDBClient } = requireApi('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = requireApi('@aws-sdk/lib-dynamodb');
 import { DEMO_SCHOOLS, BANGLADESH_64_DISTRICTS } from '../services/poller/src/districts';
+import { calculateAqiFromPm25 } from '../services/poller/src/policy';
 
 const region = process.env.AWS_REGION || process.env.PROJECT_REGION || 'ap-southeast-2';
 const TABLE_NAME = process.env.TABLE_NAME || 'AirSafe-Readings-dev';
@@ -199,18 +200,22 @@ export async function seedAllData(options?: {
     // 3. Seed Initial School Campus Telemetry
     const targetSchoolIds = [school.id, ...(school.aliases || [])];
     const baseHi = school.id.includes('rajshahi') ? 38.5 : school.id.includes('chattogram') ? 31.5 : 34.0;
-    const baseAqi = school.id.includes('rajshahi') ? 118 : school.id.includes('chattogram') ? 85 : 142;
+    const basePm25 = school.id.includes('rajshahi') ? 41.5 : school.id.includes('chattogram') ? 28.0 : 49.7;
+    const baseAqi = calculateAqiFromPm25(basePm25);
 
     const schoolTelemetry = {
       timestamp: nowIso,
       school_name: `${school.nameBn} (${school.name})`,
       location: { lat: school.lat, lon: school.lon },
+      source: 'CAMPUS_IOT_SENSOR',
+      aqi_source: 'calculated_from_pm25',
       readings: {
         temperature_c: 31.0,
         relative_humidity_pct: 68,
         heat_index_c: baseHi,
-        pm25_ugm3: baseAqi * 0.35,
+        pm25_ugm3: basePm25,
         aqi: baseAqi,
+        source: 'CAMPUS_IOT_SENSOR',
       },
       evaluations: {
         LIGHT: { decision: 'PROCEED', status: 'GREEN' },
