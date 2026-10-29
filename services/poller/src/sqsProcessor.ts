@@ -6,7 +6,11 @@ import { performDeltaCheck, classifyAnomalyWithNovaMicro, SensorTelemetryInput }
 
 const region = process.env.PROJECT_REGION || 'ap-southeast-2';
 const ddbClient = new DynamoDBClient({ region });
-const docClient = DynamoDBDocumentClient.from(ddbClient);
+const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: {
+    removeUndefinedValues: true,
+  },
+});
 const TABLE_NAME = process.env.TABLE_NAME || 'AirSafe-Readings-dev';
 
 export interface SQSRecordLike {
