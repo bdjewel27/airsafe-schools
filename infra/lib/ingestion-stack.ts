@@ -7,6 +7,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as path from 'path';
 import { Construct } from 'constructs';
 
@@ -136,6 +137,23 @@ export class IngestionStack extends cdk.Stack {
     });
 
     pollerRule.addTarget(new targets.LambdaFunction(this.pollerFunction));
+
+    // 6. CloudWatch Metric Alarm: 90-minute Stale Telemetry Alarm (Section 5, Policy v1.2)
+    // Triggers if no poller invocation or readings occur for >= 90 minutes
+    const pollerInvocationsMetric = this.pollerFunction.metricInvocations({
+      period: cdk.Duration.minutes(90),
+      statistic: 'Sum',
+    });
+
+    new cloudwatch.Alarm(this, 'SensorStaleAlarm', {
+      alarmName: `airsafe-sensor-freshness-alarm-${props.environmentName}`,
+      alarmDescription: 'Alerts when sensor telemetry is stale (>90 minutes without fresh readings / invocations)',
+      metric: pollerInvocationsMetric,
+      threshold: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+    });
 
     cdk.Tags.of(this).add('project', 'airsafe');
     cdk.Tags.of(this).add('environment', props.environmentName);

@@ -2137,6 +2137,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             aqi_source: typeof r.pm25_ugm3 === 'number' && Number.isFinite(r.pm25_ugm3) ? 'calculated_from_pm25' : (matchingItem.source || 'station_sensor'),
             heat_index_c: typeof r.heat_index_c === 'number' && Number.isFinite(r.heat_index_c) ? r.heat_index_c : null,
             is_online: Boolean(freshness.isFresh),
+            last_heartbeat: matchingItem.last_heartbeat || matchingItem.observed_at || ts,
+            heartbeat_status: freshness.isFresh ? 'HEALTHY' : 'STALE_OR_OFFLINE',
             last_updated_bn: freshness.ageBn,
             last_updated_en: freshness.ageEn,
           };
@@ -2153,6 +2155,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           pm25_ugm3: null,
           heat_index_c: null,
           is_online: false,
+          last_heartbeat: null,
+          heartbeat_status: 'NO_SIGNAL',
           last_updated_bn: 'ডেটা নেই',
           last_updated_en: 'No data',
         };
@@ -2183,7 +2187,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           const distItem = distItems.find((i: any) => String(i.timestamp).startsWith('LATEST#')) || distItems[0] || null;
           if (distItem?.readings) {
             const dr = distItem.readings;
-            const dFresh = formatFreshness(distItem.observed_at || distItem.timestamp);
+            const dFresh = formatFreshness(distItem.observed_at || (distItem.timestamp && !distItem.timestamp.startsWith('LATEST#') ? distItem.timestamp : null) || distItem.fetched_at);
             districtBaseline = {
               id: `${schoolId}-district-baseline`,
               name_bn: districtInfo.nameBn,
