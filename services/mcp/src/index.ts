@@ -18,6 +18,7 @@
 import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 
 export const MCP_SERVER_INFO = {
   name: 'airsafe-mcp-server',
@@ -517,6 +518,29 @@ export class AirSafeMcpServer {
  * AWS Lambda HTTP Handler (API Gateway / Bedrock Agent MCP adapter - F-22 Deployable)
  */
 let sharedServerInstance: AirSafeMcpServer | null = null;
+let cachedMcpSecret: string | null = null;
+
+async function getOrFetchMcpSecret(): Promise<string> {
+  if (cachedMcpSecret) return cachedMcpSecret;
+  if (process.env.MCP_JWT_SECRET && process.env.MCP_JWT_SECRET.trim() !== '') {
+    const s = process.env.MCP_JWT_SECRET.trim();
+    cachedMcpSecret = s;
+    return s;
+  }
+  const paramName = process.env.MCP_JWT_SECRET_PARAM_NAME || '/airsafe/dev/mcp-jwt-secret';
+  try {
+    const ssm = new SSMClient({ region: process.env.PROJECT_REGION || process.env.AWS_REGION || 'ap-southeast-2' });
+    const res = await ssm.send(new GetParameterCommand({ Name: paramName, WithDecryption: true }));
+    const val = res.Parameter?.Value?.trim();
+    if (val) {
+      cachedMcpSecret = val;
+      return val;
+    }
+  } catch (err: any) {
+    console.warn('[SSM MCP] Failed to retrieve MCP secret:', err?.message || err);
+  }
+  throw new HttpError(401, 'Unauthorized: MCP authentication secret unavailable');
+}
 
 export const handler = async (event: any) => {
   const headers = event?.headers || {};
@@ -532,20 +556,25 @@ export const handler = async (event: any) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
-  let server: AirSafeMcpServer;
-  try {
-    if (!sharedServerInstance) {
-      sharedServerInstance = new AirSafeMcpServer();
-    }
-    server = sharedServerInstance;
-  } catch (initErr: any) {
+  // 1. Mandatory Fail-Closed Authentication: Missing or empty Authorization header returns HTTP 401
+  const authHeader = headers['authorization'] || headers['Authorization'];
+  if (!authHeader || authHeader.trim() === '') {
     return {
-      statusCode: 500,
+      statusCode: 401,
       headers: corsHeaders,
-      body: JSON.stringify({ error: initErr.message || 'MCP Server configuration error' })
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32001,
+          message: 'Unauthorized: Missing Authorization header (Bearer token required)',
+          data: { statusCode: 401 }
+        }
+      })
     };
   }
 
+  // 2. Parse request body
   let body: any;
   try {
     body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
@@ -554,6 +583,34 @@ export const handler = async (event: any) => {
       statusCode: 400,
       headers: corsHeaders,
       body: JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } })
+    };
+  }
+
+  // 3. Initialize or retrieve MCP Server instance with secret
+  let server: AirSafeMcpServer;
+  try {
+    if (!sharedServerInstance) {
+      let secret = process.env.MCP_JWT_SECRET;
+      if (!secret || secret.trim() === '') {
+        secret = await getOrFetchMcpSecret();
+      }
+      sharedServerInstance = new AirSafeMcpServer({ jwtSecret: secret });
+    }
+    server = sharedServerInstance;
+  } catch (initErr: any) {
+    const statusCode = initErr instanceof HttpError ? initErr.statusCode : 401;
+    return {
+      statusCode,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: body?.id ?? null,
+        error: {
+          code: -32001,
+          message: initErr.message || 'Unauthorized: MCP Server authentication error',
+          data: { statusCode }
+        }
+      })
     };
   }
 
@@ -751,6 +808,21 @@ if (process.argv.includes('--test')) {
       params: { name: 'get_outdoor_policy', arguments: {} }
     });
     assert(policyNoAuth.error?.code === -32001, 'T9.4: get_outdoor_policy without token rejected with 401');
+
+    // Test 9.5: handler called without Authorization header returns HTTP 401
+    const hNoAuth = await handler({
+      headers: {},
+      body: JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'tools/list' })
+    });
+    assert(hNoAuth.statusCode === 401, 'T9.5: MCP Lambda handler without token returns HTTP 401 (fail-closed)');
+
+    // Test 9.6: handler called with valid token returns HTTP 200
+    process.env.MCP_JWT_SECRET = testSecret;
+    const hAuth = await handler({
+      headers: { authorization: 'Bearer ' + schoolAToken },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'tools/list' })
+    });
+    assert(hAuth.statusCode === 200, 'T9.6: MCP Lambda handler with valid token returns HTTP 200');
 
     console.log(`\nMCP Verification Summary: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) process.exit(1);

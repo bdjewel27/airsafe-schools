@@ -89,6 +89,10 @@ jobs:
       - name: AI Assistant Off-Topic Refusal Live Smoke Test
         run: node scripts/smoke-test-ai-offtopic.js
 
+      # 9. Multi-Tenant Isolation, SSE Stream & MCP Security Smoke Test
+      - name: Multi-Tenant Isolation, SSE Stream & MCP Security Smoke Test
+        run: node scripts/smoke-test-tenant-isolation.js
+
   infra-synth:
     name: CDK Infrastructure Synth
     needs: [lint-and-test]
