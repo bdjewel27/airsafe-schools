@@ -93,6 +93,16 @@ export class ApiStack extends cdk.Stack {
     props.readingsTable.grantReadData(this.mcpFunction);
     this.mcpFunction.grantInvoke(this.apiFunction);
 
+    this.mcpFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter', 'ssm:GetParameters'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/${props.environmentName}/mcp-jwt-secret`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/airsafe/mcp-jwt-secret`,
+        ],
+      })
+    );
+
     // Grant least-privilege permissions to DynamoDB tables (S-4, S7)
     props.readingsTable.grantReadData(this.apiFunction);
     if (props.decisionsTable) {
