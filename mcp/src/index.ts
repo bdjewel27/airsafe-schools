@@ -532,6 +532,24 @@ export const handler = async (event: any) => {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
 
+  // 1. Mandatory Fail-Closed Authentication: Missing or empty Authorization header returns HTTP 401
+  const authHeader = headers['authorization'] || headers['Authorization'];
+  if (!authHeader || authHeader.trim() === '') {
+    return {
+      statusCode: 401,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32001,
+          message: 'Unauthorized: Missing Authorization header (Bearer token required)',
+          data: { statusCode: 401 }
+        }
+      })
+    };
+  }
+
   let server: AirSafeMcpServer;
   try {
     if (!sharedServerInstance) {
@@ -539,10 +557,19 @@ export const handler = async (event: any) => {
     }
     server = sharedServerInstance;
   } catch (initErr: any) {
+    const statusCode = initErr instanceof HttpError ? initErr.statusCode : 401;
     return {
-      statusCode: 500,
+      statusCode,
       headers: corsHeaders,
-      body: JSON.stringify({ error: initErr.message || 'MCP Server configuration error' })
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32001,
+          message: initErr.message || 'Unauthorized: MCP Server configuration error',
+          data: { statusCode }
+        }
+      })
     };
   }
 
@@ -751,6 +778,21 @@ if (process.argv.includes('--test')) {
       params: { name: 'get_outdoor_policy', arguments: {} }
     });
     assert(policyNoAuth.error?.code === -32001, 'T9.4: get_outdoor_policy without token rejected with 401');
+
+    // Test 9.5: handler called without Authorization header returns HTTP 401
+    const hNoAuth = await handler({
+      headers: {},
+      body: JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'tools/list' })
+    });
+    assert(hNoAuth.statusCode === 401, 'T9.5: MCP Lambda handler without token returns HTTP 401 (fail-closed)');
+
+    // Test 9.6: handler called with valid token returns HTTP 200
+    process.env.MCP_JWT_SECRET = testSecret;
+    const hAuth = await handler({
+      headers: { authorization: 'Bearer ' + schoolAToken },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'tools/list' })
+    });
+    assert(hAuth.statusCode === 200, 'T9.6: MCP Lambda handler with valid token returns HTTP 200');
 
     console.log(`\nMCP Verification Summary: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) process.exit(1);

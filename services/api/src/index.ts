@@ -204,7 +204,6 @@ export function mintMcpTokenForChat(schoolId: string, role: string = 'TEACHER'):
 
 import policyConfig from './policy/v1.2.json';
 import {
-  executeBedrockAssistant,
   executeBedrockStreamAssistantWithMcp,
   checkAndIncrementUserDailyQuota,
   getCachedAssistantResponse,

@@ -11,12 +11,10 @@ import {
   calculateRoutingSavings,
   generateFollowUpSuggestions,
   buildContextualAnswer,
-  executeBedrockAssistant,
   executeBedrockStreamAssistantWithMcp,
   sanitizePromptInput,
   getUserDailyQuotaLimit,
   checkAndIncrementUserDailyQuota,
-  getCachedAssistantResponse,
   setCachedAssistantResponse,
   clearAssistantCache,
 } from '../bedrock';
