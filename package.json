@@ -12,6 +12,8 @@
     "test:shared-mcp": "cd mcp && npm test",
     "test:simulator": "cd simulator && npm test",
     "test:evals": "node evals/run-evals.js",
+    "test:evals:mock": "node evals/run-evals.js --mode=mock",
+    "test:evals:live": "node evals/run-evals.js --mode=live",
     "seed": "npx tsx scripts/seed-data.ts"
   },
   "devDependencies": {

@@ -45,6 +45,7 @@ fun AssistantScreen(
     var showCitationDialog by remember { mutableStateOf(false) }
     var followUpSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var assistantError by remember { mutableStateOf<String?>(null) }
+    var usedBedrockModel by remember { mutableStateOf<String?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
     val decisionData = (currentDecisionState as? DecisionUiState.Success)?.data
@@ -141,7 +142,7 @@ fun AssistantScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "AirSafe AI",
+                            text = if (isOffline || usedBedrockModel == null || usedBedrockModel?.contains("fallback", ignoreCase = true) == true || usedBedrockModel?.contains("offline", ignoreCase = true) == true) "Policy assistant (AI নয়)" else "AirSafe AI",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = SafeGreen
@@ -392,6 +393,7 @@ fun AssistantScreen(
                                     verifiedHi = apiResp.heatIndexC
                                     verifiedAqi = apiResp.aqi
                                     verifiedDecision = apiResp.decision
+                                    usedBedrockModel = apiResp.usedBedrockModel
 
                                     activeCitation = PolicyCitation(
                                         policyTitleBn = apiResp.citationId ?: "Model School Outdoor Activity Policy v1.2",
@@ -414,6 +416,7 @@ fun AssistantScreen(
                                     }
                                     responseAnswer = fullText
                                 } catch (e: Exception) {
+                                    usedBedrockModel = "offline-fallback"
                                     assistantError = if (isBengali) {
                                         "সহকারী সার্ভার সংযোগ ব্যর্থ (${e.javaClass.simpleName}): অফলাইন নিরাপত্তা নীতি প্রয়োগ করা হচ্ছে।"
                                     } else {
