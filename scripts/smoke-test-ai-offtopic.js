@@ -70,9 +70,16 @@ function request(urlStr, options, data) {
 
 async function getAuthToken() {
   const loginUrl = `${API_BASE_URL}/auth/login`;
+  const email = process.env.AIRSAFE_TEST_EMAIL || 'rafiq.principal@dms.edu.bd';
+  const password = process.env.AIRSAFE_TEST_PASSWORD;
+
+  if (!password) {
+    throw new Error('AIRSAFE_TEST_PASSWORD environment variable not set');
+  }
+
   const credentials = {
-    email: 'rafiq.principal@dms.edu.bd',
-    password: '[REDACTED_PASSWORD]',
+    email,
+    password,
   };
 
   const res = await request(loginUrl, {

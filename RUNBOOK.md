@@ -37,12 +37,19 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 | **`rafiq.principal@dms.edu.bd`** | `COORDINATOR` | `school-dhaka-001`<br>*(Dhaka Model School)* | Full administrative capabilities: Read decision card, submit mandatory-justification activity override (F-11), invite new staff (F-12), export weekly analytics report (F-13, F-14). |
 
 > [!IMPORTANT]
-> **Out-of-Band Credentials Delivery:** In strict compliance with **Hard Gate 1**, reviewer account passwords are **never** stored in the repository or APK. The rotated evaluation password for the 3 reviewer accounts is delivered strictly via separate out-of-band email (`<PROVIDED_VIA_OUT_OF_BAND_EMAIL>`).
+> **AWS Secrets Manager & Out-of-Band Credentials Delivery:** In strict compliance with **Hard Gate 1**, reviewer account passwords are **never** stored in the repository or APK. Demo evaluation credentials have been rotated and provisioned directly in **AWS Secrets Manager**:
+> - **Secret Name:** `airsafe/demo-credentials`
+> - **Region:** `ap-southeast-2` (Sydney)
+> - **AWS CLI Retrieval Command:**
+>   ```bash
+>   aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --region ap-southeast-2 --query SecretString --output text
+>   ```
+> Reviewers can also receive credentials via secure out-of-band communication (`<PROVIDED_VIA_OUT_OF_BAND_EMAIL>`).
 > Reviewers can authenticate directly on the mobile app or via API:
 > ```bash
 > curl -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
 >   -H "Content-Type: application/json" \
->   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_OUT_OF_BAND_EMAIL>"}'
+>   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}'
 > ```
 
 ---
