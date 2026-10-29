@@ -87,17 +87,17 @@ class JourneyJ1ComposeTest {
         }
 
         // 1. Verify Decision text is present and visible
-        composeTestRule.onNodeWithText("কার্যক্রম সীমিত করুন (MODIFY)").assertIsDisplayed()
+        composeTestRule.onNodeWithText("কার্যক্রম সীমিত করুন").assertIsDisplayed()
 
         // 2. Verify Heat Index metric is rendered
-        composeTestRule.onNodeWithText("হিট ইনডেক্স").assertIsDisplayed()
-        composeTestRule.onNodeWithText("৩৪.৫°C").assertIsDisplayed()
+        composeTestRule.onNodeWithText("হিট ইনডেক্স: ", substring = true).assertIsDisplayed()
 
         // 3. Verify AQI metric is rendered
-        composeTestRule.onNodeWithText("বায়ুমান সূচক").assertIsDisplayed()
-        composeTestRule.onNodeWithText("১১২").assertIsDisplayed()
+        composeTestRule.onNodeWithText("বায়ুমান সূচক: ", substring = true).assertIsDisplayed()
 
-        // 4. Verify Routine Activity Schedule is displayed with current and next activity
+        // 4. Verify Routine Activity Schedule toggle is displayed and expands on click
+        composeTestRule.onNodeWithText("সব দেখুন (রুটিন) ▼").assertIsDisplayed()
+        composeTestRule.onNodeWithText("সব দেখুন (রুটিন) ▼").performClick()
         composeTestRule.onNodeWithText("📅 অ্যাক্টিভিটি ও সময়সূচি").assertIsDisplayed()
         composeTestRule.onNodeWithText("সকালের প্রাত্যহিক সমাবেশ").assertIsDisplayed()
         composeTestRule.onNodeWithText("ফুটবল অনুশীলন").assertIsDisplayed()

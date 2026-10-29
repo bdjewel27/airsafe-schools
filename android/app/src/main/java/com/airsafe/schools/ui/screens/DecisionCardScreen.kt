@@ -2,6 +2,8 @@ package com.airsafe.schools.ui.screens
 
 import com.airsafe.schools.ui.screens.components.*
 
+import androidx.compose.ui.platform.testTag
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -707,36 +709,37 @@ fun DecisionCardContent(
     // D-1 & D-4: Strict Policy v1.2 Four-Tier Outcome Model (Fail-Closed)
     val outcome = resolveOutcome(safeData.decision, safeData.status)
 
+    // Language-exclusive status titles (No mixed English/Bangla in parentheses!)
     val style = when (outcome) {
         PolicyOutcome.MOVE_INDOORS -> DecisionCardStyle(
             DangerRed,
             DangerRedBackground,
             Icons.Filled.Cancel,
-            if (isBengali) "ভেতরে নিন (MOVE INDOORS)" else "MOVE INDOORS"
+            if (isBengali) "ভেতরে নিন" else "MOVE INDOORS"
         )
         PolicyOutcome.MODIFY -> DecisionCardStyle(
             ModifyOrange,
             ModifyOrangeBackground,
             Icons.Filled.Warning,
-            if (isBengali) "কার্যক্রম সীমিত করুন (MODIFY)" else "MODIFY ACTIVITIES"
+            if (isBengali) "কার্যক্রম সীমিত করুন" else "MODIFY ACTIVITIES"
         )
         PolicyOutcome.PROCEED_WITH_PRECAUTIONS -> DecisionCardStyle(
             CautionYellow,
             CautionYellowBackground,
             Icons.Filled.Info,
-            if (isBengali) "সতর্কতা সহ চালান (CAUTION)" else "PROCEED WITH PRECAUTIONS"
+            if (isBengali) "সতর্কতা সহ চালান" else "PROCEED WITH CAUTION"
         )
         PolicyOutcome.PROCEED -> DecisionCardStyle(
             SafeGreen,
             SafeGreenBackground,
             Icons.Filled.CheckCircle,
-            if (isBengali) "বাইরে যাওয়া নিরাপদ (SAFE)" else "PROCEED (SAFE)"
+            if (isBengali) "বাইরে যাওয়া নিরাপদ" else "SAFE OUTDOORS"
         )
         PolicyOutcome.UNKNOWN -> DecisionCardStyle(
             UnknownGray,
             UnknownGrayBackground,
             Icons.AutoMirrored.Filled.HelpOutline,
-            if (isBengali) "তথ্য পাওয়া যায়নি (DATA UNAVAILABLE)" else "DATA UNAVAILABLE"
+            if (isBengali) "তথ্য নেই" else "DATA UNAVAILABLE"
         )
     }
     val statusColor = style.statusColor
@@ -744,11 +747,13 @@ fun DecisionCardContent(
     val icon = style.icon
     val statusText = style.statusText
 
+    var isScheduleExpanded by remember { mutableStateOf(false) }
+
     // D-14: Language-sensitive TalkBack contentDescription
     val a11yDescription = if (isBengali) {
-        "সিদ্ধান্ত: $statusText। কারণ: ${safeData.primaryReason ?: "অজানা"}। হিট ইনডেক্স: ${safeData.heatIndexC?.toString() ?: "অনুপস্থিত"} সেলসিয়াস। AQI: ${safeData.aqi?.toString() ?: "অনুপস্থিত"}।"
+        "সিদ্ধান্ত: $statusText। কারণ: ${safeData.primaryReason ?: "তথ্য নেই"}। হিট ইনডেক্স: ${safeData.heatIndexC?.toString()?.toBengaliDigits(true) ?: "তথ্য নেই"} সেলসিয়াস। বায়ুমান সূচক: ${safeData.aqi?.toString()?.toBengaliDigits(true) ?: "তথ্য নেই"}।"
     } else {
-        "Decision: $statusText. Reason: ${safeData.primaryReason ?: "Unknown"}. Heat Index: ${safeData.heatIndexC?.toString() ?: "Unavailable"} C. AQI: ${safeData.aqi?.toString() ?: "Unavailable"}."
+        "Decision: $statusText. Reason: ${safeData.primaryReasonEn ?: safeData.primaryReason ?: "No data"}. Heat Index: ${safeData.heatIndexC?.toString() ?: "No data"} C. AQI: ${safeData.aqi?.toString() ?: "No data"}."
     }
 
     Card(
@@ -757,7 +762,7 @@ fun DecisionCardContent(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = a11yDescription }
+            .semantics(mergeDescendants = false) { contentDescription = a11yDescription }
     ) {
         Column(
             modifier = Modifier
@@ -765,198 +770,32 @@ fun DecisionCardContent(
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val rawName = safeData.schoolName ?: "Dhaka Model School"
-            val displaySchoolName = if (isBengali) {
-                if (rawName.contains("(")) rawName.substringBefore(" (").trim() else rawName
-            } else {
-                if (rawName.contains("(")) rawName.substringAfter("(").removeSuffix(")").trim().ifBlank { "Dhaka Model School" } else "Dhaka Model School"
-            }
-
-            Text(
-                text = displaySchoolName,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally),
-                textAlign = TextAlign.Center,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextSecondary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // F-02: Current Routine Banner
-            val currentActText = (if (isBengali) safeData.currentActivityBn else safeData.currentActivityEn)
-                ?: (if (isBengali) "তথ্য নেই" else "No routine scheduled")
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = Color.White.copy(alpha = 0.88f)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.current_activity) + ": ",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = currentActText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // F-02 MUST: Dedicated "Next Activity" Card (পরের অ্যাক্টিভিটি কার্ড)
-            val nextActItem = safeData.nextActivity ?: safeData.activities?.find { it.isCurrent == false && it.order == 2 }
-            val nextActName = (if (isBengali) nextActItem?.nameBn ?: safeData.nextActivityBn else nextActItem?.nameEn ?: safeData.nextActivityEn)
-                ?: (if (isBengali) "স্কুল সমাবেশ (School Assembly)" else "School Assembly")
-            val nextActTime = nextActItem?.timeSlot ?: (if (isBengali) "০৯:৫০ – ১০:৩৫" else "09:50 – 10:35")
-            val nextActIntensity = nextActItem?.intensity ?: "LIGHT"
-            val nextActDecision = nextActItem?.decision ?: (if (safeData.status == "RED") "MOVE_INDOORS" else "PROCEED")
-            val nextActStatus = nextActItem?.status ?: (if (safeData.status == "RED") "RED" else "GREEN")
-            val nextActReason = nextActItem?.primaryReason ?: (if (isBengali) "স্বাভাবিক আবহাওয়া ও সহনশীল শারীরিক কসরত" else "Normal conditions & light physical activity")
-
-            val nextActColor = when (nextActStatus) {
-                "RED" -> DangerRed
-                "ORANGE" -> ModifyOrange
-                "YELLOW" -> CautionYellow
-                "GREEN" -> SafeGreen
-                else -> Color(0xFF757575)
-            }
-            val nextActDecisionText = when (nextActDecision) {
-                "MOVE_INDOORS" -> if (isBengali) "ভেতরে নিন (MOVE INDOORS)" else "MOVE INDOORS"
-                "MODIFY" -> if (isBengali) "কার্যক্রম সীমিত (MODIFY)" else "MODIFY ACTIVITIES"
-                "PROCEED_WITH_PRECAUTIONS" -> if (isBengali) "সতর্কতা (PROCEED W/ PRECAUTIONS)" else "PROCEED W/ PRECAUTIONS"
-                "PROCEED" -> if (isBengali) "চালিয়ে যান (PROCEED)" else "PROCEED"
-                else -> if (isBengali) "অজানা (UNKNOWN)" else "UNKNOWN"
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White.copy(alpha = 0.95f),
-                shadowElevation = 2.dp,
-                border = BorderStroke(1.dp, nextActColor.copy(alpha = 0.5f))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.FastForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = nextActColor
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isBengali) "পরের অ্যাক্টিভিটি (Next Activity)" else "Next Activity",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = nextActColor
-                        ) {
-                            Text(
-                                text = nextActDecisionText,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = nextActName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = nextActTime,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    val intensityTextBn = if (nextActIntensity == "VIGOROUS") "তীব্র (Vigorous)" else if (nextActIntensity == "LIGHT") "হালকা (Light)" else "মাঝারি (Moderate)"
-                    Text(
-                        text = if (isBengali) "তীব্রতা: $intensityTextBn • $nextActReason" else "Intensity: $nextActIntensity • $nextActReason",
-                        fontSize = 11.sp,
-                        color = TextSecondary,
-                        lineHeight = 15.sp
-                    )
-                }
-            }
-
-            // F-10 / P4: Comprehensive Activity Schedule Table (Modular Component)
-            if (!safeData.activities.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                RoutineScheduleSection(
-                    activities = safeData.activities,
-                    isBengali = isBengali
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-
+            // 1. সবার উপরে: বড় icon আর মূল সিদ্ধান্ত (Big Icon & Primary Decision)
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = statusColor,
-                modifier = Modifier.size(60.dp)
+                modifier = Modifier.size(52.dp)
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = statusText,
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentWidth(Alignment.CenterHorizontally)
-                    .padding(horizontal = 8.dp),
+                    .testTag("primary_decision_text"),
                 textAlign = TextAlign.Center,
-                fontSize = 20.sp,
-                lineHeight = 26.sp,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = statusColor,
-                softWrap = true
+                color = statusColor
             )
 
             // D-4: If outcome is MODIFY, show mandatory time limit & shade requirement badges
             if (outcome == PolicyOutcome.MODIFY) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -972,11 +811,11 @@ fun DecisionCardContent(
                             color = ModifyOrange,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                     if (safeData.requiresShade != false) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = ModifyOrange.copy(alpha = 0.15f)
@@ -986,212 +825,219 @@ fun DecisionCardContent(
                                 color = ModifyOrange,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Primary Reason Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .background(Color.White, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            // 2. এক লাইনে প্রধান কারণ (One line primary reason)
+            val primaryReasonText = if (!isBengali && !safeData.primaryReasonEn.isNullOrBlank()) {
+                safeData.primaryReasonEn!!
+            } else if (!safeData.primaryReason.isNullOrBlank()) {
+                safeData.primaryReason!!
+            } else {
+                if (isBengali) "পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে" else "Conditions within safety policy limits"
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White.copy(alpha = 0.9f)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (isBengali) "প্রধান কারণ:" else "Primary Reason:",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentWidth(Alignment.CenterHorizontally),
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val reason = if (!isBengali && !safeData.primaryReasonEn.isNullOrBlank()) {
-                        safeData.primaryReasonEn
-                    } else if (!isBengali) {
-                        when (outcome) {
-                            PolicyOutcome.MOVE_INDOORS -> "🚨 Extreme Hazard: US AQI ${safeData.aqi ?: "—"} or Heat Index ${safeData.heatIndexC ?: "—"}°C exceeds safety floor. All outdoor activities must move indoors."
-                            PolicyOutcome.MODIFY -> "Live Open-Meteo Observation: US AQI is ${safeData.aqi ?: "—"} and Heat Index is ${safeData.heatIndexC ?: "—"}°C. Per Policy v1.2, MODIFY activities — max ${safeData.maxDurationMinutes ?: 15} mins with mandatory shade."
-                            PolicyOutcome.PROCEED_WITH_PRECAUTIONS -> "Live Open-Meteo Observation: Heat Index ${safeData.heatIndexC ?: "—"}°C and AQI ${safeData.aqi ?: "—"} within tolerable limits — stay hydrated and use shade."
-                            PolicyOutcome.PROCEED -> "Conditions are within normal safety limits. Safe to proceed with outdoor classes."
-                            PolicyOutcome.UNKNOWN -> "No reliable telemetry available. Stay indoors for safety."
-                        }
-                    } else {
-                        safeData.primaryReason ?: "পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে।"
-                    }
-
-                    Text(
-                        text = reason,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentWidth(Alignment.CenterHorizontally),
+                        text = primaryReasonText,
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
-                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
                         color = TextPrimary,
-                        softWrap = true
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // D-2 & U-1: Real values with equal column distribution (Tappable for breakdown)
+            // 3. কতক্ষণ আগের data, এবং stale হলে স্পষ্ট সতর্কবার্তা (Data freshness & stale warning)
+            val isDataStale = safeData.isStale == true || isOffline
+            val freshnessStr = com.airsafe.schools.data.model.formatRelativeTimeAgo(safeData.lastUpdated, isBengali)
+            val freshnessText = if (isDataStale) {
+                if (isBengali) "⚠️ ডেটা পুরোনো ($freshnessStr) — সতর্কতামূলক ক্যাপ কার্যকর" else "⚠️ Stale data ($freshnessStr) — Safety cap active"
+            } else {
+                if (isBengali) "আপডেট: $freshnessStr" else "Updated: $freshnessStr"
+            }
+
+            Text(
+                text = freshnessText,
+                textAlign = TextAlign.Center,
+                fontSize = 12.sp,
+                fontWeight = if (isDataStale) FontWeight.Bold else FontWeight.Normal,
+                color = if (isDataStale) CautionText else TextSecondary,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4. দুইটি ছোট metric chip: Heat Index আর AQI (Two compact metric chips)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onMetricClick("HEAT_INDEX") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetricItem(
-                        label = if (isBengali) "হিট ইনডেক্স ℹ️" else "Heat Index ℹ️",
-                        value = if (safeData.heatIndexC != null) "${safeData.heatIndexC.toString().toBengaliDigits(isBengali)}°C" else "—"
-                    )
+                val hiFormatted = if (safeData.heatIndexC != null) {
+                    "${safeData.heatIndexC.toString().toBengaliDigits(isBengali)}°C"
+                } else {
+                    if (isBengali) "তথ্য নেই" else "No data"
                 }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onMetricClick("AQI") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    MetricItem(
-                        label = "US AQI ℹ️",
-                        value = safeData.aqi?.toString()?.toBengaliDigits(isBengali) ?: "—"
-                    )
+
+                val aqiFormatted = if (safeData.aqi != null) {
+                    safeData.aqi.toString().toBengaliDigits(isBengali)
+                } else {
+                    if (isBengali) "তথ্য নেই" else "No data"
                 }
-                Box(
+
+                // Heat Index Chip
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.2f)),
                     modifier = Modifier
-                        .weight(1f)
-                        .clickable { onMetricClick("SOURCE") },
-                    contentAlignment = Alignment.Center
+                        .clickable { onMetricClick("HEAT_INDEX") }
+                        .padding(end = 8.dp)
                 ) {
-                    MetricItem(
-                        label = if (isBengali) "উৎস ℹ️" else "Source ℹ️",
-                        value = when (safeData.isModeled) {
-                            true -> if (isBengali) "মডেল করা" else "Modeled"
-                            false -> if (isBengali) "মাপা" else "Measured"
-                            null -> if (isBengali) "অজানা" else "Unknown"
-                        }
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isBengali) "হিট ইনডেক্স: " else "Heat Index: ",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = hiFormatted,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                // AQI Chip
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.2f)),
+                    modifier = Modifier
+                        .clickable { onMetricClick("AQI") }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isBengali) "বায়ুমান সূচক: " else "AQI: ",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = aqiFormatted,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // F-02 MUST: Confidence Level (আস্থার মাত্রা), When It Might Change (কখন বদলাতে পারে), and Data Freshness (ডেটার বয়স)
-            val confidenceVal = safeData.confidenceLevelPct ?: (if (safeData.isModeled == true) 75 else 95)
-            val confLabelText = if (isBengali)
-                safeData.confidenceLabelBn ?: (if (safeData.isModeled == true) "মডেল করা স্যাটেলাইট ডেটা" else "পরিমাপিত ক্যাম্পাস IoT সেন্সর")
-            else
-                safeData.confidenceLabelEn ?: (if (safeData.isModeled == true) "Modeled Satellite Telemetry" else "Measured Campus IoT Sensor")
+            // 5. "এখন: PE ও ফুটবল · পরে: Assembly"—এক লাইনে (Current & Next activity in one line)
+            val currAct = if (isBengali) safeData.currentActivityBn else safeData.currentActivityEn
+            val nextActItem = safeData.nextActivity ?: safeData.activities?.find { it.isCurrent == false && it.order == 2 }
+            val nextAct = if (isBengali) (nextActItem?.nameBn ?: safeData.nextActivityBn) else (nextActItem?.nameEn ?: safeData.nextActivityEn)
 
-            val changeForecastText = if (isBengali)
-                safeData.changeForecastBn ?: "পরবর্তী ৪ ঘণ্টায় পরিবর্তনের সম্ভাবনা নেই (স্থিতিশীল)"
-            else
-                safeData.changeForecastEn ?: "No decision change expected in the next 4 hours (Stable)"
+            val noDataText = if (isBengali) "তথ্য নেই" else "No data"
+            val activitiesLine = when {
+                !currAct.isNullOrBlank() && !nextAct.isNullOrBlank() -> {
+                    if (isBengali) "এখন: $currAct · পরে: $nextAct" else "Now: $currAct · Next: $nextAct"
+                }
+                !currAct.isNullOrBlank() -> {
+                    if (isBengali) "এখন: $currAct" else "Now: $currAct"
+                }
+                !nextAct.isNullOrBlank() -> {
+                    if (isBengali) "পরে: $nextAct" else "Next: $nextAct"
+                }
+                else -> {
+                    if (isBengali) "কার্যক্রম: $noDataText" else "Activities: $noDataText"
+                }
+            }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White.copy(alpha = 0.95f),
-                shadowElevation = 1.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+            Text(
+                text = activitiesLine,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            )
+
+            // 6. পুরো schedule একটি "সব দেখুন" অংশে, যা চাপলে খুলবে (collapsible)
+            if (!safeData.activities.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    onClick = { isScheduleExpanded = !isScheduleExpanded },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White.copy(alpha = 0.85f),
+                    border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f))
                 ) {
-                    // 1. Confidence Level (আস্থার মাত্রা)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = SafeGreen
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isBengali)
-                                "আস্থার মাত্রা: ${confidenceVal.toString().toBengaliDigits(isBengali)}% ($confLabelText)"
-                            else
-                                "Confidence Level: ${confidenceVal}% ($confLabelText)",
+                            text = if (isBengali) {
+                                if (isScheduleExpanded) "রুটিন সংক্ষেপ করুন ▲" else "সব দেখুন (রুটিন) ▼"
+                            } else {
+                                if (isScheduleExpanded) "Hide Schedule ▲" else "View All Schedule ▼"
+                            },
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // 2. When it might change (কখন বদলাতে পারে)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Timer,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = ModifyOrange
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isBengali)
-                                "কখন বদলাতে পারে: $changeForecastText"
-                            else
-                                "When it might change: $changeForecastText",
-                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            color = statusColor
                         )
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // 3. Data Freshness (ডেটার বয়স)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = SafeGreen
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        val freshnessStr = com.airsafe.schools.data.model.formatRelativeTimeAgo(safeData.lastUpdated, isBengali)
-                        Text(
-                            text = if (isBengali) "ডেটার বয়স (তথ্যের সময়): $freshnessStr" else "Data Freshness: $freshnessStr",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
+                AnimatedVisibility(visible = isScheduleExpanded) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        RoutineScheduleSection(
+                            activities = safeData.activities,
+                            isBengali = isBengali
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
+            // 7. Refresh Button
             Button(
                 onClick = onRefresh,
                 enabled = !isOffline,
@@ -1202,7 +1048,7 @@ fun DecisionCardContent(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(48.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(
@@ -1218,7 +1064,7 @@ fun DecisionCardContent(
                     } else {
                         if (isBengali) "রিফ্রেশ করুন" else "Refresh Live Decision"
                     },
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (!isOffline) Color.White else Color(0xFF757575)
                 )
@@ -1226,4 +1072,3 @@ fun DecisionCardContent(
         }
     }
 }
-
