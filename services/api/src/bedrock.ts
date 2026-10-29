@@ -323,6 +323,77 @@ School: ${schoolNameEn} (${schoolNameBn})
 }
 
 /**
+ * 3. Scope & Intent Guards (Deterministic Refusal for Off-Topic Queries)
+ */
+export function isExplicitOffTopicQuery(query: string): boolean {
+  const q = query.toLowerCase().trim();
+  const offTopicPatterns = [
+    /\bcapital\b/i,
+    /রাজধানী/,
+    /\bfrance\b/i,
+    /\bparis\b/i,
+    /\bpoem\b/i,
+    /কবিতা/,
+    /\bsong\b/i,
+    /গান/,
+    /\bjoke\b/i,
+    /কৌতুক/,
+    /\bstory\b/i,
+    /গল্প/,
+    /\brecipe\b/i,
+    /রান্না/,
+    /\bcooking\b/i,
+    /\bpresident\b/i,
+    /রাষ্ট্রপতি/,
+    /\bprime minister\b/i,
+    /প্রধানমন্ত্রী/,
+    /\bcinema\b|\bmovie\b/i,
+    /সিনেমা|চলচ্চিত্র/,
+    /\bcurrency\b/i,
+    /মুদ্রা/,
+    /\bmath\b|\balgebra\b/i,
+    /অংক|গণিত/,
+    /\bhistory of\b/i,
+    /ইতিহাস/,
+    /\bwho is\b|\bwho was\b/i,
+    /কে ছিলেন|কে আবিষ্কার/,
+  ];
+
+  for (const pattern of offTopicPatterns) {
+    if (pattern.test(q)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isOutdoorSafetyQuery(query: string): boolean {
+  if (isExplicitOffTopicQuery(query)) {
+    return false;
+  }
+
+  const q = query.toLowerCase().trim();
+
+  // In-scope safety / telemetry / activity / policy keywords
+  const safetyKeywords = [
+    'aqi', 'pm2.5', 'pm10', 'pm25', 'air', 'quality', 'বাতাস', 'বায়ু', 'বায়ুমান', 'ধোঁয়া', 'ধুলো',
+    'dust', 'smoke', 'pollution', 'দূষণ', 'heat', 'temperature', 'temp', 'weather', 'hot', 'গরম',
+    'তাপমাত্রা', 'হিট', 'আবহাওয়া', 'আবহাওয়', 'রোদ', 'sun', 'humidity', 'আর্দ্রতা', 'outdoor', 'outside', 'বাইরে',
+    'মাঠ', 'field', 'play', 'playing', 'খেলা', 'খেলাধুলা', 'football', 'cricket', 'sports', 'pe',
+    'শারীরিক শিক্ষা', 'শারীরিক', 'পিই', 'assembly', 'সমাবেশ', 'drill', 'ড্রিল', 'break', 'দৌড়', 'run', 'marathon',
+    'সেশন', 'session', 'ক্লাস', 'অনুশীলন', 'চলবে', 'হবে কি',
+    'sensor', 'reading', 'updated', 'telemetry', 'recency', 'stale', 'fresh', 'সেন্সর', 'রিডিং', 'আপডেট',
+    'safe', 'নিরাপদ', 'নিরাপত্তা', 'decision', 'সিদ্ধান্ত', 'অনুমোদন', 'permission', 'allowed',
+    'করা যাবে', 'যেতে পারবে', 'খেলা যাবে', 'যাওয়া যাবে', 'can we', 'can students', 'should we', 'may we',
+    'why', 'কেন', 'কারণ', 'asthma', 'respiratory', 'শ্বাসকষ্ট', 'অ্যাজমা', 'policy', 'পলিসি', 'rule',
+    'নিয়ম', 'নীতি', 'নীতিমালা', 'shade', 'ছায়া', 'water', 'hydration', 'পানি', 'indoor', 'ইনডোর',
+    'move indoor', 'স্থগিত', 'modify', 'normal'
+  ];
+
+  return safetyKeywords.some((keyword) => q.includes(keyword));
+}
+
+/**
  * 3. Query Router: Determines intent and tool requirements
  */
 export function routeUserQuery(query: string): {
@@ -331,6 +402,15 @@ export function routeUserQuery(query: string): {
   needsSensorTool: boolean;
   detectedTopic: 'HEAT' | 'AQI' | 'SHADE' | 'ROUTINE' | 'GENERAL';
 } {
+  if (!isOutdoorSafetyQuery(query)) {
+    return {
+      needsDecisionTool: false,
+      needsPolicyTool: false,
+      needsSensorTool: false,
+      detectedTopic: 'GENERAL',
+    };
+  }
+
   const q = query.toLowerCase();
 
   const isHeat =
@@ -708,7 +788,6 @@ export function buildContextualAnswer(params: {
   requiresShade: boolean;
 }): string {
   const {
-    isBengali,
     decision,
     heatIndexC,
     aqi,
@@ -725,14 +804,243 @@ export function buildContextualAnswer(params: {
     requiresShade,
   } = params;
 
+  const hasBangla = /[\u0980-\u09FF]/.test(params.query);
+  const isPureEnglish = /^[a-zA-Z0-9\s.,?!'"\-:;()]+$/.test(params.query.trim());
+  const isBengali = hasBangla || (params.isBengali && !isPureEnglish);
   const schoolName = isBengali ? params.schoolNameBn : params.schoolNameEn;
-  const q = params.query.toLowerCase();
+  const q = params.query.toLowerCase().trim();
+
+  // 1. Scope Refusal Guard (Hard requirement 1):
+  if (!isOutdoorSafetyQuery(params.query)) {
+    if (isBengali) {
+      return 'আমি শুধু স্কুলের বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা নিয়ে উত্তর দিতে পারি।';
+    }
+    return 'I can only answer questions related to school air quality, temperature, and outdoor safety.';
+  }
 
   const isHeat = q.includes('heat') || q.includes('temp') || q.includes('গরম') || q.includes('হিট');
   const isAqi = q.includes('aqi') || q.includes('air') || q.includes('বাতাস') || q.includes('বায়ু');
   const isShade = q.includes('shade') || q.includes('ছায়া') || q.includes('পানি');
   const isSensitive = q.includes('asthma') || q.includes('শ্বাসকষ্ট') || q.includes('অ্যাজমা');
 
+  // 2. Permission / "খেলা যাবে?" / "Can students play?" (Hard requirement 2)
+  const isPermissionQuery =
+    q.includes('খেলা যাবে') ||
+    q.includes('বাইরে যাওয়া যাবে') ||
+    q.includes('যেতে পারবে') ||
+    q.includes('অনুমতি আছে') ||
+    q.includes('করা যাবে কি') ||
+    q.includes('যাওয়া যাবে কি') ||
+    q.includes('can we play') ||
+    q.includes('can students play') ||
+    q.includes('can they play') ||
+    q.includes('allowed to play') ||
+    q.includes('safe to play') ||
+    q.includes('go outside') ||
+    q.includes('play football') ||
+    q.includes('play cricket') ||
+    q.includes('hold pe') ||
+    q.includes('can we hold');
+
+  if (isPermissionQuery) {
+    if (isBengali) {
+      if (decision === 'MOVE_INDOORS') {
+        let ans = `না, বর্তমানে বাইরে খেলাধুলা বা বহিরাঙ্গন কার্যক্রম বন্ধ রাখতে হবে। অনুমোদিত সিদ্ধান্ত: **${decision}** (${primaryReason})।`;
+        if (routineNameBn) {
+          ans += ` বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)।`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' শ্বাসকষ্ট আক্রান্ত শিক্ষার্থীদের জন্য ১ ধাপ কঠোরতর নিরাপত্তা কার্যকর।';
+        }
+        ans += ' সব ধরনের বহিরাঙ্গন খেলাধুলা স্থগিত করে ইনডোরে স্থানান্তর করতে হবে।';
+        if (nextActivityBn) {
+          ans += ` পরবর্তী নির্ধারিত কার্যক্রম: ${nextActivityBn}।`;
+        }
+        if (isStale) {
+          ans += ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]';
+        }
+        return ans;
+      } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
+        let ans = `সীমিত পরিসরে যাবে। অনুমোদিত সিদ্ধান্ত: **${decision}** (${primaryReason})।`;
+        if (maxDurationMinutes && maxDurationMinutes > 0) {
+          ans += ` সর্বোচ্চ সময়সীমা: ${maxDurationMinutes} মিনিট।`;
+        }
+        if (isShade || requiresShade) {
+          ans += ' ছায়াযুক্ত স্থান ও প্রতি ১৫ মিনিট পরপর পর্যাপ্ত পানি পানের বিরতি বাধ্যতামূলক।';
+        }
+        if (routineNameBn) {
+          ans += ` বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)।`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' শ্বাসকষ্ট আক্রান্ত শিক্ষার্থীদের জন্য ১ ধাপ কঠোরতর নিরাপত্তা কার্যকর।';
+        }
+        if (isStale) {
+          ans += ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]';
+        }
+        return ans;
+      } else {
+        let ans = `হ্যাঁ, বর্তমানে বাইরে খেলাধুলা অনুমোদিত। অনুমোদিত সিদ্ধান্ত: **NORMAL** (${primaryReason})।`;
+        if (routineNameBn) {
+          ans += ` বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)।`;
+        }
+        if (heatIndexC != null) {
+          ans += ` পরিমাপকৃত হিট ইনডেক্স: ${heatIndexC}°C।`;
+        }
+        if (aqi != null) {
+          ans += ` পরিমাপকৃত AQI: ${aqi}।`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' শ্বাসকষ্ট আক্রান্ত শিক্ষার্থীদের জন্য ১ ধাপ কঠোরতর নিরাপত্তা কার্যকর।';
+        }
+        if (isStale) {
+          ans += ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]';
+        }
+        return ans;
+      }
+    } else {
+      if (decision === 'MOVE_INDOORS') {
+        let ans = `No, outdoor sports and activities are prohibited right now. Authoritative decision: **${decision}** (${primaryReason}).`;
+        if (routineNameEn) {
+          ans += ` Current session: ${routineNameEn} (${activeIntensity} intensity).`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' Respiratory sensitive group step-up active (tightened by 1 tier).';
+        }
+        ans += ' All outdoor activities must move indoors immediately.';
+        if (nextActivityEn) {
+          ans += ` Next scheduled session: ${nextActivityEn}.`;
+        }
+        if (isStale) {
+          ans += ' [Warning: Telemetry is older than 90m]';
+        }
+        return ans;
+      } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
+        let ans = `Yes, with restrictions. Authoritative decision: **${decision}** (${primaryReason}).`;
+        if (maxDurationMinutes && maxDurationMinutes > 0) {
+          ans += ` Maximum allowed duration: ${maxDurationMinutes} minutes.`;
+        }
+        if (isShade || requiresShade) {
+          ans += ' Mandatory shade and 15-minute hydration intervals required.';
+        }
+        if (routineNameEn) {
+          ans += ` Current session: ${routineNameEn} (${activeIntensity} intensity).`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' Respiratory sensitive group step-up active (tightened by 1 tier).';
+        }
+        if (isStale) {
+          ans += ' [Warning: Telemetry is older than 90m]';
+        }
+        return ans;
+      } else {
+        let ans = `Yes, students can play outdoors. Authoritative decision: **NORMAL** (${primaryReason}).`;
+        if (routineNameEn) {
+          ans += ` Current session: ${routineNameEn} (${activeIntensity} intensity).`;
+        }
+        if (heatIndexC != null) {
+          ans += ` Current Heat Index: ${heatIndexC}°C.`;
+        }
+        if (aqi != null) {
+          ans += ` Ambient AQI: ${aqi}.`;
+        }
+        if (hasRespiratoryCondition || isSensitive) {
+          ans += ' Respiratory sensitive group step-up active (tightened by 1 tier).';
+        }
+        if (isStale) {
+          ans += ' [Warning: Telemetry is older than 90m]';
+        }
+        return ans;
+      }
+    }
+  }
+
+  // 3. "কেন?" / "Why?" query (Hard requirement 2)
+  const isWhyQuery =
+    q.includes('কেন') ||
+    q.includes('কারণ') ||
+    /\bwhy\b/i.test(q) ||
+    /\breason\b/i.test(q);
+
+  if (isWhyQuery) {
+    if (isBengali) {
+      let ans = `বর্তমান সিদ্ধান্ত **${decision}** নেওয়ার কারণ: ${primaryReason}। `;
+      if (aqi != null) {
+        ans += `পরিমাপকৃত এয়ার কোয়ালিটি ইনডেক্স AQI ${aqi}`;
+      }
+      if (heatIndexC != null) {
+        ans += `${aqi != null ? ' এবং ' : ''}হিট ইনডেক্স ${heatIndexC}°C`;
+      }
+      if (aqi != null || heatIndexC != null) {
+        ans += ' যা Model School Outdoor Activity Policy v1.2 এর নিরাপত্তা থ্রেশহোল্ড অনুযায়ী মূল্যায়ন করা হয়েছে। ';
+      }
+      if (hasRespiratoryCondition || isSensitive) {
+        ans += 'শ্বাসকষ্ট আক্রান্ত শিক্ষার্থীদের জন্য ১ ধাপ কঠোরতর নিরাপত্তা প্রয়োগ করা হয়েছে। ';
+      }
+      if (routineNameBn) {
+        ans += `সংশ্লিষ্ট সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)।`;
+      }
+      return ans.trim();
+    } else {
+      let ans = `The reason for current decision **${decision}** is: ${primaryReason}. `;
+      if (aqi != null) {
+        ans += `Current Air Quality Index is AQI ${aqi}`;
+      }
+      if (heatIndexC != null) {
+        ans += `${aqi != null ? ' and ' : ''}Heat Index is ${heatIndexC}°C`;
+      }
+      if (aqi != null || heatIndexC != null) {
+        ans += ', evaluated strictly against Model School Outdoor Activity Policy v1.2 threshold limits. ';
+      }
+      if (hasRespiratoryCondition || isSensitive) {
+        ans += 'A 1-tier stricter safety floor applies for respiratory-sensitive students. ';
+      }
+      if (routineNameEn) {
+        ans += `Associated session: ${routineNameEn} (${activeIntensity} intensity).`;
+      }
+      return ans.trim();
+    }
+  }
+
+  // 4. AQI / Temperature / Telemetry query (Hard requirement 2)
+  const isTelemetryQuery =
+    q.includes('aqi') ||
+    q.includes('pm2.5') ||
+    q.includes('pm25') ||
+    q.includes('বায়ুমান') ||
+    q.includes('বাতাস') ||
+    q.includes('বায়ু') ||
+    q.includes('দূষণ') ||
+    q.includes('তাপমাত্রা') ||
+    q.includes('হিট') ||
+    q.includes('গরম') ||
+    q.includes('heat') ||
+    q.includes('temp') ||
+    q.includes('sensor') ||
+    q.includes('reading');
+
+  if (isTelemetryQuery) {
+    const now = new Date();
+    const timeBst = now.toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Dhaka',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    if (isBengali) {
+      const aqiPart = aqi != null ? `AQI ${aqi}` : 'AQI অপ্রাপ্য';
+      const hiPart = heatIndexC != null ? `হিট ইনডেক্স ${heatIndexC}°C` : 'হিট ইনডেক্স অপ্রাপ্য';
+      const staleTag = isStale ? ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]' : ' (সতেজ রিডিং)';
+      return `বর্তমান পরিবেশগত রিডিং (${timeBst} BST): বায়ুমান ${aqiPart} (PM2.5), ${hiPart}${staleTag}। Policy v1.2 অনুযায়ী নিরাপত্তা সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
+    } else {
+      const aqiPart = aqi != null ? `AQI ${aqi}` : 'AQI unavailable';
+      const hiPart = heatIndexC != null ? `Heat Index ${heatIndexC}°C` : 'Heat Index unavailable';
+      const staleTag = isStale ? ' [Warning: Telemetry is older than 90m]' : ' (Fresh reading)';
+      return `Current telemetry readings (${timeBst} BST): Air Quality ${aqiPart} (PM2.5), ${hiPart}${staleTag}. Authoritative decision per Policy v1.2 is **${decision}** (${primaryReason}).`;
+    }
+  }
+
+  // 5. Default General Contextual Answer
   if (isBengali) {
     const contextParts: string[] = [];
     if (routineNameBn) {
@@ -805,6 +1113,46 @@ export async function executeBedrockStreamAssistantWithMcp(
   params: AssistantChatParams
 ): Promise<GroundedAssistantResponse> {
   const startTime = Date.now();
+
+  // 0. Deterministic Scope Guard: Reject off-topic questions immediately (Hard requirement 1)
+  if (!isOutdoorSafetyQuery(params.query)) {
+    const refusal = buildContextualAnswer(params);
+    if (params.onTokenChunk) {
+      params.onTokenChunk(refusal);
+    }
+    const inTokens = 120 + Math.ceil(params.query.length / 4);
+    const outTokens = Math.max(30, Math.ceil(refusal.length / 4));
+    const totalTokens = inTokens + outTokens;
+    const calculatedCostUsd = Number(((inTokens * 0.06 + outTokens * 0.24) / 1_000_000).toFixed(6));
+
+    return {
+      answer: refusal,
+      decision: params.decision,
+      policyFloorDecision: params.policyFloorDecision,
+      heatIndexC: params.heatIndexC,
+      aqi: params.aqi,
+      routineIntensity: params.activeIntensity,
+      currentActivityBn: params.routineNameBn,
+      currentActivityEn: params.routineNameEn,
+      nextActivityBn: params.nextActivityBn,
+      nextActivityEn: params.nextActivityEn,
+      hasRespiratoryCondition: params.hasRespiratoryCondition,
+      isStale: params.isStale,
+      citationId: S3VectorStore.getInstance().getActivePolicyCitation().citation_id,
+      citationExcerpt: S3VectorStore.getInstance().getActivePolicyCitation().citation_excerpt,
+      docId: S3VectorStore.getInstance().getActivePolicyCitation().doc_id,
+      suggestedFollowUps: generateFollowUpSuggestions('GENERAL', params.decision, params.isBengali),
+      usedBedrockModel: 'bedrock-grounded-fallback',
+      tools_called_count: 0,
+      tool_calls: [],
+      tokens_used: {
+        input_tokens: inTokens,
+        output_tokens: outTokens,
+        total_tokens: totalTokens,
+      },
+      cost_usd: calculatedCostUsd,
+    };
+  }
   // A-4: Dynamic Nova Micro query routing with measured latency & cost savings
   let routingMeta: QueryClassificationResult | undefined;
   let router = routeUserQuery(params.query);
