@@ -857,7 +857,7 @@ describe('F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling & Query Routing'
 
     test('5. In-Memory Response Caching (A-8) returns X-Cache: HIT and skips LLM execution on repeated identical queries', async () => {
       // Manually set cache
-      setCachedAssistantResponse('school-dhaka-001', 'আজকে কি বৃষ্টি হবে?', 75, 32, {
+      setCachedAssistantResponse('school-dhaka-001', 'আজকে কি বৃষ্টি হবে?', 71, 32, {
         answer: 'পলিসি v1.2 অনুযায়ী আবহাওয়া সংক্রান্ত পরামর্শ ইনডোরে যাওয়ার জন্য।',
         decision: 'MOVE_INDOORS',
         policyFloorDecision: 'MOVE_INDOORS',
