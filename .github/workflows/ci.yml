@@ -8,7 +8,7 @@ on:
 
 jobs:
   security-scan:
-    name: Gitleaks Secret Scanner
+    name: Mandatory Gitleaks Secret Scanner (Required Gate)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -16,13 +16,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks
+      - name: Run Gitleaks (Fail-Closed)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   lint-and-test:
     name: Lint Gate, Services & Evals
+    needs: [security-scan]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -123,6 +125,7 @@ jobs:
 
   android-build-and-verify:
     name: Android Release Build, Lint, Detekt & Tests
+    needs: [security-scan, lint-and-test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
