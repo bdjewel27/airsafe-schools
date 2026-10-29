@@ -1,8 +1,12 @@
 package com.airsafe.schools.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -52,13 +56,21 @@ fun AssistantScreen(
 
     val defaultGreeting = stringResource(R.string.assistant_greeting)
 
+    val isRefusal = responseAnswer?.contains("only answer questions related to school", ignoreCase = true) == true ||
+                    responseAnswer?.contains("বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা", ignoreCase = true) == true
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp)
+        ) {
             Text(
                 text = stringResource(R.string.assistant_title),
                 fontSize = 20.sp,
@@ -152,7 +164,7 @@ fun AssistantScreen(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Step-by-step thinking indicators (U-5: Real tool steps retained)
-                    if (thinkingSteps.isNotEmpty()) {
+                    if (!isRefusal && thinkingSteps.isNotEmpty()) {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
                             shape = RoundedCornerShape(8.dp),
@@ -201,7 +213,9 @@ fun AssistantScreen(
                         text = responseAnswer ?: defaultGreeting,
                         fontSize = 15.sp,
                         color = TextPrimary,
-                        lineHeight = 22.sp
+                        lineHeight = 22.sp,
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
 
                     // Numerical Grounding Card (U-5 & P6: Strictly verified telemetry only; never fabricated!)
@@ -209,7 +223,7 @@ fun AssistantScreen(
                     val aqiToShow = verifiedAqi ?: decisionData?.aqi
                     val decToShow = verifiedDecision ?: decisionData?.decision
 
-                    if (responseAnswer != null && hiToShow != null && aqiToShow != null && decToShow != null && decToShow != "UNKNOWN") {
+                    if (!isRefusal && responseAnswer != null && hiToShow != null && aqiToShow != null && decToShow != null && decToShow != "UNKNOWN") {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
                             shape = RoundedCornerShape(10.dp),
@@ -243,7 +257,7 @@ fun AssistantScreen(
                     }
 
                     // Interactive Policy Citation Chip (F-05 & A-7)
-                    if (activeCitation != null && !isThinking) {
+                    if (!isRefusal && activeCitation != null && !isThinking) {
                         Spacer(modifier = Modifier.height(12.dp))
                         AssistChip(
                             onClick = { showCitationDialog = true },
@@ -276,7 +290,7 @@ fun AssistantScreen(
 
         // Question Input Field with Quick Suggestions
         Column {
-            if (followUpSuggestions.isNotEmpty() && !isThinking) {
+            if (!isRefusal && followUpSuggestions.isNotEmpty() && !isThinking) {
                 Text(
                     text = stringResource(R.string.assistant_suggested_followups),
                     fontSize = 11.sp,
@@ -287,6 +301,7 @@ fun AssistantScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -308,6 +323,7 @@ fun AssistantScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
