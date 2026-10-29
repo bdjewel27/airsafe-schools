@@ -141,4 +141,22 @@ class DecisionCardScreenTest {
         val sanitized = resp.sanitized()
         assertEquals(serverTime, sanitized.lastUpdated)
     }
+
+    @Test
+    fun sanitized_does_not_contain_hardcoded_09_50_assembly_fallback() {
+        val resp = DecisionResponse(
+            schoolId = "school-dhaka-001",
+            decision = "MOVE_INDOORS",
+            status = "RED",
+            heatIndexC = 38.0,
+            aqi = 155,
+            nextActivity = null,
+            nextActivityBn = null,
+            nextActivityEn = null
+        )
+        val sanitized = resp.sanitized()
+        assertNotEquals("School Assembly 09:50", sanitized.nextActivityEn)
+        assertNotEquals("স্কুল সমাবেশ (School Assembly)", sanitized.nextActivityBn)
+        assertEquals(null, sanitized.nextActivity)
+    }
 }
