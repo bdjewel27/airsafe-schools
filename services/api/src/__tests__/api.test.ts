@@ -1897,8 +1897,10 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
     test('Computes real indoor hours and distinct warning days without fake multipliers (no count*2 or min(n,3))', async () => {
       const now = new Date();
       // 3 sessions across 2 distinct days
-      const day1 = new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString();
-      const day1Session2 = new Date(now.getTime() - 1 * 24 * 3600 * 1000 + 3600 * 1000).toISOString();
+      const baseDay1 = new Date(now.getTime() - 1 * 24 * 3600 * 1000);
+      baseDay1.setUTCHours(10, 0, 0, 0);
+      const day1 = baseDay1.toISOString();
+      const day1Session2 = new Date(baseDay1.getTime() + 3600 * 1000).toISOString();
       const day2 = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString();
       const day3Safe = new Date(now.getTime() - 4 * 24 * 3600 * 1000).toISOString();
 

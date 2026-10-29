@@ -10,8 +10,6 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import {
   S3Client,
   PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 
 export interface PolicyDocumentInput {

@@ -149,7 +149,7 @@ jobs:
 
       - name: Run Detekt and KtLint
         working-directory: android
-        run: ./gradlew detekt ktlintCheck --continue || true
+        run: ./gradlew detekt ktlintCheck --continue
 
       - name: Verify Release Keystore Secrets (Fail-Closed)
         run: |

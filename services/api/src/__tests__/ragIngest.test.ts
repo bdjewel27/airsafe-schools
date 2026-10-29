@@ -1,9 +1,6 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
   generateTitanEmbedding,
   computeCosineSimilarity,
-  chunkPolicyDocument,
   S3VectorStore,
   ingestPolicyLambdaHandler,
   PolicyDocumentInput,
