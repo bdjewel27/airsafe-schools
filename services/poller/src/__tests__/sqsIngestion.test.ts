@@ -13,7 +13,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
   };
 });
 
-import { processSensorBatch, resetDeduplicationCache, getQuarantineMetricCount } from '../sqsProcessor';
+import { processSensorBatch, getQuarantineMetricCount } from '../sqsProcessor';
 
 describe('SQS Ingestion Pipeline & Dead Letter Queue (DLQ) Quarantine', () => {
   beforeEach(() => {

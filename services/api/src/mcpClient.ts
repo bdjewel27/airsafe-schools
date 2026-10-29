@@ -8,7 +8,6 @@
  * 4. Logs tool calls count and execution latency
  */
 
-import * as crypto from 'crypto';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import policyConfig from './policy/v1.2.json';
 import { S3VectorStore } from './ragIngest';

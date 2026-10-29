@@ -672,7 +672,7 @@ Return ONLY raw JSON with keys: {"topic", "needsDecision", "needsPolicy", "needs
       savingsVsProUsd: Number(savingsVsProUsd.toFixed(8)),
       savingsVsProPercent: Number(savingsVsProPercent.toFixed(2)),
     };
-  } catch (err: any) {
+  } catch (_err: any) {
     const latencyMs = Date.now() - startTime;
     // Graceful fallback to deterministic regex router per ADR-001 (e.g. Bedrock quota 0.0 in Sydney or network unavailable)
     return {

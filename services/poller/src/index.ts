@@ -369,7 +369,6 @@ export const handler = async (_event: any): Promise<any> => {
       };
 
       // 4. Save to DynamoDB for school and all aliases with full source provenance and multi-intensity evaluations (F-20, P3, P4)
-      const fieldSensorId = provenance?.air_quality?.station_id || `${school.id}-field`;
       const targetSchoolIds = [school.id, ...(school.aliases || [])];
 
       for (const sId of targetSchoolIds) {

@@ -4,7 +4,7 @@ import {
   classifyAnomalyWithNovaMicro,
   SensorTelemetryInput,
 } from '../plausibility';
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 
 describe('F-23: Sensor Delta Check & Bedrock Nova Micro Anomaly Plausibility', () => {
   const baseTime = '2026-10-26T10:00:00Z';

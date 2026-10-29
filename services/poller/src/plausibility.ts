@@ -123,7 +123,7 @@ export function performDeltaCheck(
 export function classifyAnomalyHeuristic(
   current: SensorTelemetryInput,
   flags: string[],
-  prior?: SensorTelemetryInput | null
+  _prior?: SensorTelemetryInput | null
 ): AnomalyClassificationResult {
   // If sensor reports impossible bounds or negative PM2.5 or NaN
   if (
