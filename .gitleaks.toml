@@ -1,0 +1,22 @@
+# AirSafe Schools Strict Gitleaks Secret Scanning Configuration
+# Enforces mandatory fail-closed scanning across 100% of commits in CI
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlists for safe non-secret tokens and test fixtures"
+paths = [
+  '''node_modules''',
+  '''dist''',
+  '''android/app/build''',
+  '''\.gradle''',
+  '''\.git'''
+]
+regexes = [
+  '''<PROVIDED_VIA_AWS_SECRETS_MANAGER>''',
+  '''<PROVIDED_VIA_OUT_OF_BAND_EMAIL>''',
+  '''<reviewer-keystore-password>''',
+  '''\[REDACTED_PASSWORD\]''',
+  '''\[REDACTED_SECRET\]'''
+]
