@@ -130,7 +130,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Firebase Cloud Messaging (F-06: Background Push & Alert Delivery)
     implementation("com.google.firebase:firebase-messaging:24.1.0")
