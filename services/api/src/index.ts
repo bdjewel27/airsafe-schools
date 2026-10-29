@@ -2741,7 +2741,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (path.endsWith('/assistant/chat') && event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
       const query = String(body.query || '').trim();
-      const isBengali = body.is_bengali !== false;
+      const hasBanglaChars = /[\u0980-\u09FF]/.test(query);
+      const isPureEnglish = /^[a-zA-Z0-9\s.,?!'"\-:;()]+$/.test(query);
+      const isBengali = body.is_bengali === true || (body.is_bengali !== false && !isPureEnglish) || hasBanglaChars;
 
       // Prompt Injection & Cross-Tenant Guardrail (A-5, S-8, Hard Gate 2 & 4)
       if (

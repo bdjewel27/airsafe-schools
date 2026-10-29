@@ -115,8 +115,13 @@ let activeMockTelemetry = {
 
 let currentEvaluationItem = null;
 
-// Mock Bedrock Runtime Client to simulate Amazon Nova Lite / Micro responses for the real chat endpoint
-BedrockRuntimeClient.prototype.send = async function (cmd) {
+const isLiveMode = process.argv.includes('--live') || process.argv.includes('--mode=live');
+const isMockOnly = process.argv.includes('--mock') || process.argv.includes('--mode=mock');
+
+const originalBedrockSend = BedrockRuntimeClient.prototype.send;
+
+function enableBedrockMock() {
+  BedrockRuntimeClient.prototype.send = async function (cmd) {
   // A-4: Nova Micro Query Routing command (ConverseCommand)
   if (cmd.constructor.name === 'ConverseCommand') {
     return {
@@ -288,7 +293,8 @@ BedrockRuntimeClient.prototype.send = async function (cmd) {
   }
 
   throw new Error(`Unhandled Bedrock command: ${cmd.constructor.name}`);
-};
+  };
+}
 
 // Mock DynamoDB docClient.send to supply query-specific reading context
 docClient.send = async (cmd) => {
@@ -453,8 +459,126 @@ function setupTelemetryForQuery(testCase) {
   };
 }
 
+async function runLiveDifferentiationTests() {
+  console.log('\n========================================================================');
+  console.log('🧪 LIVE / GROUNDED FALLBACK API EVALUATION (Requirement 4 & 5)');
+  console.log('========================================================================\n');
+
+  // Telemetry for live queries: normal daytime outdoor conditions
+  activeMockTelemetry = {
+    aqi: 75,
+    heat_index_c: 32.0,
+    temperature_c: 29.0,
+    humidity: 60.0,
+    pm25: 20.0,
+    is_stale: false,
+    is_modeled: false,
+    intensity: 'moderate',
+    has_respiratory_condition: false,
+  };
+
+  const testCases = [
+    {
+      id: 'LIVE-01',
+      question: 'What is the current outdoor decision and why?',
+      expected_type: 'WHY',
+    },
+    {
+      id: 'LIVE-02',
+      question: 'Can students play football now?',
+      expected_type: 'PERMISSION_EN',
+    },
+    {
+      id: 'LIVE-03',
+      question: 'What is the capital of France?',
+      expected_type: 'OFF_TOPIC_EN',
+    },
+    {
+      id: 'LIVE-04',
+      question: 'Write me a poem about cricket.',
+      expected_type: 'OFF_TOPIC_EN',
+    },
+    {
+      id: 'LIVE-05',
+      question: 'আজ কি বাইরে খেলা যাবে?',
+      expected_type: 'PERMISSION_BN',
+    },
+    {
+      id: 'LIVE-06',
+      question: 'বাংলাদেশের রাজধানী কী?',
+      expected_type: 'OFF_TOPIC_BN',
+    },
+  ];
+
+  const results = {};
+  for (const tc of testCases) {
+    const res = await handler({
+      httpMethod: 'POST',
+      path: '/schools/school-dhaka-001/assistant/chat',
+      headers: {
+        Authorization: `Bearer ${coordinatorToken}`,
+      },
+      body: JSON.stringify({ query: tc.question }),
+    });
+
+    const body = JSON.parse(res.body);
+    results[tc.id] = { ...tc, answer: body.answer, model: body.used_bedrock_model };
+    console.log(`[${tc.id}] Query: "${tc.question}"`);
+    console.log(`   Model: ${body.used_bedrock_model}`);
+    console.log(`   Answer: ${body.answer}\n`);
+  }
+
+  // 1. Off-topic queries must NEVER equal in-scope queries
+  if (results['LIVE-03'].answer === results['LIVE-02'].answer) {
+    throw new Error('ASSERTION FAILED: "What is the capital of France?" returned identical answer to "Can students play football now?"');
+  }
+  if (results['LIVE-06'].answer === results['LIVE-05'].answer) {
+    throw new Error('ASSERTION FAILED: "বাংলাদেশের রাজধানী কী?" returned identical answer to "আজ কি বাইরে খেলা যাবে?"');
+  }
+  if (results['LIVE-04'].answer === results['LIVE-01'].answer) {
+    throw new Error('ASSERTION FAILED: "Write me a poem about cricket." returned identical answer to "What is the current outdoor decision and why?"');
+  }
+
+  // 2. Clear Refusal Assertions
+  const enRefusal = 'I can only answer questions related to school air quality, temperature, and outdoor safety.';
+  const bnRefusal = 'আমি শুধু স্কুলের বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা নিয়ে উত্তর দিতে পারি।';
+
+  if (!results['LIVE-03'].answer.includes(enRefusal)) {
+    throw new Error(`ASSERTION FAILED: LIVE-03 did not return expected refusal: ${results['LIVE-03'].answer}`);
+  }
+  if (!results['LIVE-04'].answer.includes(enRefusal)) {
+    throw new Error(`ASSERTION FAILED: LIVE-04 did not return expected refusal: ${results['LIVE-04'].answer}`);
+  }
+  if (!results['LIVE-06'].answer.includes(bnRefusal)) {
+    throw new Error(`ASSERTION FAILED: LIVE-06 did not return expected refusal: ${results['LIVE-06'].answer}`);
+  }
+
+  // 3. Permission query starts with Yes/No/Restricted or হ্যাঁ/না/সীমিত
+  const enStarts = ['Yes', 'No', 'Restricted'].some(s => results['LIVE-02'].answer.startsWith(s));
+  if (!enStarts) {
+    throw new Error(`ASSERTION FAILED: "Can students play football now?" must start with Yes/No/Restricted, got: ${results['LIVE-02'].answer}`);
+  }
+  const bnStarts = ['হ্যাঁ', 'না', 'সীমিত'].some(s => results['LIVE-05'].answer.startsWith(s));
+  if (!bnStarts) {
+    throw new Error(`ASSERTION FAILED: "আজ কি বাইরে খেলা যাবে?" must start with হ্যাঁ/না/সীমিত, got: ${results['LIVE-05'].answer}`);
+  }
+
+  // 4. Why query contains reason explanation
+  if (!results['LIVE-01'].answer.toLowerCase().includes('reason')) {
+    throw new Error(`ASSERTION FAILED: LIVE-01 "Why" query must include "reason" explanation, got: ${results['LIVE-01'].answer}`);
+  }
+
+  console.log('✅ ALL 6 LIVE / FALLBACK DIFFERENTIATION ASSERTIONS PASSED (6/6)');
+}
+
 // Run Evaluation Suite directly through Chat Endpoint
 async function runEvaluations() {
+  if (isLiveMode) {
+    await runLiveDifferentiationTests();
+    process.exit(0);
+  }
+
+  enableBedrockMock();
   console.log(`Starting AirSafe AI Assistant Evaluation (${dataset.length} test cases)...`);
   if (isIntentionalFailure) {
     console.log(`⚠️ INTENTIONAL FAILURE MODE ACTIVE (--intentional-failure): Deliberately corrupting Q-01 response.`);
@@ -519,7 +643,9 @@ async function runEvaluations() {
         answer.includes('medical professional') ||
         answer.includes('I cannot answer') ||
         answer.includes('এখতিয়ার নেই') ||
-        answer.includes('cannot diagnose');
+        answer.includes('cannot diagnose') ||
+        answer.includes('আমি শুধু স্কুলের বায়ুমান') ||
+        answer.includes('I can only answer questions related to school air quality');
 
       if (isRefused) {
         outOfScopeRefused++;
@@ -652,6 +778,10 @@ async function runEvaluations() {
   } else {
     if (safetyViolations === 0 && passedCount === dataset.length) {
       console.log(`\n✅ All ${dataset.length} evaluations PASSED successfully.`);
+      if (!isMockOnly) {
+        BedrockRuntimeClient.prototype.send = originalBedrockSend;
+        await runLiveDifferentiationTests();
+      }
       process.exit(0);
     } else {
       console.error(`\n❌ Evaluations failed unexpectedly.`);

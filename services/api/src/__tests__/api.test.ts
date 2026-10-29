@@ -2312,5 +2312,160 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(res.body).toContain('event: decision\n');
       expect(res.body).toContain('data: {');
     });
+
+    test('CI Regression Guard: "capital of France" and "Can students play football?" MUST NOT produce identical answers', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => {
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as never;
+      });
+
+      // 1. Off-topic query (Capital of France)
+      const resOffTopic = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'What is the capital of France?' }),
+        })
+      );
+      expect(resOffTopic.statusCode).toBe(200);
+      const offTopicBody = JSON.parse(resOffTopic.body);
+
+      // 2. In-scope permission query (Can students play football now?)
+      const resInScope = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'Can students play football now?' }),
+        })
+      );
+      expect(resInScope.statusCode).toBe(200);
+      const inScopeBody = JSON.parse(resInScope.body);
+
+      // HARD ASSERTION: answers must NEVER be identical
+      expect(offTopicBody.answer).not.toEqual(inScopeBody.answer);
+
+      // HARD ASSERTION: Off-topic must return clear refusal
+      expect(offTopicBody.answer).toContain('I can only answer questions related to school air quality, temperature, and outdoor safety.');
+
+      // HARD ASSERTION: In-scope permission query starts with direct Yes/No/Restricted
+      expect(
+        inScopeBody.answer.startsWith('Yes') ||
+        inScopeBody.answer.startsWith('No') ||
+        inScopeBody.answer.startsWith('Restricted')
+      ).toBe(true);
+    });
+
+    test('CI Regression Guard: Bengali off-topic vs outdoor play query differentiation', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => {
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as never;
+      });
+
+      // 1. Bengali off-topic (বাংলাদেশের রাজধানী কী?)
+      const resBnOffTopic = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'বাংলাদেশের রাজধানী কী?' }),
+        })
+      );
+      expect(resBnOffTopic.statusCode).toBe(200);
+      const bnOffTopicBody = JSON.parse(resBnOffTopic.body);
+
+      // 2. Bengali in-scope (আজ কি বাইরে খেলা যাবে?)
+      const resBnInScope = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'আজ কি বাইরে খেলা যাবে?' }),
+        })
+      );
+      expect(resBnInScope.statusCode).toBe(200);
+      const bnInScopeBody = JSON.parse(resBnInScope.body);
+
+      expect(bnOffTopicBody.answer).not.toEqual(bnInScopeBody.answer);
+      expect(bnOffTopicBody.answer).toContain('আমি শুধু স্কুলের বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা নিয়ে উত্তর দিতে পারি।');
+      expect(
+        bnInScopeBody.answer.startsWith('হ্যাঁ') ||
+        bnInScopeBody.answer.startsWith('না') ||
+        bnInScopeBody.answer.startsWith('সীমিত')
+      ).toBe(true);
+    });
+
+    test('Query Type Differentiation: Why question explains reasons, AQI question provides numbers & time', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => {
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as never;
+      });
+
+      // Why question
+      const resWhy = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'What is the current outdoor decision and why?' }),
+        })
+      );
+      const whyBody = JSON.parse(resWhy.body);
+      expect(whyBody.answer.toLowerCase()).toMatch(/reason|কারণ/);
+
+      // Poetry off-topic question
+      const resPoem = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'Write me a poem about cricket.' }),
+        })
+      );
+      const poemBody = JSON.parse(resPoem.body);
+      expect(poemBody.answer).toContain('I can only answer questions related to school air quality');
+      expect(poemBody.answer).not.toEqual(whyBody.answer);
+
+      // AQI question
+      const resAqi = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'What is the current AQI?' }),
+        })
+      );
+      const aqiBody = JSON.parse(resAqi.body);
+      expect(aqiBody.answer).toContain('AQI 75');
+      expect(aqiBody.answer).toContain('BST');
+    });
   });
 });
