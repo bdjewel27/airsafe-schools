@@ -2464,7 +2464,7 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
         })
       );
       const aqiBody = JSON.parse(resAqi.body);
-      expect(aqiBody.answer).toContain('AQI 75');
+      expect(aqiBody.answer).toContain('AQI 71');
       expect(aqiBody.answer).toContain('BST');
     });
   });

@@ -212,10 +212,11 @@ import {
 } from './bedrock';
 import {
   evaluatePolicy,
+  calculateAqiFromPm25,
   PolicyDecision as SharedPolicyDecision,
   ActivityIntensity as SharedActivityIntensity,
 } from './policy';
-export { evaluatePolicy } from './policy';
+export { evaluatePolicy, calculateAqiFromPm25 } from './policy';
 
 export type PolicyDecision = SharedPolicyDecision;
 export type ActivityIntensity = 'light' | 'moderate' | 'vigorous';
@@ -2131,6 +2132,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             temp_c: typeof r.temperature_c === 'number' && Number.isFinite(r.temperature_c) ? r.temperature_c : null,
             rh_pct: typeof r.relative_humidity_pct === 'number' && Number.isFinite(r.relative_humidity_pct) ? r.relative_humidity_pct : null,
             pm25_ugm3: typeof r.pm25_ugm3 === 'number' && Number.isFinite(r.pm25_ugm3) ? r.pm25_ugm3 : null,
+            aqi: typeof r.pm25_ugm3 === 'number' && Number.isFinite(r.pm25_ugm3) ? calculateAqiFromPm25(r.pm25_ugm3) : (typeof r.aqi === 'number' ? r.aqi : null),
+            source: matchingItem.source || 'CAMPUS_IOT_SENSOR',
+            aqi_source: typeof r.pm25_ugm3 === 'number' && Number.isFinite(r.pm25_ugm3) ? 'calculated_from_pm25' : (matchingItem.source || 'station_sensor'),
             heat_index_c: typeof r.heat_index_c === 'number' && Number.isFinite(r.heat_index_c) ? r.heat_index_c : null,
             is_online: Boolean(freshness.isFresh),
             last_updated_bn: freshness.ageBn,
@@ -2791,7 +2795,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
 
       const hi = item.readings.heat_index_c ?? item.readings.temperature_c;
-      const aqi = item.readings.aqi;
+      const pm25Chat = typeof item.readings.pm25_ugm3 === 'number'
+        ? item.readings.pm25_ugm3
+        : (typeof item.readings.pm25 === 'number' ? item.readings.pm25 : null);
+      const calculatedChatAqi = pm25Chat != null ? calculateAqiFromPm25(pm25Chat) : null;
+      const aqi = calculatedChatAqi ?? (typeof item.readings.aqi === 'number' ? item.readings.aqi : 50);
+      const aqiSource = calculatedChatAqi != null ? 'calculated_from_pm25' : (item.readings.source || item.source || 'station_sensor');
+      const primarySource = item.source || (item.sensor_id ? 'CAMPUS_IOT_SENSOR' : (item.is_modeled ? 'Open-Meteo (modeled)' : 'Station Sensor'));
 
       // Check reading age & staleness (>90 min per Policy v1.2 Section 4)
       const readingTimeMs = item.timestamp ? Date.parse(item.timestamp) : NaN;
@@ -2954,6 +2964,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             policy_floor_decision: cached.policyFloorDecision,
             heat_index_c: hi,
             aqi,
+            pm25_ugm3: pm25Chat,
+            source: primarySource,
+            data_source: primarySource,
+            aqi_source: aqiSource,
             tools_called_count: cached.tools_called_count ?? 0,
             tool_calls: cached.tool_calls ?? [],
             routine_intensity: routineNameBn ? activeIntensity : null,
@@ -3077,6 +3091,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           policy_floor_decision: assistantResp.policyFloorDecision,
           heat_index_c: assistantResp.heatIndexC,
           aqi: assistantResp.aqi,
+          pm25_ugm3: pm25Chat,
+          source: primarySource,
+          data_source: primarySource,
+          aqi_source: aqiSource,
           tools_called_count: assistantResp.tools_called_count ?? 0,
           tool_calls: assistantResp.tool_calls ?? [],
           citation_id: assistantResp.citationId,
@@ -3119,6 +3137,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           policy_floor_decision: assistantResp.policyFloorDecision,
           heat_index_c: assistantResp.heatIndexC,
           aqi: assistantResp.aqi,
+          pm25_ugm3: pm25Chat,
+          source: primarySource,
+          data_source: primarySource,
+          aqi_source: aqiSource,
           tools_called_count: assistantResp.tools_called_count ?? 0,
           tool_calls: assistantResp.tool_calls ?? [],
           routine_intensity: routineNameBn ? activeIntensity : null,
@@ -3263,7 +3285,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     const readings = latestItem.readings || {};
     const heatIndexC = readings.heat_index_c ?? readings.temperature_c;
-    const aqi = readings.aqi;
+    const pm25Val = typeof readings.pm25_ugm3 === 'number'
+      ? readings.pm25_ugm3
+      : (typeof readings.pm25 === 'number' ? readings.pm25 : null);
+    const calculatedAqi = pm25Val != null ? calculateAqiFromPm25(pm25Val) : null;
+    const aqi = calculatedAqi ?? (typeof readings.aqi === 'number' ? readings.aqi : 50);
+    const aqiSource = calculatedAqi != null ? 'calculated_from_pm25' : (readings.source || latestItem.source || 'station_sensor');
+    const primarySource = latestItem.source || (latestItem.sensor_id ? 'CAMPUS_IOT_SENSOR' : (latestItem.is_modeled ? 'Open-Meteo (modeled)' : 'Station Sensor'));
 
     // Check staleness (> 90 minutes per Policy v1.2 Section 4)
     const readingTimeMs = latestItem.timestamp ? Date.parse(latestItem.timestamp) : NaN;
@@ -3434,7 +3462,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       policy_url: '/policies/current',
       heat_index_c: policyEval.decision === 'UNKNOWN' ? null : heatIndexC,
       aqi: policyEval.decision === 'UNKNOWN' ? null : aqi,
-      pm25_ugm3: policyEval.decision === 'UNKNOWN' ? null : readings.pm25_ugm3 ?? null,
+      pm25_ugm3: policyEval.decision === 'UNKNOWN' ? null : pm25Val,
+      source: primarySource,
+      data_source: primarySource,
+      aqi_source: aqiSource,
       primary_reason: reasons[0],
       reasons,
       reason_codes: policyEval.reasonCodes,

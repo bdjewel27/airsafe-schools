@@ -19,6 +19,7 @@ import * as crypto from 'crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { calculateAqiFromPm25 } from './policy';
 
 export const MCP_SERVER_INFO = {
   name: 'airsafe-mcp-server',
@@ -298,20 +299,29 @@ export class AirSafeMcpServer {
                 ? 'GREEN'
                 : 'UNKNOWN';
 
-              return {
-                available: true,
-                school_id: schoolId,
-                school_name: item.school_name || schoolId,
-                status,
-                decision,
-                heat_index_c: item.readings?.heat_index_c,
-                aqi: item.readings?.aqi,
-                pm25_ugm3: item.readings?.pm25_ugm3,
-                primary_reasons: item.evaluation?.reasons || [],
-                reason_codes: item.evaluation?.reasonCodes || [],
-                requires_shade: item.evaluation?.requiresShade ?? false,
-                max_duration_minutes: item.evaluation?.maxDurationMinutes,
-                data_source: item.source || (item.is_modeled ? 'Modeled Forecast' : 'Station Sensor'),
+                const pm25 = typeof item.readings?.pm25_ugm3 === 'number'
+                  ? item.readings.pm25_ugm3
+                  : (typeof item.readings?.pm25 === 'number' ? item.readings.pm25 : null);
+                const aqi = pm25 != null ? calculateAqiFromPm25(pm25) : item.readings?.aqi;
+                const aqiSource = pm25 != null ? 'calculated_from_pm25' : (item.source || 'station_sensor');
+                const dataSource = item.source || (item.sensor_id ? 'CAMPUS_IOT_SENSOR' : (item.is_modeled ? 'Modeled Forecast' : 'Station Sensor'));
+
+                return {
+                  available: true,
+                  school_id: schoolId,
+                  school_name: item.school_name || schoolId,
+                  status,
+                  decision,
+                  heat_index_c: item.readings?.heat_index_c,
+                  aqi,
+                  pm25_ugm3: pm25,
+                  source: dataSource,
+                  data_source: dataSource,
+                  aqi_source: aqiSource,
+                  primary_reasons: item.evaluation?.reasons || [],
+                  reason_codes: item.evaluation?.reasonCodes || [],
+                  requires_shade: item.evaluation?.requiresShade ?? false,
+                  max_duration_minutes: item.evaluation?.maxDurationMinutes,
                 is_stale: item.evaluation?.isStale ?? false,
                 is_modeled: item.is_modeled ?? false,
                 last_updated: item.timestamp
@@ -350,6 +360,10 @@ export class AirSafeMcpServer {
 
             if (result.Items && result.Items.length > 0) {
               const item = result.Items[0];
+              const sitePm25 = typeof item.readings?.pm25_ugm3 === 'number' ? item.readings.pm25_ugm3 : null;
+              const siteAqi = sitePm25 != null ? calculateAqiFromPm25(sitePm25) : item.readings?.aqi;
+              const siteSource = item.source || (item.sensor_id ? 'CAMPUS_IOT_SENSOR' : (item.is_modeled ? 'Open-Meteo (modeled)' : 'Station Sensor'));
+              const siteAqiSource = sitePm25 != null ? 'calculated_from_pm25' : (item.source || 'station_sensor');
               const sites = [
                 {
                   site_id: `${schoolId}-field`,
@@ -358,8 +372,11 @@ export class AirSafeMcpServer {
                   temperature_c: item.readings?.temperature_c,
                   humidity_pct: item.readings?.relative_humidity_pct,
                   heat_index_c: item.readings?.heat_index_c,
-                  pm25_ugm3: item.readings?.pm25_ugm3,
-                  aqi: item.readings?.aqi,
+                  pm25_ugm3: sitePm25,
+                  aqi: siteAqi,
+                  source: siteSource,
+                  data_source: siteSource,
+                  aqi_source: siteAqiSource,
                   status: 'ONLINE',
                   timestamp: item.timestamp
                 }
