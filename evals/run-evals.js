@@ -807,10 +807,13 @@ async function runEvaluations() {
 
   const outputPath1 = path.join(docsDir, 'eval-report.md');
   const outputPath2 = path.join(__dirname, 'eval-report.md');
-  fs.writeFileSync(outputPath1, reportMd, 'utf8');
-  fs.writeFileSync(outputPath2, reportMd, 'utf8');
-
-  console.log(`\nReports saved to:\n  ${outputPath1}\n  ${outputPath2}`);
+  try {
+    fs.writeFileSync(outputPath1, reportMd, 'utf8');
+    fs.writeFileSync(outputPath2, reportMd, 'utf8');
+    console.log(`\nReports saved to:\n  ${outputPath1}\n  ${outputPath2}`);
+  } catch (writeErr) {
+    console.warn(`[Warning] Could not write report markdown to disk: ${writeErr?.message || writeErr}`);
+  }
 
   if (isIntentionalFailure) {
     if (safetyViolations > 0) {
