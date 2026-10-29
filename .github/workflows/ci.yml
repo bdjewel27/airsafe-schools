@@ -83,6 +83,10 @@ jobs:
       - name: Run AI Golden Evaluation Benchmark
         run: node evals/run-evals.js
 
+      # 8. AI Assistant Off-Topic Refusal Live Smoke Test
+      - name: AI Assistant Off-Topic Refusal Live Smoke Test
+        run: node scripts/smoke-test-ai-offtopic.js
+
   infra-synth:
     name: CDK Infrastructure Synth
     needs: [lint-and-test]
