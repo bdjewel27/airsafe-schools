@@ -60,6 +60,7 @@ export class ApiStack extends cdk.Stack {
         MCP_JWT_SECRET: process.env.MCP_JWT_SECRET || '',
         JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/jwt-secret`,
         MCP_JWT_SECRET_PARAM_NAME: `/airsafe/${props.environmentName}/mcp-jwt-secret`,
+        DEMO_CREDENTIALS_SECRET_NAME: 'airsafe/demo-credentials',
         ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(','),
       },
       logGroup,
@@ -150,6 +151,18 @@ export class ApiStack extends cdk.Stack {
         })
       );
     }
+
+    // Grant Secrets Manager read access for demo credentials (Hard Gate 1)
+    this.apiFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowSecretsManagerDemoCredentials',
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          `arn:aws:secretsmanager:${this.region}:${this.account}:secret:airsafe/demo-credentials*`,
+        ],
+      })
+    );
 
     // Grant SSM parameter store access for JWT and MCP secrets (Hard Gate 1)
     this.apiFunction.addToRolePolicy(
