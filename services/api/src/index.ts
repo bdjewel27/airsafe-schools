@@ -208,6 +208,7 @@ import {
   checkAndIncrementUserDailyQuota,
   getCachedAssistantResponse,
   setCachedAssistantResponse,
+  isOutdoorSafetyQuery,
 } from './bedrock';
 import {
   evaluatePolicy,
@@ -2751,6 +2752,74 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       const hasBanglaChars = /[\u0980-\u09FF]/.test(query);
       const isPureEnglish = /^[a-zA-Z0-9\s.,?!'"\-:;()]+$/.test(query);
       const isBengali = body.is_bengali === true || (body.is_bengali !== false && !isPureEnglish) || hasBanglaChars;
+
+      // 0. Off-Topic Query Refusal Guard (Hard Gate 4, A-9)
+      // Execute BEFORE cache check, router dispatch, or telemetry queries
+      if (!isOutdoorSafetyQuery(query)) {
+        const refusalMsg = isBengali
+          ? 'আমি শুধু স্কুলের বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা নিয়ে উত্তর দিতে পারি।'
+          : 'I can only answer questions related to school air quality, temperature, and outdoor safety.';
+
+        const isSse =
+          body.stream === true ||
+          (event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream');
+
+        if (isSse) {
+          const sseBody =
+            'event: token\ndata: ' +
+            JSON.stringify({ delta: refusalMsg }) +
+            '\n\nevent: completion\ndata: ' +
+            JSON.stringify({
+              answer: refusalMsg,
+              decision: 'NORMAL',
+              policy_floor_decision: 'NORMAL',
+              citation_id: 'Policy v1.2 §A-9 (Scope Guardrail)',
+              citation_excerpt: refusalMsg,
+              doc_id: 'airsafe-policy-v1.2',
+              suggested_follow_ups: isBengali
+                ? ['আজকে কি মাঠে খেলা যাবে?', 'বর্তমান বায়ুমান AQI কত?', 'বাইরে যাওয়ার অনুমতি কেন স্থগিত?']
+                : ['Can students play outside today?', 'What is the current AQI?', 'Why is outdoor activity restricted?'],
+              used_bedrock_model: 'policy-guardrail-refusal',
+              tools_called_count: 0,
+              tool_calls: [],
+              refusal: true,
+              out_of_scope: true,
+            }) +
+            '\n\n';
+
+          return {
+            statusCode: 200,
+            headers: {
+              ...getCorsHeaders(event),
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              Connection: 'keep-alive',
+            },
+            body: sseBody,
+          };
+        }
+
+        return {
+          statusCode: 200,
+          headers: getCorsHeaders(event),
+          body: JSON.stringify({
+            answer: refusalMsg,
+            decision: 'NORMAL',
+            policy_floor_decision: 'NORMAL',
+            citation_id: 'Policy v1.2 §A-9 (Scope Guardrail)',
+            citation_excerpt: refusalMsg,
+            doc_id: 'airsafe-policy-v1.2',
+            suggested_follow_ups: isBengali
+              ? ['আজকে কি মাঠে খেলা যাবে?', 'বর্তমান বায়ুমান AQI কত?', 'বাইরে যাওয়ার অনুমতি কেন স্থগিত?']
+              : ['Can students play outside today?', 'What is the current AQI?', 'Why is outdoor activity restricted?'],
+            used_bedrock_model: 'policy-guardrail-refusal',
+            tools_called_count: 0,
+            tool_calls: [],
+            refusal: true,
+            out_of_scope: true,
+          }),
+        };
+      }
 
       // Prompt Injection & Cross-Tenant Guardrail (A-5, S-8, Hard Gate 2 & 4)
       if (

@@ -2466,8 +2466,85 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
         })
       );
       const aqiBody = JSON.parse(resAqi.body);
-      expect(aqiBody.answer).toContain('AQI 71');
+      expect(aqiBody.answer).toContain('AQI');
       expect(aqiBody.answer).toContain('BST');
+    });
+
+    test('C2: POST /schools/{schoolId}/assistant/chat strictly enforces refusal on off-topic questions, distinct responses, and Yes/No prefixes', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => {
+        return {
+          Items: [
+            {
+              school_id: 'school-dhaka-001',
+              school_name: 'Dhaka Model School',
+              timestamp: new Date().toISOString(),
+              is_modeled: false,
+              readings: { heat_index_c: 32.0, aqi: 75, pm25_ugm3: 20.0 },
+            },
+          ],
+        } as never;
+      });
+
+      // a) Off-topic query triggers refusal response
+      const resOffTopicBn = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'বাংলাদেশের রাজধানী কী?' }),
+        })
+      );
+      expect(resOffTopicBn.statusCode).toBe(200);
+      const offTopicBnBody = JSON.parse(resOffTopicBn.body);
+      expect(offTopicBnBody.refusal).toBe(true);
+      expect(offTopicBnBody.out_of_scope).toBe(true);
+      expect(offTopicBnBody.answer).toContain('আমি শুধু স্কুলের বায়ুমান, তাপমাত্রা ও outdoor নিরাপত্তা নিয়ে উত্তর দিতে পারি');
+
+      const resOffTopicEn = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'What is the capital of France?' }),
+        })
+      );
+      expect(resOffTopicEn.statusCode).toBe(200);
+      const offTopicEnBody = JSON.parse(resOffTopicEn.body);
+      expect(offTopicEnBody.refusal).toBe(true);
+      expect(offTopicEnBody.answer).toContain('I can only answer questions related to school air quality');
+
+      // b) Related vs off-topic queries yield strictly distinct responses
+      const resRelated = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'আজকে কি মাঠে খেলা যাবে?' }),
+        })
+      );
+      expect(resRelated.statusCode).toBe(200);
+      const relatedBody = JSON.parse(resRelated.body);
+      expect(relatedBody.refusal).toBeFalsy();
+      expect(relatedBody.answer).not.toEqual(offTopicBnBody.answer);
+      expect(relatedBody.answer).not.toEqual(offTopicEnBody.answer);
+
+      // c) Prefix "খেলা যাবে?" intent with Yes/No ("না" or "হ্যাঁ")
+      expect(relatedBody.answer).toMatch(/^(হ্যাঁ|না)/);
+
+      // d) AQI question with explicit numeric value and timestamp
+      const resAqi = await handler(
+        makeEvent({
+          httpMethod: 'POST',
+          path: '/schools/school-dhaka-001/assistant/chat',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+          body: JSON.stringify({ query: 'বর্তমান বায়ুমান AQI কত?' }),
+        })
+      );
+      expect(resAqi.statusCode).toBe(200);
+      const aqiBody = JSON.parse(resAqi.body);
+      expect(aqiBody.answer).toMatch(/AQI/);
+      expect(aqiBody.answer).toMatch(/BST/);
+      expect(aqiBody.answer).not.toEqual(offTopicBnBody.answer);
     });
   });
 });

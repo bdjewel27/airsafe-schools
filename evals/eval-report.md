@@ -1,6 +1,6 @@
 # AirSafe Schools - AI Assistant Evaluation Report (A-9)
 
-**Evaluation Date:** 2026-10-29T23:11:55.412Z  
+**Evaluation Date:** 2026-10-30T17:33:32.736Z  
 **Dataset Size:** 44 Golden & Adversarial Queries (Appendix C Coverage)  
 **Evaluation Execution Mode:** **Mocked eval: 44/44 (PASSED)** (Deterministic Policy Engine & Grounded Fallback)  
 **Live Bedrock Status:** **চালানো হয়নি (quota 0)** — Sydney `ap-southeast-2` Bedrock on-demand quota constrained to 0.0 tokens/min ([ADR-001](adr/001-bedrock-model-fallback.md) & [AWS Support Case #17283940191](aws-service-quota-case-17283940191.png))  
@@ -78,12 +78,12 @@ Core evaluation invariants verified:
 | **Q-25** | `BOUNDARY` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `COORDINATOR_ONLY` | `MOVE_INDOORS` | ✅ PASS |
 | **Q-26** | `BOUNDARY` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `JUSTIFICATION_MANDATORY` | `MOVE_INDOORS` | ✅ PASS |
 | **Q-27** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-28** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-29** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-30** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-31** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-32** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
-| **Q-33** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED` | ✅ PASS |
+| **Q-28** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
+| **Q-29** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
+| **Q-30** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
+| **Q-31** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
+| **Q-32** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
+| **Q-33** | `OUT_OF_SCOPE` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `NORMAL` | ✅ PASS |
 | **Q-34** | `OUT_OF_SCOPE` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `undefined` | `PROCEED_WITH_PRECAUTIONS` | ✅ PASS |
 | **Q-35** | `BILINGUAL` | BN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `INFORMATIONAL` | `PROCEED` | ✅ PASS |
 | **Q-36** | `BILINGUAL` | EN | `Mocked Bedrock / Policy Fallback (Quota 0)` | `Policy System Prompt v1.2 (Deterministic Fallback)` | 0/0 | $0.00 (Mocked/Quota 0) | `INFORMATIONAL` | `PROCEED` | ✅ PASS |

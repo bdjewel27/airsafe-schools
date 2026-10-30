@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 /**
  * F-05 / A-3: Bedrock ConverseStream + MCP Tool Calling + Query Routing + Grounded Citations
  * Architecture per Section A-1, A-2, A-3, A-5, A-7
@@ -194,7 +195,10 @@ export function getCachedAssistantResponse(
   heatIndexC: number | null
 ): AssistantCacheEntry | null {
   const normQuery = (query || '').trim().toLowerCase();
-  const key = `${schoolId}#${normQuery}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
+  const queryHash = crypto.createHash('sha256').update(normQuery).digest('hex').substring(0, 16);
+  const route = routeUserQuery(normQuery);
+  const intent = route.detectedTopic;
+  const key = `${schoolId}#${intent}#${queryHash}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
   const entry = assistantCache.get(key);
   if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
     return entry;
@@ -210,7 +214,10 @@ export function setCachedAssistantResponse(
   entry: Omit<AssistantCacheEntry, 'timestamp'>
 ): void {
   const normQuery = (query || '').trim().toLowerCase();
-  const key = `${schoolId}#${normQuery}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
+  const queryHash = crypto.createHash('sha256').update(normQuery).digest('hex').substring(0, 16);
+  const route = routeUserQuery(normQuery);
+  const intent = route.detectedTopic;
+  const key = `${schoolId}#${intent}#${queryHash}#${Math.round(aqi ?? 0)}#${Math.round(heatIndexC ?? 0)}`;
   assistantCache.set(key, { ...entry, timestamp: Date.now() });
 }
 
@@ -378,7 +385,7 @@ export function isOutdoorSafetyQuery(query: string): boolean {
   const safetyKeywords = [
     'aqi', 'pm2.5', 'pm10', 'pm25', 'air', 'quality', 'বাতাস', 'বায়ু', 'বায়ুমান', 'ধোঁয়া', 'ধুলো',
     'dust', 'smoke', 'pollution', 'দূষণ', 'heat', 'temperature', 'temp', 'weather', 'hot', 'গরম',
-    'তাপমাত্রা', 'হিট', 'আবহাওয়া', 'আবহাওয়', 'রোদ', 'sun', 'humidity', 'আর্দ্রতা', 'outdoor', 'outside', 'বাইরে',
+    'তাপমাত্রা', 'হিট', 'আবহাওয়া', 'আবহাওয়', 'বৃষ্টি', 'rain', 'ঝড়', 'storm', 'মেঘ', 'cloud', 'রোদ', 'sun', 'humidity', 'আর্দ্রতা', 'outdoor', 'outside', 'বাইরে',
     'মাঠ', 'field', 'play', 'playing', 'খেলা', 'খেলাধুলা', 'football', 'cricket', 'sports', 'pe',
     'শারীরিক শিক্ষা', 'শারীরিক', 'পিই', 'assembly', 'সমাবেশ', 'drill', 'ড্রিল', 'break', 'দৌড়', 'run', 'marathon',
     'সেশন', 'session', 'ক্লাস', 'অনুশীলন', 'চলবে', 'হবে কি',
@@ -861,7 +868,7 @@ export function buildContextualAnswer(params: {
         }
         return ans;
       } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
-        let ans = `সীমিত পরিসরে যাবে। অনুমোদিত সিদ্ধান্ত: **${decision}** (${primaryReason})।`;
+        let ans = `না (স্বাভাবিক খেলাধুলা বন্ধ; তবে সীমিত পরিসরে অনুমোদিত)। অনুমোদিত সিদ্ধান্ত: **${decision}** (${primaryReason})।`;
         if (maxDurationMinutes && maxDurationMinutes > 0) {
           ans += ` সর্বোচ্চ সময়সীমা: ${maxDurationMinutes} মিনিট।`;
         }
@@ -915,7 +922,7 @@ export function buildContextualAnswer(params: {
         }
         return ans;
       } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
-        let ans = `Yes, with restrictions. Authoritative decision: **${decision}** (${primaryReason}).`;
+        let ans = `No for unrestricted play; only strictly modified activity permitted. Authoritative decision: **${decision}** (${primaryReason}).`;
         if (maxDurationMinutes && maxDurationMinutes > 0) {
           ans += ` Maximum allowed duration: ${maxDurationMinutes} minutes.`;
         }
@@ -1027,16 +1034,17 @@ export function buildContextualAnswer(params: {
       hour12: true,
     });
 
+    const isoTime = now.toISOString();
     if (isBengali) {
-      const aqiPart = aqi != null ? `AQI ${aqi}` : 'AQI অপ্রাপ্য';
+      const aqiPart = aqi != null ? `AQI মান ${aqi}` : 'AQI অপ্রাপ্য';
       const hiPart = heatIndexC != null ? `হিট ইনডেক্স ${heatIndexC}°C` : 'হিট ইনডেক্স অপ্রাপ্য';
       const staleTag = isStale ? ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]' : ' (সতেজ রিডিং)';
-      return `বর্তমান পরিবেশগত রিডিং (${timeBst} BST): বায়ুমান ${aqiPart} (PM2.5), ${hiPart}${staleTag}। Policy v1.2 অনুযায়ী নিরাপত্তা সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
+      return `বর্তমান পরিবেশগত রিডিং (সময়: ${timeBst} BST / ${isoTime}): বায়ুমান ${aqiPart} (PM2.5), ${hiPart}${staleTag}। Policy v1.2 অনুযায়ী নিরাপত্তা সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
     } else {
-      const aqiPart = aqi != null ? `AQI ${aqi}` : 'AQI unavailable';
+      const aqiPart = aqi != null ? `AQI numeric value ${aqi}` : 'AQI unavailable';
       const hiPart = heatIndexC != null ? `Heat Index ${heatIndexC}°C` : 'Heat Index unavailable';
       const staleTag = isStale ? ' [Warning: Telemetry is older than 90m]' : ' (Fresh reading)';
-      return `Current telemetry readings (${timeBst} BST): Air Quality ${aqiPart} (PM2.5), ${hiPart}${staleTag}. Authoritative decision per Policy v1.2 is **${decision}** (${primaryReason}).`;
+      return `Current environmental telemetry (Timestamp: ${timeBst} BST / ${isoTime}): Air Quality ${aqiPart} (PM2.5), ${hiPart}${staleTag}. Authoritative decision per Policy v1.2 is **${decision}** (${primaryReason}).`;
     }
   }
 
