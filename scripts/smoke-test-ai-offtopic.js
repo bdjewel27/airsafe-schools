@@ -125,10 +125,16 @@ async function runSmokeTests() {
   let useLocalHandler = false;
   let localHandler = null;
 
+  const requireLive = process.argv.includes('--require-live');
+
   try {
     token = await getAuthToken();
     console.log('✅ Authenticated successfully against live Cognito/API Gateway.');
   } catch (err) {
+    if (requireLive) {
+      console.error(`❌ FATAL: Live authentication failed and --require-live is enforced: ${err.message}`);
+      process.exit(1);
+    }
     console.warn(`⚠️ Live authentication unavailable (${err.message}). Testing via local API service handler.`);
     try {
       process.env.API_JWT_SECRET = process.env.API_JWT_SECRET || 'MockUnitTestCredential_OnlyForTesting#2026';
@@ -224,7 +230,11 @@ async function runSmokeTests() {
 
   console.log('\n------------------------------------------------------------------------');
   if (failedCount === 0) {
-    console.log(`✅ ALL ${OFF_TOPIC_TEST_CASES.length} POST-DEPLOY SMOKE TESTS PASSED! Off-topic refusal is live and active.`);
+    if (useLocalHandler) {
+      console.log(`⚠️ ALL ${OFF_TOPIC_TEST_CASES.length} SMOKE TESTS PASSED (LOCAL handler — NOT live).`);
+    } else {
+      console.log(`✅ ALL ${OFF_TOPIC_TEST_CASES.length} POST-DEPLOY SMOKE TESTS PASSED! Off-topic refusal is live and active.`);
+    }
     console.log('------------------------------------------------------------------------\n');
     process.exit(0);
   } else {
