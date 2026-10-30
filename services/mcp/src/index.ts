@@ -96,6 +96,34 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * Helper to identify heartbeat, seed, or modeled records that should not be treated as actual sensor readings.
+ */
+function isHeartbeatOrSeed(record: any): boolean {
+  if (!record) return true;
+  if (record.is_heartbeat || record.heartbeat) return true;
+  if (record.is_seed || record.is_seed_data || record.seed) return true;
+  if (record.is_modeled || record.evaluation?.isModeled) return true;
+  if (typeof record.source === "string" && record.source.toLowerCase().includes("modeled")) return true;
+  if (record.record_type === "heartbeat" || record.record_type === "seed") return true;
+  if (record.type === "heartbeat" || record.type === "seed") return true;
+  if (record.source === "heartbeat" || record.source === "seed") return true;
+  if (typeof record.timestamp === "string" && (/^HEARTBEAT#/i.test(record.timestamp) || /^SEED#/i.test(record.timestamp) || /^LATEST#/i.test(record.timestamp))) return true;
+  if (typeof record.sk === "string" && (/^HEARTBEAT#/i.test(record.sk) || /^SEED#/i.test(record.sk) || /^LATEST#/i.test(record.sk))) return true;
+  if (typeof record.sensor_id === "string" && (/heartbeat|seed/i.test(record.sensor_id))) return true;
+  return false;
+}
+
+/**
+ * Helper to verify record has actual numeric sensor readings.
+ */
+function hasActualReadings(record: any): boolean {
+  if (!record || !record.readings || typeof record.readings !== "object") return false;
+  const r = record.readings;
+  const isNum = (v: any) => typeof v === "number" && !Number.isNaN(v);
+  return isNum(r.pm25_ugm3) || isNum(r.pm25) || isNum(r.aqi) || isNum(r.heat_index_c) || isNum(r.temp_c) || isNum(r.temperature_c);
+}
+
 export class AirSafeMcpServer {
   private jwtSecret: string;
   private docClient?: DynamoDBDocumentClient;
@@ -282,12 +310,17 @@ export class AirSafeMcpServer {
                 KeyConditionExpression: 'school_id = :sid',
                 ExpressionAttributeValues: { ':sid': schoolId },
                 ScanIndexForward: false,
-                Limit: 1
+                Limit: 20
               })
             );
 
-            if (result.Items && result.Items.length > 0) {
-              const item = result.Items[0];
+            // Filter out heartbeat, seed, or modeled records; require actual numeric sensor readings
+            const validItems = (result.Items || []).filter(
+              item => !isHeartbeatOrSeed(item) && hasActualReadings(item)
+            );
+
+            if (validItems.length > 0) {
+              const item = validItems[0];
               const decision = item.evaluation?.decision || 'UNKNOWN';
               const status = decision === 'MOVE_INDOORS'
                 ? 'RED'
@@ -299,6 +332,7 @@ export class AirSafeMcpServer {
                 ? 'GREEN'
                 : 'UNKNOWN';
 
+              if (decision !== 'UNKNOWN' && status !== 'UNKNOWN') {
                 const pm25 = typeof item.readings?.pm25_ugm3 === 'number'
                   ? item.readings.pm25_ugm3
                   : (typeof item.readings?.pm25 === 'number' ? item.readings.pm25 : null);
@@ -322,10 +356,11 @@ export class AirSafeMcpServer {
                   reason_codes: item.evaluation?.reasonCodes || [],
                   requires_shade: item.evaluation?.requiresShade ?? false,
                   max_duration_minutes: item.evaluation?.maxDurationMinutes,
-                is_stale: item.evaluation?.isStale ?? false,
-                is_modeled: item.is_modeled ?? false,
-                last_updated: item.timestamp
-              };
+                  is_stale: item.evaluation?.isStale ?? false,
+                  is_modeled: item.is_modeled ?? false,
+                  last_updated: item.timestamp
+                };
+              }
             }
           } catch {
             // Fallthrough to unavailable response
@@ -354,12 +389,16 @@ export class AirSafeMcpServer {
                 KeyConditionExpression: 'school_id = :sid',
                 ExpressionAttributeValues: { ':sid': schoolId },
                 ScanIndexForward: false,
-                Limit: 1
+                Limit: 20
               })
             );
 
-            if (result.Items && result.Items.length > 0) {
-              const item = result.Items[0];
+            const validItems = (result.Items || []).filter(
+              item => !isHeartbeatOrSeed(item) && hasActualReadings(item)
+            );
+
+            if (validItems.length > 0) {
+              const item = validItems[0];
               const sitePm25 = typeof item.readings?.pm25_ugm3 === 'number' ? item.readings.pm25_ugm3 : null;
               const siteAqi = sitePm25 != null ? calculateAqiFromPm25(sitePm25) : item.readings?.aqi;
               const siteSource = item.source || (item.sensor_id ? 'CAMPUS_IOT_SENSOR' : (item.is_modeled ? 'Open-Meteo (modeled)' : 'Station Sensor'));
@@ -381,7 +420,6 @@ export class AirSafeMcpServer {
                   timestamp: item.timestamp
                 }
               ];
-
               if (args.location_type) {
                 return sites.filter(s => s.location_type === args.location_type);
               }
