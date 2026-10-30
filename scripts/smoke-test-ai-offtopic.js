@@ -135,9 +135,20 @@ async function runSmokeTests() {
       console.error(`❌ FATAL: Live authentication failed and --require-live is enforced: ${err.message}`);
       process.exit(1);
     }
-    console.warn(`⚠️ Live authentication unavailable (${err.message}). Testing via local API service handler.`);
+    console.warn(`\n⚠️ ========================================================\n⚠️ WARNING: LOCAL — NOT LIVE (Live authentication unavailable: ${err.message})\n⚠️ Testing via local API service handler.\n⚠️ ========================================================\n`);
     try {
       process.env.API_JWT_SECRET = process.env.API_JWT_SECRET || 'MockUnitTestCredential_OnlyForTesting#2026';
+      process.env.MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || '0'.repeat(32);
+      process.env.AWS_REGION = process.env.AWS_REGION || 'ap-southeast-2';
+      if (!process.env.AWS_ACCESS_KEY_ID) {
+        try {
+          const credsJson = require('child_process').execSync('aws configure export-credentials', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+          const parsedCreds = JSON.parse(credsJson);
+          process.env.AWS_ACCESS_KEY_ID = parsedCreds.AccessKeyId;
+          process.env.AWS_SECRET_ACCESS_KEY = parsedCreds.SecretAccessKey;
+          if (parsedCreds.SessionToken) process.env.AWS_SESSION_TOKEN = parsedCreds.SessionToken;
+        } catch (_) {}
+      }
       const apiModule = require('../services/api/dist/index');
       localHandler = apiModule.handler;
       token = apiModule.createSignedJwt({
@@ -231,7 +242,7 @@ async function runSmokeTests() {
   console.log('\n------------------------------------------------------------------------');
   if (failedCount === 0) {
     if (useLocalHandler) {
-      console.log(`⚠️ ALL ${OFF_TOPIC_TEST_CASES.length} SMOKE TESTS PASSED (LOCAL handler — NOT live).`);
+      console.log(`⚠️ ALL ${OFF_TOPIC_TEST_CASES.length} SMOKE TESTS PASSED (LOCAL — NOT LIVE).`);
     } else {
       console.log(`✅ ALL ${OFF_TOPIC_TEST_CASES.length} POST-DEPLOY SMOKE TESTS PASSED! Off-topic refusal is live and active.`);
     }

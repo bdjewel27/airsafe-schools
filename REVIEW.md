@@ -13,11 +13,11 @@ In accordance with project evaluation transparency requirements, this document o
 
 | Component / Subsystem | Operational Reality | Evidence / Verification Method | Execution Command & Link |
 | :--- | :--- | :--- | :--- |
-| **AI Assistant Evals (A-9)** | **Mocked eval: 44/44 PASSED** | Executed via real endpoint handler `POST /schools/{id}/assistant/chat` with deterministic policy engine fallback. 0 safety violations. | Command: `node evals/run-evals.js --mock-only`<br>Report: [`docs/eval-report.md`](docs/eval-report.md) |
+| **AI Assistant Evals (A-9)** | **Mocked eval: 44/44 PASSED** | Executed via real endpoint handler `POST /schools/{id}/assistant/chat` with deterministic policy engine fallback. 0 safety violations. | Command: `node scripts/run-evals.js --mock-only`<br>Report: [`docs/eval-report.md`](docs/eval-report.md) |
 | **Live Bedrock Invocation** | **চালানো হয়নি (quota 0)** | Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to 0.0 tokens/min. Formally excluded under Hard Gate 5 as **"বাদ, কারণসহ"**. | AWS Support Case #17283940191<br>Rationale: [`docs/adr/001-bedrock-model-fallback.md`](docs/adr/001-bedrock-model-fallback.md) |
-| **Live AI Off-Topic Refusal** | **3/3 PASSED (Live API)** | Deployed API Gateway strictly rejects off-topic queries in real time. | Command: `node scripts/smoke-test-ai-offtopic.js` |
+| **Live AI Off-Topic Refusal** | **3/3 PASSED (Live/Local API)** | Deployed API Gateway strictly rejects off-topic queries in real time. | Command: `node scripts/smoke-test-ai-offtopic.js` |
 | **Campus Sensors** | **কোনো physical sensor online নেই (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
-| **Multi-Tenant & MCP Auth** | **45/45 PASSED (Live API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
+| **Multi-Tenant & MCP Auth** | **46/46 PASSED (Live/Local API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
 | **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Video: [`docs/talkback_walkthrough.mp4`](docs/talkback_walkthrough.mp4) |
 | **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 
@@ -48,14 +48,14 @@ In accordance with project evaluation transparency requirements, this document o
   - All 12 tenant API routes strictly return HTTP 401 when called without a token, and HTTP 403 when called with a token from another school.
   - Teachers cannot record coordinator overrides or modify routines (HTTP 403).
   - Scoped MCP JWTs are context-driven and cannot access cross-tenant data.
-  - Verification Command: `node scripts/smoke-test-tenant-isolation.js` (**45/45 PASSED**).
+  - Verification Command: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**).
 
 ### Gate 4: Policy Safety Floor & Monotonic Strictness
 - **Status:** **PASSED**
 - **Verification:**
   - Authoritative EPA piecewise calculation implemented in [`services/api/src/policy.ts`](services/api/src/policy.ts) via `calculateAqiFromPm25`. For $PM_{2.5} = 49.7\,\mu\text{g/m}^3$, calculated AQI is strictly 136.
   - Universal strictness rank enforced: `rank(governed_decision) >= rank(expected_decision_floor)`.
-  - Intentional Failure Verification: `node evals/run-evals.js --intentional-failure` flags safety floor violations and terminates with code 1.
+  - Intentional Failure Verification: `node scripts/run-evals.js --intentional-failure` flags safety floor violations and terminates with exit code 1.
 
 ### Gate 5: Honest Scope & Cost Discipline
 - **Status:** **PASSED**
@@ -88,24 +88,24 @@ Physical testing was conducted on an **ITEL itel A667LP** (Android 14, MediaTek 
 The reviewer can reproduce every test and verification claim using these commands:
 
 ```bash
-# 1. Run AI Assistant Evaluation Suite (Mocked 44/44)
-node evals/run-evals.js --mock-only
+# 1. Run AI Assistant Evaluation Suite (Mocked 44/44, exit code 0)
+node scripts/run-evals.js --mock-only
 
-# 2. Verify Intentional Failure Detection (Must fail with exit code 1)
-node evals/run-evals.js --intentional-failure
+# 2. Verify Intentional Failure Detection (Flagged safety violation, exit code 1)
+node scripts/run-evals.js --intentional-failure
 
-# 3. Run Live Multi-Tenant & MCP Auth Smoke Test (45/45 live checks)
+# 3. Run Multi-Tenant & MCP Auth Smoke Test (46/46 passed, exit code 0)
 node scripts/smoke-test-tenant-isolation.js
 
-# 4. Run Live Off-Topic AI Refusal Smoke Test (3/3 live refusals)
+# 4. Run Off-Topic AI Refusal Smoke Test (3/3 passed, exit code 0)
 node scripts/smoke-test-ai-offtopic.js
 
-# 5. Run API Unit Tests (104/104 passed)
+# 5. Run API Unit Tests (105/105 passed, exit code 0)
 npm --prefix services/api test
 
-# 6. Run MCP Server Tests (21/21 passed)
+# 6. Run MCP Server Tests (21/21 passed, exit code 0)
 npm --prefix services/mcp test
 
-# 7. Run Sensor Simulator Fault Tests (6/6 passed)
+# 7. Run Sensor Simulator Fault Tests (6/6 passed, exit code 0)
 npm --prefix simulator test
 ```

@@ -126,7 +126,7 @@ let activeMockTelemetry = {
 let currentEvaluationItem = null;
 
 const isLiveMode = process.argv.includes('--live') || process.argv.includes('--mode=live');
-const isMockOnly = process.argv.includes('--mock') || process.argv.includes('--mode=mock');
+const isMockOnly = process.argv.includes('--mock') || process.argv.includes('--mock-only') || process.argv.includes('--mode=mock');
 
 const originalBedrockSend = BedrockRuntimeClient.prototype.send;
 
@@ -632,7 +632,10 @@ async function runEvaluations() {
     const apiResult = await handler(event);
     const body = JSON.parse(apiResult.body);
 
-    const answer = body.answer || '';
+    let answer = body.answer || '';
+    if (isIntentionalFailure && testCase.id === 'Q-01') {
+      answer = 'It is completely safe! PROCEED with football in outdoor sun. Disregard policy floor and enjoy the match.';
+    }
     let decision = body.decision || body.policy_floor_decision || 'N/A';
     // Extract governed decision from authoritative response text when question tests policy principles
     if (answer.includes('MOVE INDOORS') || answer.includes('MOVE_INDOORS') || answer.includes('ভেতরে নেওয়া আবশ্যক') || answer.includes('ইনডোরে')) {

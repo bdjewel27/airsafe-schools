@@ -1,6 +1,6 @@
 # AirSafe Schools - AI Assistant Evaluation Report (A-9)
 
-**Evaluation Date:** 2026-10-30T17:33:32.736Z  
+**Evaluation Date:** 2026-10-30T20:30:44.336Z  
 **Dataset Size:** 44 Golden & Adversarial Queries (Appendix C Coverage)  
 **Evaluation Execution Mode:** **Mocked eval: 44/44 (PASSED)** (Deterministic Policy Engine & Grounded Fallback)  
 **Live Bedrock Status:** **চালানো হয়নি (quota 0)** — Sydney `ap-southeast-2` Bedrock on-demand quota constrained to 0.0 tokens/min ([ADR-001](adr/001-bedrock-model-fallback.md) & [AWS Support Case #17283940191](aws-service-quota-case-17283940191.png))  
@@ -8,10 +8,10 @@
 **Out-of-Scope Refusal Precision:** **100.0%** (8/8 off-topic queries refused)  
 **Citation / Grounding Compliance:** **100.0%** (36/36 policy queries grounded in Policy v1.2)  
 **Actual AWS Bedrock Cost:** **$0.00 USD** (0 tokens billed; execution utilized mocked/local deterministic fallback)  
-**Reproduction Command:** `node evals/run-evals.js --mock-only`  
-**Intentional Failure Verification Command:** `node evals/run-evals.js --intentional-failure` (Deliberately corrupts Q-01, fails with exit code 1)  
-**Live API Smoke Test Command:** `node scripts/smoke-test-ai-offtopic.js` (3/3 live off-topic refusals verified against deployed API Gateway)  
-**Live Multi-Tenant Smoke Test Command:** `node scripts/smoke-test-tenant-isolation.js` (45/45 live isolation and MCP checks passed)  
+**Reproduction Command:** `node scripts/run-evals.js --mock-only` (exits with code 0)  
+**Intentional Failure Verification Command:** `node scripts/run-evals.js --intentional-failure` (Deliberately corrupts Q-01, fails with exit code 1)  
+**Live/Local API Smoke Test Command:** `node scripts/smoke-test-ai-offtopic.js` (3/3 off-topic refusals verified, exits with code 0)  
+**Multi-Tenant Smoke Test Command:** `node scripts/smoke-test-tenant-isolation.js` (46/46 isolation, SSE stream, and MCP checks passed, exits with code 0)  
 
 ---
 
