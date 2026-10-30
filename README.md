@@ -286,5 +286,5 @@ Per Section 9 of Project Brief v2.0 and **ADR 012**, the architecture operates w
 | **Accessibility Evidence** | TalkBack audit, contrast ratios, Bengali UI | [`docs/device-test.md`](docs/device-test.md#b-talkback-u-6-accessibility--contrast-audit) & [`docs/ux-decisions.md`](docs/ux-decisions.md#7-accessibility-contrast--200-font-zoom-verification-u-6) | ✅ **Ready** |
 | **AI Usage Log** | AI use cases, human audit & verification | [`docs/ai-usage-log.md`](docs/ai-usage-log.md) (Claude, Gemini, Bedrock oversight log) | ✅ **Ready** |
 | **Demo Walkthrough Video (8-10 min)** | External Video (J-1 to J-4 on phone) | Provided via YouTube / Drive link in submission form & [`docs/device-test.md`](docs/device-test.md#8-video-recordings--demonstration-artifacts-ভিডিও-ও-ডেমো-লিঙ্ক) | 🎬 **User Upload** |
-| **Reviewer Login Credentials** | 3 Isolated Tenants / Roles (Never in git) | Specified in [`RUNBOOK.md`](RUNBOOK.md#2-reviewer-account-provisioning-out-of-band-delivery); passwords delivered out-of-band | ✅ **Ready** |
+| **Reviewer Login Credentials** | 3 Isolated Tenants / Roles (Never in git) | Stored in AWS Secrets Manager (`airsafe/demo-credentials`); see [`RUNBOOK.md`](RUNBOOK.md#2-reviewer-account-provisioning-out-of-band-delivery) | ✅ **Ready** |
 

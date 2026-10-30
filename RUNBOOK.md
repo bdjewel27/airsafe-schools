@@ -42,7 +42,7 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 > - **Region:** `ap-southeast-2` (Sydney)
 > - **AWS CLI Retrieval Command:**
 >   ```bash
->   aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --region ap-southeast-2 --query SecretString --output text
+>   aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --query SecretString --output text
 >   ```
 > Reviewers can also receive credentials via secure out-of-band communication (`<PROVIDED_VIA_OUT_OF_BAND_EMAIL>`).
 > Reviewers can authenticate directly on the mobile app or via API:

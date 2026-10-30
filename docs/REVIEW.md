@@ -19,7 +19,7 @@ In accordance with project evaluation transparency requirements, this document o
 | **Campus Sensors** | **কোনো physical sensor online নেই (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
 | **Multi-Tenant & MCP Auth** | **45/45 PASSED (Live API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
 | **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Video: [`docs/talkback_walkthrough.mp4`](docs/talkback_walkthrough.mp4) |
-| **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 
 ---
 
@@ -30,7 +30,10 @@ In accordance with project evaluation transparency requirements, this document o
 - **Verification:**
   - Ran `git-filter-repo` to purge all historical passwords across all 181 commits.
   - Gitleaks configured in [`.gitleaks.toml`](.gitleaks.toml) and enforced as a mandatory blocking prerequisite in [GitHub Actions CI](.github/workflows/ci.yml).
-  - Reviewer and demo credentials are stored in AWS Secrets Manager under secret ID `airsafe/demo-credentials` and delivered out-of-band to reviewers.
+  - Reviewer and demo credentials are stored securely in AWS Secrets Manager under secret ID `airsafe/demo-credentials`:
+    ```bash
+    aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --query SecretString --output text
+    ```
 
 ### Gate 2: Crash-Free & Operational Flow
 - **Status:** **PASSED (Simulated / Seeded Telemetry)**

@@ -104,7 +104,25 @@ export async function seedAllData(options?: {
     });
   const readingsTable = options?.tableName || TABLE_NAME;
   const decisionsTable = options?.decisionsTableName || DECISIONS_TABLE_NAME;
-  const defaultPassword = options?.password || '[REDACTED_PASSWORD]';
+  let defaultPassword = options?.password || process.env.AIRSAFE_TEST_PASSWORD;
+  if (!defaultPassword) {
+    try {
+      const { execSync } = require('child_process');
+      const raw = execSync(
+        'aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --query SecretString --output text',
+        { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' }
+      );
+      if (raw && raw.trim()) {
+        const parsed = JSON.parse(raw.trim());
+        defaultPassword = parsed.principal_password || parsed.teacher_password;
+      }
+    } catch {
+      // Retain fallback in local or mock environments where AWS CLI is not configured
+    }
+  }
+  if (!defaultPassword) {
+    defaultPassword = '[REDACTED_PASSWORD]';
+  }
   const passwordHash = hashPassword(defaultPassword);
   const nowIso = new Date().toISOString();
   const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
