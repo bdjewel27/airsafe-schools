@@ -2841,6 +2841,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         };
       }
 
+      const isSse =
+        body.stream === true ||
+        (event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream');
+
       // Query latest reading for this school from DynamoDB
       const readingRes = await docClient.send(
         new QueryCommand({
@@ -2853,13 +2857,43 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       );
       const item = readingRes.Items?.[0];
       if (!item || !item.readings) {
+        const failClosedMsg = isBengali
+          ? 'বর্তমানে আপনার স্কুলের সেন্সর ডেটা পাওয়া যাচ্ছে না (UNKNOWN — Fail-Closed)। নীতিমালা অনুযায়ী ডেটা ছাড়া কোনো আউটডোর কার্যক্রমকে নিরাপদ ঘোষণা করা যাবে না।'
+          : 'Sensor telemetry is currently unavailable for your school (UNKNOWN — Fail-Closed). Per Policy v1.2, outdoor activity cannot be declared safe without verified data.';
+
+        if (isSse) {
+          const sseBody =
+            'event: token\ndata: ' +
+            JSON.stringify({ delta: failClosedMsg }) +
+            '\n\nevent: completion\ndata: ' +
+            JSON.stringify({
+              answer: failClosedMsg,
+              decision: 'UNKNOWN',
+              policy_floor_decision: 'UNKNOWN',
+              citation_id: 'Policy v1.2 §4 (Data Quality & Fail-Closed)',
+              citation_excerpt: 'When sensor and modeled telemetry are unavailable, the system must fail closed to UNKNOWN.',
+              doc_id: 'airsafe-policy-v1.2',
+            }) +
+            '\n\n';
+
+          return {
+            statusCode: 200,
+            headers: {
+              ...getCorsHeaders(event),
+              'Content-Type': 'text/event-stream',
+              'content-type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              Connection: 'keep-alive',
+            },
+            body: sseBody,
+          };
+        }
+
         return {
           statusCode: 200,
           headers: getCorsHeaders(event),
           body: JSON.stringify({
-            answer: isBengali
-              ? 'বর্তমানে আপনার স্কুলের সেন্সর ডেটা পাওয়া যাচ্ছে না (UNKNOWN — Fail-Closed)। নীতিমালা অনুযায়ী ডেটা ছাড়া কোনো আউটডোর কার্যক্রমকে নিরাপদ ঘোষণা করা যাবে না।'
-              : 'Sensor telemetry is currently unavailable for your school (UNKNOWN — Fail-Closed). Per Policy v1.2, outdoor activity cannot be declared safe without verified data.',
+            answer: failClosedMsg,
             citation_id: 'Policy v1.2 §4 (Data Quality & Fail-Closed)',
             citation_excerpt: 'When sensor and modeled telemetry are unavailable, the system must fail closed to UNKNOWN.',
             doc_id: 'airsafe-policy-v1.2',
@@ -3100,9 +3134,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Mint strictly scoped MCP token for AI Assistant (Hard Gate 2, Section A-3, A-6)
       const mcpToken = mintMcpTokenForChat(schoolId, auth.role);
 
-      const isSse =
-        body.stream === true ||
-        (event.headers?.accept || event.headers?.Accept || "").includes("text/event-stream");
 
       let sseBody = "";
 
