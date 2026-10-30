@@ -2792,6 +2792,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             headers: {
               ...getCorsHeaders(event),
               'Content-Type': 'text/event-stream',
+              'content-type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               Connection: 'keep-alive',
             },
@@ -3017,6 +3018,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             headers: {
               ...getCorsHeaders(event),
               "Content-Type": "text/event-stream",
+              "content-type": "text/event-stream",
               "Cache-Control": "no-cache",
               "Connection": "keep-alive",
               "X-Cache": "HIT",
@@ -3185,6 +3187,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           headers: {
             ...getCorsHeaders(event),
             "Content-Type": "text/event-stream",
+            "content-type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-RateLimit-Limit": String(quotaResult.limit),
@@ -3290,6 +3293,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           headers: {
             ...getCorsHeaders(event),
             'Content-Type': 'text/event-stream',
+            'content-type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
           },
@@ -3447,10 +3451,10 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const isEventsRoute = path.endsWith('/events');
-    const isSse =
-      isEventsRoute &&
-      ((event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream') ||
-        event.queryStringParameters?.stream === 'sse');
+      const isSse =
+        isEventsRoute &&
+        ((event.headers?.accept || event.headers?.Accept || '').includes('text/event-stream') ||
+          event.queryStringParameters?.stream === 'sse');
 
     // F-02: Calculate Confidence Level (আস্থার মাত্রা) based on sensor provenance and freshness
     let confidenceLevelPct = 95;
@@ -3572,8 +3576,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers: {
           ...getCorsHeaders(event),
           'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+            'content-type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
         },
         body: `event: decision\ndata: ${JSON.stringify(decisionPayload)}\n\n`,
       };
