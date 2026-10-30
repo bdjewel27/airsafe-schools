@@ -209,9 +209,16 @@ async function runSmokeTests() {
         pathParameters: { schoolId: sid },
       };
       const res = await localApiHandler(event);
+      const resHeaders = {};
+      if (res.headers) {
+        for (const [k, v] of Object.entries(res.headers)) {
+          resHeaders[k.toLowerCase()] = v;
+          resHeaders[k] = v;
+        }
+      }
       return {
         statusCode: res.statusCode,
-        headers: res.headers || {},
+        headers: resHeaders,
         body: res.body || '',
       };
     } else {
@@ -275,7 +282,7 @@ async function runSmokeTests() {
 
   // 3. Events with School A token -> 200 text/event-stream
   const sseLegit = await invokeRoute(eventsPath, 'GET', tokenA, null, { Accept: 'text/event-stream' });
-  const isSseContentType = (sseLegit.headers['content-type'] || '').includes('text/event-stream');
+  const isSseContentType = (sseLegit.headers['content-type'] || sseLegit.headers['Content-Type'] || '').includes('text/event-stream');
   const hasSsePrefix = sseLegit.body.includes('event: decision') || sseLegit.body.includes('data:');
   assertResult(
     `[200 Legitimate SSE] GET ${eventsPath} returns text/event-stream with decision event`,
@@ -300,7 +307,7 @@ async function runSmokeTests() {
   );
 
   const sseChatLegit = await invokeRoute(chatPath, 'POST', tokenA, { query: 'আজ কি ফুটবল খেলা যাবে?', stream: true }, { Accept: 'text/event-stream' });
-  const isChatSseType = (sseChatLegit.headers['content-type'] || '').includes('text/event-stream');
+  const isChatSseType = (sseChatLegit.headers['content-type'] || sseChatLegit.headers['Content-Type'] || '').includes('text/event-stream');
   assertResult(
     `[200 Stream Chat] POST ${chatPath} returns text/event-stream response`,
     sseChatLegit.statusCode === 200 && isChatSseType,
@@ -368,10 +375,35 @@ async function runSmokeTests() {
   // 4. MCP with valid scoped token from Chat Lambda -> 200 with tools list
   let validMcpToken;
   try {
+    if (!process.env.MCP_JWT_SECRET) {
+      try {
+        const ssmVal = execSync(
+          'aws ssm get-parameter --name /airsafe/dev/mcp-jwt-secret --with-decryption --region ap-southeast-2 --query Parameter.Value --output text',
+          { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf-8' }
+        );
+        if (ssmVal && ssmVal.trim()) {
+          process.env.MCP_JWT_SECRET = ssmVal.trim();
+        }
+      } catch {}
+    }
     const { mintMcpTokenForChat } = require('../services/api/dist/index');
     validMcpToken = mintMcpTokenForChat(SCHOOL_A_ID);
   } catch {
     // If running live without dist, create test token
+  }
+  if (!validMcpToken && process.env.MCP_JWT_SECRET) {
+    const now = Math.floor(Date.now() / 1000);
+    const h = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const p = Buffer.from(JSON.stringify({
+      iss: 'airsafe-chat',
+      aud: 'airsafe-mcp',
+      iat: now,
+      exp: now + 300,
+      school_id: SCHOOL_A_ID,
+      role: 'COORDINATOR'
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', process.env.MCP_JWT_SECRET).update(`${h}.${p}`).digest('base64url');
+    validMcpToken = `${h}.${p}.${sig}`;
   }
   if (validMcpToken) {
     const mcpValid = await invokeMcp(validMcpToken);
