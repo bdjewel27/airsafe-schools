@@ -813,7 +813,8 @@ export function buildContextualAnswer(params: {
 
   const hasBangla = /[\u0980-\u09FF]/.test(params.query);
   const isPureEnglish = /^[a-zA-Z0-9\s.,?!'"\-:;()]+$/.test(params.query.trim());
-  const isBengali = hasBangla || (params.isBengali && !isPureEnglish);
+  const isBanglish = /\b(shikkhok|baire|bahire|khela|jabe|hobe|parbe|parben|paren|pare|ajke|aaj|ki|kemon|shokal|bikal|dhaka|school|mathe)\b/i.test(params.query);
+  const isBengali = hasBangla || isBanglish || (params.isBengali && !isPureEnglish);
   const schoolName = isBengali ? params.schoolNameBn : params.schoolNameEn;
   const q = params.query.toLowerCase().trim();
 
@@ -832,26 +833,64 @@ export function buildContextualAnswer(params: {
 
   // 2. Permission / "খেলা যাবে?" / "Can students play?" (Hard requirement 2)
   const isPermissionQuery =
+    // Bengali permission phrases
     q.includes('খেলা যাবে') ||
-    q.includes('বাইরে যাওয়া যাবে') ||
+    q.includes('খেলা হবে') ||
+    q.includes('খেলাধুলা') ||
+    q.includes('বাইরে যাওয়া') ||
+    q.includes('বাইরে যাওয়া') ||
     q.includes('যেতে পারবে') ||
-    q.includes('অনুমতি আছে') ||
-    q.includes('করা যাবে কি') ||
-    q.includes('যাওয়া যাবে কি') ||
-    q.includes('can we play') ||
-    q.includes('can students play') ||
-    q.includes('can they play') ||
-    q.includes('allowed to play') ||
-    q.includes('safe to play') ||
+    q.includes('যেতে পারে') ||
+    q.includes('যেতে পারবেন') ||
+    q.includes('যেতে পারেন') ||
+    q.includes('মাঠে যেতে') ||
+    q.includes('বের হতে') ||
+    q.includes('অনুমতি') ||
+    q.includes('করা যাবে') ||
+    q.includes('করা সম্ভব') ||
+    q.includes('যাওয়া যাবে') ||
+    q.includes('যাওয়া যাবে') ||
+    q.includes('বাইরে কি') ||
+    q.includes('মাঠে কি') ||
+    q.includes('বাইরে থাকা') ||
+    // Banglish permission phrases
+    q.includes('jete parbe') ||
+    q.includes('jete pare') ||
+    q.includes('jete parben') ||
+    q.includes('jete paren') ||
+    q.includes('baire jete') ||
+    q.includes('bahire jete') ||
+    q.includes('baire jawa') ||
+    q.includes('baire jaoa') ||
+    q.includes('khela jabe') ||
+    q.includes('khela hobe') ||
+    q.includes('jaoa jabe') ||
+    q.includes('jawa jabe') ||
+    q.includes('mathe jete') ||
+    q.includes('onumoti') ||
+    // English permission phrases
+    q.includes('can we') ||
+    q.includes('can students') ||
+    q.includes('can they') ||
+    q.includes('can teacher') ||
+    q.includes('can teachers') ||
+    q.includes('can staff') ||
+    q.includes('can anyone') ||
+    q.includes('can i') ||
+    q.includes('allowed to') ||
+    q.includes('safe to') ||
+    q.includes('go out') ||
     q.includes('go outside') ||
     q.includes('play football') ||
     q.includes('play cricket') ||
     q.includes('hold pe') ||
-    q.includes('can we hold');
+    q.includes('hold class') ||
+    q.includes('can we hold') ||
+    q.includes('should we stay');
 
   if (isPermissionQuery) {
     if (isBengali) {
-      if (decision === 'MOVE_INDOORS') {
+      if (decision === 'MOVE_INDOORS' || decision === 'CANCEL') {
         let ans = `না, বর্তমানে বাইরে খেলাধুলা বা বহিরাঙ্গন কার্যক্রম বন্ধ রাখতে হবে। অনুমোদিত সিদ্ধান্ত: **${decision}** (${primaryReason})।`;
         if (routineNameBn) {
           ans += ` বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)।`;
@@ -905,7 +944,7 @@ export function buildContextualAnswer(params: {
         return ans;
       }
     } else {
-      if (decision === 'MOVE_INDOORS') {
+      if (decision === 'MOVE_INDOORS' || decision === 'CANCEL') {
         let ans = `No, outdoor sports and activities are prohibited right now. Authoritative decision: **${decision}** (${primaryReason}).`;
         if (routineNameEn) {
           ans += ` Current session: ${routineNameEn} (${activeIntensity} intensity).`;
@@ -1050,6 +1089,17 @@ export function buildContextualAnswer(params: {
 
   // 5. Default General Contextual Answer
   if (isBengali) {
+    let directYesNoPrefix = '';
+    if (decision === 'MOVE_INDOORS' || decision === 'CANCEL') {
+      directYesNoPrefix = 'না, বর্তমানে বাইরে সব ধরনের খেলাধুলা ও বহিরাঙ্গন কার্যক্রম বন্ধ রাখতে হবে। ';
+    } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
+      directYesNoPrefix = 'না (স্বাভাবিক খেলাধুলা বন্ধ; তবে সীমিত সতর্কতামূলক কার্যক্রম অনুমোদিত)। ';
+    } else {
+      directYesNoPrefix = 'হ্যাঁ, বর্তমানে বাইরে স্বাভাবিক কার্যক্রম অনুমোদিত। ';
+    }
+
+    const decisionText = `Model School Outdoor Activity Policy v1.2 অনুযায়ী ${schoolName}-এর জন্য বর্তমান অনুমোদিত সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
+
     const contextParts: string[] = [];
     if (routineNameBn) {
       contextParts.push(`বর্তমান সেশন: ${routineNameBn} (${activeIntensity} তীব্রতা)`);
@@ -1067,20 +1117,30 @@ export function buildContextualAnswer(params: {
       contextParts.push('ছায়াযুক্ত স্থান ও প্রতি ১৫ মিনিট পরপর পর্যাপ্ত পানি পানের বিরতি বাধ্যতামূলক');
     }
 
-    const contextPrefix = contextParts.length > 0 ? contextParts.join(', ') + '। ' : '';
-    const decisionText = `Model School Outdoor Activity Policy v1.2 অনুযায়ী ${schoolName}-এর জন্য বর্তমান অনুমোদিত সিদ্ধান্ত হলো **${decision}** (${primaryReason})।`;
+    const contextPrefix = contextParts.length > 0 ? ' ' + contextParts.join(', ') + '।' : '';
     const limits =
       maxDurationMinutes && maxDurationMinutes > 0
         ? ` সর্বোচ্চ সময়সীমা: ${maxDurationMinutes} মিনিট।`
-        : decision === 'MOVE_INDOORS'
+        : decision === 'MOVE_INDOORS' || decision === 'CANCEL'
           ? ' সব ধরনের বহিরাঙ্গন খেলাধুলা অবিলম্বে স্থগিত করে ইনডোরে স্থানান্তর করতে হবে।'
           : '';
     const nextText = nextActivityBn ? ` পরবর্তী নির্ধারিত কার্যক্রম: ${nextActivityBn}।` : '';
     const staleText = isStale ? ' [সতর্কবার্তা: সেন্সর ডেটা ৯০ মিনিটের পুরনো]' : '';
     const overrideText = activeOverride ? ` [কো-অর্ডিনেটর ওভাররাইড সক্রিয়: ${activeOverride.requested_decision}]` : '';
 
-    return `${contextPrefix}${decisionText}${limits}${nextText}${overrideText}${staleText}`;
+    return `${directYesNoPrefix}${decisionText}${contextPrefix}${limits}${nextText}${overrideText}${staleText}`;
   }
+
+  let directYesNoPrefix = '';
+  if (decision === 'MOVE_INDOORS' || decision === 'CANCEL') {
+    directYesNoPrefix = 'No, outdoor sports and activities are prohibited right now. ';
+  } else if (decision === 'RESTRICTED' || decision === 'MODIFY') {
+    directYesNoPrefix = 'No for unrestricted play; only strictly modified activity permitted. ';
+  } else {
+    directYesNoPrefix = 'Yes, outdoor activities are permitted right now. ';
+  }
+
+  const decisionText = `Per Model School Outdoor Activity Policy v1.2, the authoritative decision for ${schoolName} is **${decision}** (${primaryReason}).`;
 
   const contextParts: string[] = [];
   if (routineNameEn) {
@@ -1099,19 +1159,18 @@ export function buildContextualAnswer(params: {
     contextParts.push('Mandatory shade and 15-minute hydration intervals required');
   }
 
-  const contextPrefix = contextParts.length > 0 ? contextParts.join('. ') + '. ' : '';
-  const decisionText = `Per Model School Outdoor Activity Policy v1.2, the authoritative decision for ${schoolName} is **${decision}** (${primaryReason}).`;
+  const contextPrefix = contextParts.length > 0 ? ' ' + contextParts.join('. ') + '.' : '';
   const limits =
     maxDurationMinutes && maxDurationMinutes > 0
       ? ` Maximum allowed duration: ${maxDurationMinutes} minutes.`
-      : decision === 'MOVE_INDOORS'
+      : decision === 'MOVE_INDOORS' || decision === 'CANCEL'
         ? ' Outdoor activities are prohibited; move indoors immediately.'
         : '';
   const nextText = nextActivityEn ? ` Next scheduled session: ${nextActivityEn}.` : '';
   const staleText = isStale ? ' [Warning: Telemetry is older than 90m]' : '';
   const overrideText = activeOverride ? ` [Active coordinator override: ${activeOverride.requested_decision}]` : '';
 
-  return `${contextPrefix}${decisionText}${limits}${nextText}${overrideText}${staleText}`;
+  return `${directYesNoPrefix}${decisionText}${contextPrefix}${limits}${nextText}${overrideText}${staleText}`;
 }
 
 /**
