@@ -87,7 +87,7 @@ jobs:
 
       # 8. AI Assistant Off-Topic Refusal Live Smoke Test
       - name: AI Assistant Off-Topic Refusal Live Smoke Test
-        run: node scripts/smoke-test-ai-offtopic.js
+        run: node scripts/smoke-test-ai-offtopic.js --require-live
 
       # 9. Multi-Tenant Isolation, SSE Stream & MCP Security Smoke Test
       - name: Multi-Tenant Isolation, SSE Stream & MCP Security Smoke Test
