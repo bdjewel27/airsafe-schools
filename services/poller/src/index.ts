@@ -80,6 +80,9 @@ export interface SourceMetricProvenance {
 }
 
 export interface TelemetryProvenance {
+  source?: string;
+  timestamp?: string;
+  calculationStandard?: string;
   fetched_at: string;
   air_quality: SourceMetricProvenance;
   weather: SourceMetricProvenance;
@@ -154,12 +157,10 @@ export function resolveTelemetryWithProvenance(params: {
     airQualityIsModeled = false;
   } else if (hasMeteo) {
     pm25 = params.meteo!.pm25;
-    aqi =
-      typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi)
-        ? params.meteo!.usAqi
-        : Number.isFinite(pm25)
-          ? calculateAqiFromPm25(pm25)
-          : NaN;
+    // Centralize EPA AQI calculation: strictly compute via calculateAqiFromPm25 (QA Audit H5)
+    aqi = Number.isFinite(pm25)
+      ? calculateAqiFromPm25(pm25)
+      : (typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi) ? params.meteo!.usAqi : NaN);
     airQualityIsModeled = true;
   }
 
@@ -174,6 +175,9 @@ export function resolveTelemetryWithProvenance(params: {
           : 'Unavailable';
 
   const provenance: TelemetryProvenance = {
+    source: primarySource,
+    timestamp: fetchedAt,
+    calculationStandard: 'US-EPA-PM2.5-2024',
     fetched_at: fetchedAt,
     air_quality: {
       source: hasMeasuredAq ? 'OpenAQ (measured)' : hasMeteo ? 'Open-Meteo (modeled)' : 'Unavailable',
@@ -216,10 +220,9 @@ export function resolveTelemetryWithProvenance(params: {
             relative_humidity_pct: params.meteo!.relativeHumidityPct,
             heat_index_c: Number.isFinite(heatIndexC) ? heatIndexC : 0,
             pm25_ugm3: params.meteo!.pm25,
-            aqi:
-              typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi)
-                ? params.meteo!.usAqi
-                : calculateAqiFromPm25(params.meteo!.pm25),
+            aqi: Number.isFinite(params.meteo!.pm25)
+              ? calculateAqiFromPm25(params.meteo!.pm25)
+              : (typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi) ? params.meteo!.usAqi : 0),
             observed_at: params.meteo!.timestamp,
             fetched_at: fetchedAt,
             is_modeled: true,

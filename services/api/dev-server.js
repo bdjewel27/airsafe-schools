@@ -204,6 +204,33 @@ const schoolRoutines = {
 // In-memory cache for Open-Meteo (30 seconds TTL)
 const telemetryCache = {};
 
+function calculateAqiFromPm25(pm25) {
+  if (!Number.isFinite(pm25) || pm25 < 0) return 0;
+  const c = Math.round(pm25 * 10) / 10;
+  const breakpoints = [
+    { cLow: 0.0, cHigh: 9.0, iLow: 0, iHigh: 50 },
+    { cLow: 9.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 },
+  ];
+  if (c >= 500.4) return 500;
+  for (const bp of breakpoints) {
+    if (c >= bp.cLow && c <= bp.cHigh) {
+      return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+    }
+  }
+  for (let i = 0; i < breakpoints.length - 1; i++) {
+    if (c > breakpoints[i].cHigh && c < breakpoints[i + 1].cLow) {
+      const bp = breakpoints[i];
+      return Math.round(((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow);
+    }
+  }
+  return 500;
+}
+
 async function fetchLiveTelemetry(schoolId) {
   const school = SCHOOL_COORDINATES[schoolId] || SCHOOL_COORDINATES['school-dhaka-001'];
   const cacheKey = school.schoolId;
@@ -231,7 +258,7 @@ async function fetchLiveTelemetry(schoolId) {
       rhPct: Number(weatherData.current?.relative_humidity_2m ?? 70.0),
       heatIndexC: Number(weatherData.current?.apparent_temperature ?? 31.0),
       pm25Ugm3: Number(aqiData.current?.pm2_5 ?? 35.0),
-      aqi: Number(aqiData.current?.us_aqi ?? 75),
+      aqi: calculateAqiFromPm25(Number(aqiData.current?.pm2_5 ?? 35.0)),
       fetchedAt: new Date().toISOString()
     };
 
@@ -246,7 +273,7 @@ async function fetchLiveTelemetry(schoolId) {
       rhPct: 72.0,
       heatIndexC: schoolId.includes('chittagong') ? 31.5 : 32.5,
       pm25Ugm3: schoolId.includes('chittagong') ? 38.0 : 50.0,
-      aqi: schoolId.includes('chittagong') ? 78 : 155,
+      aqi: calculateAqiFromPm25(schoolId.includes('chittagong') ? 38.0 : 50.0),
       fetchedAt: new Date().toISOString()
     };
   }
@@ -474,7 +501,12 @@ function formatDecisionResponse(raw) {
     routine_intensity: raw.routineIntensity,
     confidence_level_pct: raw.confidenceLevelPct,
     weather_trend_bn: raw.weatherTrendBn,
-    weather_trend_en: raw.weatherTrendEn
+    weather_trend_en: raw.weatherTrendEn,
+    provenance: {
+      source: `${raw.schoolId}/sensor-01`,
+      timestamp: raw.lastUpdated || new Date().toISOString(),
+      calculationStandard: 'US-EPA-PM2.5-2024',
+    }
   };
 }
 
@@ -817,8 +849,18 @@ const server = http.createServer((req, res) => {
         }
       ];
 
+      const enrichedSites = sites.map(site => ({
+        ...site,
+        aqi: calculateAqiFromPm25(site.pm25_ugm3),
+        provenance: {
+          source: `${schoolId}/${site.id}`,
+          timestamp: live.fetchedAt || new Date().toISOString(),
+          calculationStandard: 'US-EPA-PM2.5-2024',
+        },
+      }));
+
       res.writeHead(200);
-      res.end(JSON.stringify({ sites }));
+      res.end(JSON.stringify({ sites: enrichedSites }));
       return;
     }
 

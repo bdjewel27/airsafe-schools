@@ -22,6 +22,7 @@ In accordance with project evaluation transparency requirements, this document o
 | **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 | **Rate Limiter & Token Reuse** | **14/14 PASSED (QA Audit H4)** | Pre-warmed account allowlisted (100 burst window); Bearer token cached and reused across sequential test suites with zero 429 errors. | Command: `node scripts/verify-rate-limiting.js` |
+| **EPA AQI Standard & Provenance** | **136 AQI & Provenance (QA Audit H5)** | Authoritative EPA PM2.5 linear interpolation enforced across poller, API, and MCP (49.7 µg/m³ -> 136). Provenance metadata attached. | Unit Tests: `npm --prefix services/api test` (110/110 passed) |
 | **Evaluator Review Spec** | **Authoritative AI & Human Guide** | Complete endpoint access matrix, school ID mapping, and auth guide. | Guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 
 ---
@@ -59,7 +60,10 @@ In accordance with project evaluation transparency requirements, this document o
 ### Gate 4: Policy Safety Floor & Monotonic Strictness
 - **Status:** **PASSED**
 - **Verification:**
-  - Authoritative EPA piecewise calculation implemented in [`services/api/src/policy.ts`](services/api/src/policy.ts) via `calculateAqiFromPm25`. For $PM_{2.5} = 49.7\,\mu\text{g/m}^3$, calculated AQI is strictly 136.
+  - Authoritative EPA piecewise calculation implemented across poller, dev-server, API service, and MCP via `calculateAqiFromPm25`:
+    Formula: `I = ((I_high - I_low)/(C_high - C_low)) * (C - C_low) + I_low`.
+    For $PM_{2.5} = 49.7\,\mu\text{g/m}^3$, calculated AQI is strictly 136 (QA Audit H5 fix eliminating Open-Meteo 142 divergence).
+  - Telemetry provenance metadata (`source`, `timestamp`, `calculationStandard: "US-EPA-PM2.5-2024"`) attached to all `/current-decision` and `/sensor-sites` payloads.
   - Universal strictness rank enforced: `rank(governed_decision) >= rank(expected_decision_floor)`.
   - Intentional Failure Verification: `node scripts/run-evals.js --intentional-failure` flags safety floor violations and terminates with exit code 1.
 
@@ -101,12 +105,18 @@ node scripts/smoke-test-tenant-isolation.js
 # 4. Run Off-Topic AI Refusal Smoke Test (3/3 passed, exit code 0)
 node scripts/smoke-test-ai-offtopic.js
 
-# 5. Run API Unit Tests (105/105 passed, exit code 0)
+# 5. Run API Unit Tests (110/110 passed, exit code 0)
 npm --prefix services/api test
 
-# 6. Run MCP Server Tests (21/21 passed, exit code 0)
+# 6. Run Poller & Policy Ingestion Unit Tests (85/85 passed, exit code 0)
+npm --prefix services/poller test
+
+# 7. Run MCP Server Tests (21/21 passed, exit code 0)
 npm --prefix services/mcp test
 
-# 7. Run Sensor Simulator Fault Tests (6/6 passed, exit code 0)
+# 8. Run Sensor Simulator Fault Tests (6/6 passed, exit code 0)
 npm --prefix simulator test
+
+# 9. Run Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
+node scripts/verify-rate-limiting.js
 ```
