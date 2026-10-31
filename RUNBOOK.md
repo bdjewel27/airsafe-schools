@@ -45,12 +45,31 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 >   aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --query SecretString --output text
 >   ```
 > Reviewers can also receive credentials via secure out-of-band communication (`<PROVIDED_VIA_OUT_OF_BAND_EMAIL>`).
+> ### Public Health & Policy Endpoints (Zero Authentication Required):
+> Evaluators can immediately test public endpoints without credentials:
+> ```bash
+> # 1. Public Health Check (Returns HTTP 200 OK)
+> curl -i https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/health
+>
+> # 2. Public Policy v1.2 Rules (Returns HTTP 200 OK)
+> curl -i https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/policies/current
+> ```
+>
+> ### Protected School Endpoints (Canonical School ID: school-dhaka-001):
+> Under Hard Gate 2 & 3, tenant endpoints (e.g. `/sensor-sites`, `/current-decision`) require a valid Bearer token.
 > Reviewers can authenticate directly on the mobile app or via API:
 > ```bash
-> curl -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
+> # 1. Authenticate to receive JWT token:
+> TOKEN=$(curl -s -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
 >   -H "Content-Type: application/json" \
->   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}'
+>   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}' \
+>   | node -e "let d=''; process.stdin.on('data', c=>d+=c); process.stdin.on('end', ()=>console.log(JSON.parse(d).token||''));")
+>
+> # 2. Query protected sensor sites endpoint with token:
+> curl -i -H "Authorization: Bearer $TOKEN" \
+>   https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/schools/school-dhaka-001/sensor-sites
 > ```
+> Detailed reviewer guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md)
 
 ---
 

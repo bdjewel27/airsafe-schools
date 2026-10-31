@@ -548,6 +548,19 @@ const server = http.createServer((req, res) => {
       }
     }
 
+    // Public Health Endpoint: GET /health (Unauthenticated public status check)
+    if (req.method === 'GET' && (pathname === '/health' || pathname === '/health/')) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        status: 'ok',
+        service: 'AirSafe-API',
+        environment: 'dev',
+        timestamp: new Date().toISOString(),
+        version: '1.2.0',
+      }));
+      return;
+    }
+
     // 1. POST /auth/login
     if (req.method === 'POST' && pathname === '/auth/login') {
       const email = (parsedBody.email || '').trim().toLowerCase();
