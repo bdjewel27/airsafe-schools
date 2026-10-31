@@ -18,7 +18,7 @@ In accordance with project evaluation transparency requirements, this document o
 | **Live AI Off-Topic Refusal** | **3/3 PASSED (Live/Local API)** | Deployed API Gateway strictly rejects off-topic queries in real time. | Command: `node scripts/smoke-test-ai-offtopic.js` |
 | **Campus Sensors** | **কোনো physical sensor online নেই (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
 | **Multi-Tenant & MCP Auth** | **46/46 PASSED (Live/Local API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
-| **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Video: [`docs/talkback_walkthrough.mp4`](docs/talkback_walkthrough.mp4) |
+| **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
 | **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 
 ---
@@ -67,19 +67,14 @@ In accordance with project evaluation transparency requirements, this document o
 
 ## 3. Physical Device Demonstration & Evidence Artifacts
 
-Physical testing was conducted on an **ITEL itel A667LP** (Android 14, MediaTek Helio G25, 3GB RAM, 720×1612 px). All video recordings and photos are stored directly in the repository:
+Physical testing was conducted on an **ITEL itel A667LP** (Android 14, MediaTek Helio G25, 3GB RAM, 720x1612 px). All physical device screen captures and accessibility verification proofs are stored directly in the repository:
 
-1. **TalkBack & Screen Flow Video Walkthrough:**
-   - File: [`docs/talkback_walkthrough.mp4`](docs/talkback_walkthrough.mp4) (1.2 MB, 15 seconds)
-   - Scope: Screen transitions, TalkBack focus announcements, and morning glance flow.
-2. **Bilingual Navigation Video Walkthrough:**
-   - File: [`docs/u7_language_walkthrough.mp4`](docs/u7_language_walkthrough.mp4) (2.1 MB, 23 seconds)
-   - Scope: Instant English/Bengali UI toggle, routine schedule collapsible card.
-3. **Physical Device Photos:**
+1. **Physical Device Captures & Accessibility Proofs:**
    - Action-First Decision Card: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png)
    - Bilingual Login Screen: [`docs/real-phone-app-home.png`](docs/real-phone-app-home.png)
-   - 200% Font Zoom: [`docs/screen_decision_font200.png`](docs/screen_decision_font200.png)
-   - TalkBack Focus: [`docs/screen_decision_talkback.png`](docs/screen_decision_talkback.png)
+   - Bangla Localized Decision Card: [`docs/screen_decision_bangla.png`](docs/screen_decision_bangla.png)
+   - 200% Font Scale View: [`docs/screen_decision_font200.png`](docs/screen_decision_font200.png)
+   - TalkBack Accessibility Navigation: [`docs/screen_decision_talkback.png`](docs/screen_decision_talkback.png)
 
 ---
 
