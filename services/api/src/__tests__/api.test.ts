@@ -2547,4 +2547,21 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(aqiBody.answer).not.toEqual(offTopicBnBody.answer);
     });
   });
+
+  describe('Public Health Endpoint (QA Audit H3)', () => {
+    test('GET /health returns HTTP 200 without authentication', async () => {
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/health',
+        })
+      );
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.status).toBe('ok');
+      expect(body.service).toBe('AirSafe-API');
+      expect(body.version).toBe('1.2.0');
+      expect(body.timestamp).toBeDefined();
+    });
+  });
 });

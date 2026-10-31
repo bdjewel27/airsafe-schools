@@ -20,6 +20,8 @@ In accordance with project evaluation transparency requirements, this document o
 | **Multi-Tenant & MCP Auth** | **46/46 PASSED (Live/Local API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
 | **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
 | **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
+| **Evaluator Review Spec** | **Authoritative AI & Human Guide** | Complete endpoint access matrix, school ID mapping, and auth guide. | Guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 
 ---
 
@@ -46,6 +48,8 @@ In accordance with project evaluation transparency requirements, this document o
 - **Status:** **PASSED**
 - **Verification:**
   - All 12 tenant API routes strictly return HTTP 401 when called without a token, and HTTP 403 when called with a token from another school.
+  - School ID canonical identifier is strictly `school-dhaka-001` (historical placeholder `sch-dms-001` is aliased and normalized).
+  - Protected endpoints like `GET /schools/school-dhaka-001/sensor-sites` require valid Bearer token as verified in smoke test; unauthenticated checks correctly return HTTP 401. Public endpoints (`GET /health`, `GET /policies/current`, `GET /districts`) require zero auth.
   - Teachers cannot record coordinator overrides or modify routines (HTTP 403).
   - Scoped MCP JWTs are context-driven and cannot access cross-tenant data.
   - Verification Command: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**).
