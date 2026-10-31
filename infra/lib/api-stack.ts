@@ -235,6 +235,10 @@ export class ApiStack extends cdk.Stack {
     // S3 & Hard Gate 2: Protect all tenant /schools/* routes with Cognito User Pool authorizer
     const methodOptions: apigateway.MethodOptions | undefined = cognitoMethodOptions;
 
+    // Public Health Check Endpoint: GET /health (Unauthenticated public status check)
+    const health = this.restApi.root.addResource('health');
+    health.addMethod('GET', lambdaIntegration);
+
     // 1. Invite-only Authentication Endpoint: POST /auth/login (F-01, S-2)
     const authResource = this.restApi.root.addResource('auth');
     const loginResource = authResource.addResource('login');
