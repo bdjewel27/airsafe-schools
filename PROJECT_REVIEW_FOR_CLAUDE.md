@@ -106,6 +106,13 @@ curl -i -H "Authorization: Bearer $TOKEN" \
   }
   ```
 
+
+#### UI/UX Fallback Cleanup, Typography Unification & Dependency Audits (QA Audit M1 - M4):
+- **M1 (Decision Card Fallback Cleanup):** All hardcoded placeholder strings (`"০৯:৫০"`, `"স্কুল সমাবেশ (School Assembly)"`) removed. When live or cached data is absent, the card displays an authentic empty/unknown state ("তথ্য নেই" / "DATA UNAVAILABLE").
+- **M2 (Typography Unification):** Replaced fragmented font sizes across the Decision Card with standard `MaterialTheme.typography` styles: Title (`headlineSmall` / 22-24sp), Body (`bodyMedium` / `bodyLarge`), Label (`labelLarge` / `labelMedium`), and Caption (`bodySmall` / `labelSmall`).
+- **M3 (Visual Validation & Accessibility):** Added `DecisionCardTest.kt` asserting that the primary decision text is rendered as the most prominent text node with the largest typography style. Documented authentic device screenshot capture guidelines (`720x1612`, `200%` font scale, Bangla locale, TalkBack) in [`docs/device-test.md`](docs/device-test.md).
+- **M4 (Dependency Vulnerability Resolution):** Resolved moderate transitive `uuid` security advisories in `services/poller` by upgrading `firebase-admin` to `^14.5.0` and configuring package overrides (`uuid: ^11.1.1`, `glob: ^14.0.3`, `minimatch: ^11.0.3`). Verified `0 vulnerabilities` via `npm audit --omit=dev`.
+
 ---
 
 ## 3. Evaluation Hard Gates Compliance Matrix
@@ -151,4 +158,7 @@ npm --prefix simulator test
 
 # 9. Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
 node scripts/verify-rate-limiting.js
+
+# 10. Android App Unit & Typography Tests (Passed, exit code 0)
+cd android && ./gradlew test
 ```

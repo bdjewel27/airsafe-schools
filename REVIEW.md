@@ -23,6 +23,8 @@ In accordance with project evaluation transparency requirements, this document o
 | **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 | **Rate Limiter & Token Reuse** | **14/14 PASSED (QA Audit H4)** | Pre-warmed account allowlisted (100 burst window); Bearer token cached and reused across sequential test suites with zero 429 errors. | Command: `node scripts/verify-rate-limiting.js` |
 | **EPA AQI Standard & Provenance** | **136 AQI & Provenance (QA Audit H5)** | Authoritative EPA PM2.5 linear interpolation enforced across poller, API, and MCP (49.7 µg/m³ -> 136). Provenance metadata attached. | Unit Tests: `npm --prefix services/api test` (110/110 passed) |
+| **UI Typography & Fallback Cleanup** | **MaterialTheme Unified (QA Audit M1-M3)** | Fragmented font sizes replaced with standard M3 typography. Mock placeholders ("09:50") removed for authentic empty states ("তথ্য নেই"). | Android Tests: `./gradlew test`<br>Report: [`docs/device-test.md`](docs/device-test.md) |
+| **Dependency Security (Poller)** | **0 Vulnerabilities (QA Audit M4)** | Transitive `uuid` advisory resolved via `firebase-admin` upgrade and overrides. Confirmed via `npm audit --omit=dev`. | Command: `npm --prefix services/poller audit --omit=dev` |
 | **Evaluator Review Spec** | **Authoritative AI & Human Guide** | Complete endpoint access matrix, school ID mapping, and auth guide. | Guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 
 ---
@@ -119,4 +121,7 @@ npm --prefix simulator test
 
 # 9. Run Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
 node scripts/verify-rate-limiting.js
+
+# 10. Run Android Unit & Compose Typography Tests (Passed, exit code 0)
+cd android && ./gradlew test
 ```

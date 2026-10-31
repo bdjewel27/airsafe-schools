@@ -220,9 +220,9 @@ export function resolveTelemetryWithProvenance(params: {
             relative_humidity_pct: params.meteo!.relativeHumidityPct,
             heat_index_c: Number.isFinite(heatIndexC) ? heatIndexC : 0,
             pm25_ugm3: params.meteo!.pm25,
-            aqi: Number.isFinite(params.meteo!.pm25)
-              ? calculateAqiFromPm25(params.meteo!.pm25)
-              : (typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi) ? params.meteo!.usAqi : 0),
+            aqi: typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi)
+              ? params.meteo!.usAqi
+              : (Number.isFinite(params.meteo!.pm25) ? calculateAqiFromPm25(params.meteo!.pm25) : 0),
             observed_at: params.meteo!.timestamp,
             fetched_at: fetchedAt,
             is_modeled: true,
