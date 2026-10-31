@@ -157,10 +157,8 @@ export function resolveTelemetryWithProvenance(params: {
     airQualityIsModeled = false;
   } else if (hasMeteo) {
     pm25 = params.meteo!.pm25;
-    // Centralize EPA AQI calculation: strictly compute via calculateAqiFromPm25 (QA Audit H5)
-    aqi = Number.isFinite(pm25)
-      ? calculateAqiFromPm25(pm25)
-      : (typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi) ? params.meteo!.usAqi : NaN);
+    // Centralize EPA AQI calculation: strictly compute via calculateAqiFromPm25 from pm25 (QA Audit H5)
+    aqi = calculateAqiFromPm25(pm25);
     airQualityIsModeled = true;
   }
 
@@ -220,9 +218,7 @@ export function resolveTelemetryWithProvenance(params: {
             relative_humidity_pct: params.meteo!.relativeHumidityPct,
             heat_index_c: Number.isFinite(heatIndexC) ? heatIndexC : 0,
             pm25_ugm3: params.meteo!.pm25,
-            aqi: typeof params.meteo!.usAqi === 'number' && Number.isFinite(params.meteo!.usAqi)
-              ? params.meteo!.usAqi
-              : (Number.isFinite(params.meteo!.pm25) ? calculateAqiFromPm25(params.meteo!.pm25) : 0),
+            aqi: calculateAqiFromPm25(params.meteo!.pm25),
             observed_at: params.meteo!.timestamp,
             fetched_at: fetchedAt,
             is_modeled: true,
@@ -300,7 +296,8 @@ export const handler = async (_event: any): Promise<any> => {
           return t >= nowMs && t <= nowMs + 2 * 60 * 60 * 1000;
         });
         for (const pt of nextHours) {
-          if (typeof pt.usAqi === 'number' && pt.usAqi > evalAqi) evalAqi = pt.usAqi;
+          const ptAqi = calculateAqiFromPm25(pt.pm25);
+          if (ptAqi > evalAqi) evalAqi = ptAqi;
           if (typeof pt.heatIndexC === 'number' && pt.heatIndexC > evalHeatIndex) evalHeatIndex = pt.heatIndexC;
         }
       }
@@ -543,8 +540,8 @@ export async function pollDistrictFeeds(
               : district.baselineHeatIndexC;
           const pm25 = meteo && Number.isFinite(meteo.pm25) ? meteo.pm25 : null;
           const aqi =
-            meteo && Number.isFinite(meteo.usAqi)
-              ? meteo.usAqi
+            pm25 != null
+              ? calculateAqiFromPm25(pm25)
               : district.baselineAqi;
 
           const evaluation = evaluatePolicy(aqi, heatIndexC, 'MODERATE', true);

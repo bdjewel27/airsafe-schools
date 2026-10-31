@@ -5,6 +5,7 @@
  */
 
 import { calculateHeatIndex } from './heatindex';
+import { calculateAqiFromPm25 } from './policy';
 
 export interface HourlyForecastPoint {
   time: string;
@@ -63,7 +64,7 @@ export async function fetchOpenMeteoData(latitude: number, longitude: number): P
       const rh = hourlyWeather.relative_humidity_2m?.[i] ?? 65;
       const appC = hourlyWeather.apparent_temperature?.[i] ?? 30;
       const p25 = hourlyAir.pm2_5?.[i] ?? 35;
-      const aqiVal = hourlyAir.us_aqi?.[i] ?? 75;
+      const aqiVal = calculateAqiFromPm25(p25);
       const hi = calculateHeatIndex(tC, rh);
 
       hourlyForecast.push({
@@ -77,12 +78,13 @@ export async function fetchOpenMeteoData(latitude: number, longitude: number): P
       });
     }
 
+    const currentPm25 = currentAir.pm2_5 ?? 35;
     return {
       temperatureC: currentWeather.temperature_2m ?? 28,
       relativeHumidityPct: currentWeather.relative_humidity_2m ?? 65,
       apparentTemperatureC: currentWeather.apparent_temperature ?? 30,
-      pm25: currentAir.pm2_5 ?? 35,
-      usAqi: currentAir.us_aqi ?? 75,
+      pm25: currentPm25,
+      usAqi: calculateAqiFromPm25(currentPm25),
       timestamp: currentWeather.time ? new Date(currentWeather.time).toISOString() : new Date().toISOString(),
       isModeled: true, // Open-Meteo weather models
       hourlyForecast,

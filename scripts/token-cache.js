@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CACHE_FILE = path.join(os.tmpdir(), 'airsafe-auth-token-cache.json');
+const CACHE_FILE = path.join(__dirname, '..', '.smoke-token.json');
 const memoryCache = new Map();
 
 /**

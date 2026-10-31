@@ -306,7 +306,7 @@ describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Dri
       // Verify both raw sources are retained separately
       expect(resolved.provenance.sources_raw.openaq_measured?.aqi).toBe(152);
       expect(resolved.provenance.sources_raw.openaq_measured?.is_modeled).toBe(false);
-      expect(resolved.provenance.sources_raw.open_meteo_modeled?.aqi).toBe(65);
+      expect(resolved.provenance.sources_raw.open_meteo_modeled?.aqi).toBe(75);
       expect(resolved.provenance.sources_raw.open_meteo_modeled?.is_modeled).toBe(true);
     });
 
