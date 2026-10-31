@@ -173,3 +173,40 @@ All physical device captures, accessibility audit proofs, and installation binar
   - TalkBack Accessibility Navigation: [docs/screen_decision_talkback.png](screen_decision_talkback.png)
   - Login Screen (Bilingual): [docs/real-phone-app-home.png](real-phone-app-home.png)
   - Verified Screen Transitions: Authentication -> Decision Card -> Trends -> AI Assistant
+
+
+---
+
+## 10. Screenshot Capture Guidelines (Authentic Real Device Validation - QA Audit M3)
+
+To ensure all captured screenshots remain binary-intact (starting with magic bytes `89 50 4E 47`) and authentically reflect the physical ITEL itel A667LP specifications:
+
+### Target Device Specifications:
+- **Device Model:** ITEL itel A667LP (Android 14, MediaTek Helio G25, 3GB RAM)
+- **Target Resolution:** Exactly `720 x 1612` px
+- **Locale:** Bangla (`bn-BD`) and English (`en-US`)
+- **Accessibility Font Scale:** `200%` (2.0x Display & Text Font Scaling)
+- **Screen Reader:** Android TalkBack active with focus ring and semantic announcements
+
+### Authentic Capture Commands:
+1. **Via Command Prompt (CMD) or Git Bash:**
+   ```bash
+   adb exec-out screencap -p > docs/real-phone-decision-card.png
+   adb exec-out screencap -p > docs/screen_decision_bangla.png
+   adb exec-out screencap -p > docs/screen_decision_font200.png
+   adb exec-out screencap -p > docs/screen_decision_talkback.png
+   ```
+
+2. **Via PowerShell (Do NOT use `>` redirect):**
+   ```powershell
+   # Use adb shell screencap and adb pull (PowerShell '>' redirect corrupts binary PNGs into UTF-16 text)
+   adb shell screencap -p /sdcard/screencap.png
+   adb pull /sdcard/screencap.png docs/real-phone-decision-card.png
+   adb shell rm /sdcard/screencap.png
+   ```
+
+### Verification Artifacts & Repository Target Paths:
+- `docs/real-phone-decision-card.png`: Action-first decision card on 720x1612 physical screen.
+- `docs/screen_decision_bangla.png`: Bangla localized decision card with Bengali digits and status.
+- `docs/screen_decision_font200.png`: 200% accessibility font scale view showing zero text truncation or clipping.
+- `docs/screen_decision_talkback.png`: TalkBack navigation focus highlighting the primary decision as the most prominent node.
