@@ -147,16 +147,17 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ---
 
-## 8. Video Recordings & Demonstration Artifacts (ভিডিও ও ডেমো লিঙ্ক)
+## 8. Physical Device & Accessibility Demonstration Artifacts
 
-All video recordings, physical device captures, and installation binaries are stored and verified directly in the repository (zero placeholders):
+All physical device captures, accessibility audit proofs, and installation binaries are stored and verified directly in the repository (zero placeholders):
 
 | Deliverable Artifact | Description & Scope | Verified In-Repo Artifact / Link |
 | :--- | :--- | :--- |
-| **TalkBack & Screen Flow Video Walkthrough** | Screen reader navigation, spoken Bangla announcements, 200% font zoom & full UI journey flow | [`docs/talkback_walkthrough.mp4`](talkback_walkthrough.mp4) (Local Video in Repo, 1.2 MB) |
-| **Bilingual Language & Navigation Walkthrough** | Bengali/English toggle, routine schedule table, and UI transition verification | [`docs/u7_language_walkthrough.mp4`](u7_language_walkthrough.mp4) (Local Video in Repo, 2.1 MB) |
-| **Action-First Decision Card (Physical Capture)** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-decision-card.png`](real-phone-decision-card.png) |
-| **Bilingual Sign-In Screen (Physical Capture)** | Bengali sign-in screen on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-app-home.png`](real-phone-app-home.png) |
+| **Action-First Decision Card** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-decision-card.png`](real-phone-decision-card.png) |
+| **Bilingual Localized Decision Card** | Bangla localized decision card with Bengali numerals, status & action recommendations | [`docs/screen_decision_bangla.png`](screen_decision_bangla.png) |
+| **200% Font Scale Accessibility View** | Accessibility typography audit under 2.0x font scaling without layout clipping | [`docs/screen_decision_font200.png`](screen_decision_font200.png) |
+| **TalkBack Screen Reader Navigation** | Accessibility service navigation, content labeling, and spoken announcement hierarchy | [`docs/screen_decision_talkback.png`](screen_decision_talkback.png) |
+| **Bilingual Sign-In Screen** | Bengali sign-in screen on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-app-home.png`](real-phone-app-home.png) |
 | **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [`android/app/build/outputs/apk/release/app-release.apk`](../android/app/build/outputs/apk/release/app-release.apk) / [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
 
 ## 9. Physical Device Live Audit (U-1, U-6, U-8 Verification)
@@ -164,10 +165,11 @@ All video recordings, physical device captures, and installation binaries are st
 - **Android OS Version:** Android 14 (API 34)
 - **Display Resolution:** 720 x 1612 px
 - **Physical RAM (MemTotal):** 3,918,536 kB (~3.7 GB Low-RAM Tier Target)
-- **Locale Tested:** n-BD / en-US bilingual runtime configuration
-- **Live Physical Screen Captures:**
-  - Login Screen (Bilingual): [docs/real-phone-app-home.png](real-phone-app-home.png)
+- **Locale Tested:** bn-BD / en-US bilingual runtime configuration
+- **Live Physical Screen Captures & Accessibility Proofs:**
   - Action-First Decision Card: [docs/real-phone-decision-card.png](real-phone-decision-card.png)
-- **Video Recording Artifact (TalkBack & Screen Flow):**
-  - Path: [docs/talkback_walkthrough.mp4](talkback_walkthrough.mp4) (1.2 MB, 15s live UI walkthrough recording)
+  - Bengali Localized Decision Card: [docs/screen_decision_bangla.png](screen_decision_bangla.png)
+  - 200% Font Scale View: [docs/screen_decision_font200.png](screen_decision_font200.png)
+  - TalkBack Accessibility Navigation: [docs/screen_decision_talkback.png](screen_decision_talkback.png)
+  - Login Screen (Bilingual): [docs/real-phone-app-home.png](real-phone-app-home.png)
   - Verified Screen Transitions: Authentication -> Decision Card -> Trends -> AI Assistant
