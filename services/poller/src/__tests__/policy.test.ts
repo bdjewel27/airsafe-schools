@@ -158,6 +158,7 @@ describe('US EPA PM2.5 to AQI Piecewise-Linear Calculation (P1 Fix — Table-Dri
       { pm25: 35.4,  expectedAqi: 100, category: 'Moderate (Upper Breakpoint)',       expectedVigorous: 'PROCEED_WITH_PRECAUTIONS' },
       { pm25: 35.5,  expectedAqi: 101, category: 'USG (Lower Breakpoint)',            expectedVigorous: 'MODIFY' },
       { pm25: 45.5,  expectedAqi: 126, category: 'USG (Midpoint)',                    expectedVigorous: 'MODIFY' },
+      { pm25: 49.7,  expectedAqi: 136, category: 'USG (49.7 ug/m3 - QA Audit H5)',    expectedVigorous: 'MODIFY' },
       { pm25: 55.4,  expectedAqi: 150, category: 'USG (Upper Breakpoint)',            expectedVigorous: 'MODIFY' },
       { pm25: 55.5,  expectedAqi: 151, category: 'Unhealthy (Lower Breakpoint)',      expectedVigorous: 'MOVE_INDOORS' },
       { pm25: 58.2,  expectedAqi: 152, category: 'Appendix B Example (58.2 ug/m3)',   expectedVigorous: 'MOVE_INDOORS' },
