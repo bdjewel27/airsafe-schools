@@ -40,3 +40,6 @@ google-services.json
 .env
 .env.*
 !.env.example
+
+.kotlin/
+android/.kotlin/
