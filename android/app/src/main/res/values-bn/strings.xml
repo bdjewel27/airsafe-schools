@@ -109,4 +109,17 @@
     <string name="active_policy_tag">কার্যকর নীতি: Policy v1.2</string>
     <string name="metric_dialog_title">সেন্সর পরিমাপ ও স্বাস্থ্য ঝুঁকির মানদণ্ড</string>
     <string name="metric_clinical_guidance">স্বাস্থ্যগত নির্দেশনা ও পলিসি প্রভাব:</string>
+    <!-- Trigger Reasons & Decision Mapping -->
+    <string name="decision_reason_aqi_trigger">বায়ুমান সূচক %1$s এর কারণে %2$s নির্দেশিত</string>
+    <string name="decision_reason_heat_index_trigger">হিট ইনডেক্স %1$s°C এর কারণে %2$s নির্দেশিত</string>
+    <string name="decision_reason_respiratory_stepup">শ্বাসকষ্ট/আজমা বিবেচনায়: ১ ধাপ কঠোর নিরাপত্তা নীতি কার্যকর</string>
+    <string name="decision_reason_modeled_capped">মডেল করা স্যাটেলাইট ডেটা: সর্বোচ্চ সতর্কতামূলক ক্যাপ প্রযোজ্য</string>
+    <string name="decision_reason_stale_capped">ডেটা ৯০ মিনিটের বেশি পুরোনো: সর্বোচ্চ সতর্কতামূলক ক্যাপ প্রযোজ্য</string>
+    <string name="decision_reason_normal_policy">পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে</string>
+
+    <string name="decision_action_proceed">স্বাভাবিক কার্যক্রম চলবে</string>
+    <string name="decision_action_precautions">সতর্কতাসহ কার্যক্রম চালু</string>
+    <string name="decision_action_modify">কার্যক্রম সীমিত (MODIFY)</string>
+    <string name="decision_action_move_indoors">অবিলম্বে ইনডোরে যান (MOVE INDOORS)</string>
+    <string name="decision_action_unknown">অজানা অবস্থা (Fail-Closed)</string>
 </resources>
