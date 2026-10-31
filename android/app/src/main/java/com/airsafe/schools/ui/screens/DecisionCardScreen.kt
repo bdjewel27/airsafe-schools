@@ -1,5 +1,8 @@
 package com.airsafe.schools.ui.screens
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+
 import com.airsafe.schools.ui.screens.components.*
 
 import androidx.compose.ui.platform.testTag
@@ -273,7 +276,8 @@ fun DecisionCardScreen(
                 is DecisionUiState.Success -> {
                     // Stale Warning (>90m) with dynamic minute calculation (U-3 & F-07)
                     if (isOffline || state.data.isStale == true) {
-                        val staleMins = state.data.dataAgeMinutes ?: (if (isOffline) 15 else 95)
+                        val rawMins = com.airsafe.schools.data.model.calculateDataAgeMinutes(state.data.lastUpdated, state.data.dataAgeMinutes)
+                        val staleMins = if (rawMins <= 0) (if (isOffline) 15 else 95) else rawMins
                         val staleMinsStr = staleMins.toString().toBengaliDigits(isBengali)
                         Card(
                             colors = CardDefaults.cardColors(containerColor = CautionYellowBackground),
@@ -360,6 +364,8 @@ fun DecisionCardScreen(
                                     text = "📝 $note",
                                     fontSize = 13.sp,
                                     color = TextSecondary,
+                                    fontFamily = FontFamily.Default,
+                                    softWrap = true,
                                     modifier = Modifier.align(Alignment.Start)
                                 )
                             }
@@ -834,14 +840,21 @@ fun DecisionCardContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 2. এক লাইনে প্রধান কারণ (One line primary reason)
-            val primaryReasonText = if (!isBengali && !safeData.primaryReasonEn.isNullOrBlank()) {
-                safeData.primaryReasonEn!!
-            } else if (!safeData.primaryReason.isNullOrBlank()) {
-                safeData.primaryReason!!
+            // 2. প্রধান কারণ (Localized primary reason, softWrap for 200% font scale)
+            val context = LocalContext.current
+            val rawReason = if (!isBengali && !safeData.primaryReasonEn.isNullOrBlank()) {
+                safeData.primaryReasonEn
             } else {
-                if (isBengali) "পরিবেশ পরিস্থিতি নীতিমালার নিরাপদ সীমায় রয়েছে" else "Conditions within safety policy limits"
+                safeData.primaryReason
             }
+            val primaryReasonText = com.airsafe.schools.data.model.formatLocalizedReason(
+                rawReason = rawReason,
+                decision = safeData.decision,
+                aqi = safeData.aqi,
+                heatIndexC = safeData.heatIndexC,
+                isBengali = isBengali,
+                context = context
+            )
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -860,17 +873,19 @@ fun DecisionCardContent(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextPrimary,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        softWrap = true,
+                        maxLines = Int.MAX_VALUE
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 3. কতক্ষণ আগের data, এবং stale হলে স্পষ্ট সতর্কবার্তা (Data freshness & stale warning)
+            // 3. কতক্ষণ আগের data, এবং stale হলে স্পষ্ট সতর্কবার্তা (Unified single source of truth freshness)
             val isDataStale = safeData.isStale == true || isOffline
-            val freshnessStr = com.airsafe.schools.data.model.formatRelativeTimeAgo(safeData.lastUpdated, isBengali)
+            val rawCardMins = com.airsafe.schools.data.model.calculateDataAgeMinutes(safeData.lastUpdated, safeData.dataAgeMinutes)
+            val elapsedMinutes = if (rawCardMins <= 0 && isDataStale) (if (isOffline) 15 else 95) else rawCardMins
+            val freshnessStr = com.airsafe.schools.data.model.formatElapsedMinutes(elapsedMinutes, isBengali)
             val freshnessText = if (isDataStale) {
                 if (isBengali) "⚠️ ডেটা পুরোনো ($freshnessStr) — সতর্কতামূলক ক্যাপ কার্যকর" else "⚠️ Stale data ($freshnessStr) — Safety cap active"
             } else {
@@ -883,17 +898,20 @@ fun DecisionCardContent(
                 fontSize = 12.sp,
                 fontWeight = if (isDataStale) FontWeight.Bold else FontWeight.Normal,
                 color = if (isDataStale) CautionText else TextSecondary,
-                maxLines = 1,
+                softWrap = true,
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 4. দুইটি ছোট metric chip: Heat Index আর AQI (Two compact metric chips)
-            Row(
+            // 4. দুইটি metric chip: Heat Index আর AQI (Adaptive FlowRow layout for 200% font scale)
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = 2
             ) {
                 val hiFormatted = if (safeData.heatIndexC != null) {
                     "${safeData.heatIndexC.toString().toBengaliDigits(isBengali)}°C"
@@ -912,25 +930,26 @@ fun DecisionCardContent(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White.copy(alpha = 0.95f),
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.2f)),
-                    modifier = Modifier
-                        .clickable { onMetricClick("HEAT_INDEX") }
-                        .padding(end = 8.dp)
+                    modifier = Modifier.clickable { onMetricClick("HEAT_INDEX") }
                 ) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
                             text = if (isBengali) "হিট ইনডেক্স: " else "Heat Index: ",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            softWrap = true
                         )
                         Text(
                             text = hiFormatted,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = TextPrimary,
+                            softWrap = false
                         )
                     }
                 }
@@ -940,24 +959,26 @@ fun DecisionCardContent(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White.copy(alpha = 0.95f),
                     border = BorderStroke(1.dp, statusColor.copy(alpha = 0.2f)),
-                    modifier = Modifier
-                        .clickable { onMetricClick("AQI") }
+                    modifier = Modifier.clickable { onMetricClick("AQI") }
                 ) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
                             text = if (isBengali) "বায়ুমান সূচক: " else "AQI: ",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = TextSecondary
+                            color = TextSecondary,
+                            softWrap = true
                         )
                         Text(
                             text = aqiFormatted,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = TextPrimary,
+                            softWrap = false
                         )
                     }
                 }

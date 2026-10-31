@@ -1,5 +1,8 @@
 package com.airsafe.schools.data.model
 
+import android.content.Context
+import com.airsafe.schools.R
+
 import com.google.gson.annotations.SerializedName
 
 /**
@@ -311,25 +314,139 @@ fun String.toBengaliDigits(isBengali: Boolean): String {
     return sb.toString()
 }
 
-fun formatRelativeTimeAgo(isoTimestamp: String?, isBengali: Boolean): String {
-    if (isoTimestamp.isNullOrBlank()) {
-        return if (isBengali) "১ মিনিট আগে" else "1 min ago"
+/**
+ * Single unified source of truth for sensor data age / freshness calculation (Issue 1).
+ * Synchronizes the top stale banner and decision card freshness indicator.
+ */
+fun calculateDataAgeMinutes(lastUpdated: String?, dataAgeMinutes: Int?): Int {
+    if (dataAgeMinutes != null && dataAgeMinutes > 0) {
+        return dataAgeMinutes
     }
-    return try {
-        val instant = java.time.Instant.parse(isoTimestamp)
-        val diffMs = java.time.Duration.between(instant, java.time.Instant.now()).toMillis().coerceAtLeast(0)
-        val diffMinutes = diffMs / (60 * 1000)
-        if (diffMinutes < 1) {
-            if (isBengali) "এইমাত্র" else "Just now"
-        } else if (diffMinutes < 60) {
-            val numStr = diffMinutes.toString().toBengaliDigits(isBengali)
-            if (isBengali) "$numStr মিনিট আগে" else "$diffMinutes mins ago"
-        } else {
-            val diffHours = diffMinutes / 60
-            val numStr = diffHours.toString().toBengaliDigits(isBengali)
-            if (isBengali) "$numStr ঘণ্টা আগে" else "$diffHours hrs ago"
+    if (!lastUpdated.isNullOrBlank()) {
+        try {
+            val instant = java.time.Instant.parse(lastUpdated)
+            val diffMs = java.time.Duration.between(instant, java.time.Instant.now()).toMillis().coerceAtLeast(0)
+            val mins = (diffMs / (60 * 1000)).toInt()
+            if (mins > 0) return mins
+        } catch (_: Exception) {
+            val epochMs = lastUpdated.toLongOrNull()
+            if (epochMs != null && epochMs > 0) {
+                val diffMs = (System.currentTimeMillis() - epochMs).coerceAtLeast(0)
+                val mins = (diffMs / (60 * 1000)).toInt()
+                if (mins > 0) return mins
+            }
         }
-    } catch (_: Exception) {
-        if (isBengali) "২ মিনিট আগে" else "2 mins ago"
     }
+    return dataAgeMinutes ?: 0
+}
+
+/**
+ * Format elapsed minutes into localized freshness text.
+ */
+fun formatElapsedMinutes(minutes: Int, isBengali: Boolean): String {
+    if (minutes <= 0) {
+        return if (isBengali) "এইমাত্র" else "Just now"
+    }
+    if (minutes < 60) {
+        val numStr = minutes.toString().toBengaliDigits(isBengali)
+        return if (isBengali) "$numStr মিনিট আগে" else "$minutes mins ago"
+    }
+    val hours = minutes / 60
+    val remMins = minutes % 60
+    val hoursStr = hours.toString().toBengaliDigits(isBengali)
+    return if (remMins == 0) {
+        if (isBengali) "$hoursStr ঘণ্টা আগে" else "$hours hrs ago"
+    } else {
+        val remStr = remMins.toString().toBengaliDigits(isBengali)
+        if (isBengali) "$hoursStr ঘণ্টা $remStr মিনিট আগে" else "$hours hrs $remMins mins ago"
+    }
+}
+
+/**
+ * Backward-compatible helper that delegates to unified calculateDataAgeMinutes.
+ */
+fun formatRelativeTimeAgo(isoTimestamp: String?, isBengali: Boolean): String {
+    val mins = calculateDataAgeMinutes(isoTimestamp, null)
+    return formatElapsedMinutes(mins, isBengali)
+}
+
+/**
+ * Maps decision enum strings to localized decision action labels (Issue 4).
+ */
+fun getLocalizedDecisionAction(decision: String?, isBengali: Boolean, context: Context): String {
+    return when (decision?.uppercase()?.trim()) {
+        "PROCEED" -> context.getString(R.string.decision_action_proceed)
+        "PROCEED_WITH_PRECAUTIONS" -> context.getString(R.string.decision_action_precautions)
+        "MODIFY" -> context.getString(R.string.decision_action_modify)
+        "MOVE_INDOORS" -> context.getString(R.string.decision_action_move_indoors)
+        else -> context.getString(R.string.decision_action_unknown)
+    }
+}
+
+/**
+ * Formats backend trigger reason into fully localized string using strings.xml (Issue 4).
+ * Handles:
+ * - "AQI 146 triggers MOVE_INDOORS" -> "বায়ুমান সূচক ১৪৬ এর কারণে অবিলম্বে ইনডোরে যান (MOVE INDOORS) নির্দেশিত"
+ * - "Heat Index 44.5°C triggers MOVE_INDOORS" -> "হিট ইনডেক্স ৪৪.৫°C এর কারণে অবিলম্বে ইনডোরে যান (MOVE INDOORS) নির্দেশিত"
+ * - Respiratory step-up, modeled caps, stale caps, normal limits
+ */
+fun formatLocalizedReason(
+    rawReason: String?,
+    decision: String?,
+    aqi: Int?,
+    heatIndexC: Double?,
+    isBengali: Boolean,
+    context: Context
+): String {
+    val cleanReason = rawReason?.trim()
+
+    // 1. If reason is already provided in Bengali (contains Bengali Unicode range)
+    if (isBengali && !cleanReason.isNullOrBlank() && cleanReason.any { it in '\u0980'..'\u09FF' }) {
+        return cleanReason
+    }
+
+    // 2. Match AQI trigger pattern: e.g. "AQI 146 triggers MOVE_INDOORS" or "US AQI 185 triggers MOVE_INDOORS"
+    val aqiMatch = Regex("(?:US\\s+)?AQI\\s+(\\d+)\\s+triggers\\s+([A-Za-z_]+)", RegexOption.IGNORE_CASE)
+        .find(cleanReason ?: "")
+    if (aqiMatch != null) {
+        val aqiValStr = aqiMatch.groupValues[1].toBengaliDigits(isBengali)
+        val actionStr = getLocalizedDecisionAction(aqiMatch.groupValues[2], isBengali, context)
+        return context.getString(R.string.decision_reason_aqi_trigger, aqiValStr, actionStr)
+    }
+
+    // 3. Match Heat Index trigger pattern: e.g. "Heat Index 44.5°C triggers MOVE_INDOORS"
+    val hiMatch = Regex("Heat\\s+Index\\s+([\\d.]+)(?:°C)?\\s+triggers\\s+([A-Za-z_]+)", RegexOption.IGNORE_CASE)
+        .find(cleanReason ?: "")
+    if (hiMatch != null) {
+        val hiValStr = hiMatch.groupValues[1].toBengaliDigits(isBengali)
+        val actionStr = getLocalizedDecisionAction(hiMatch.groupValues[2], isBengali, context)
+        return context.getString(R.string.decision_reason_heat_index_trigger, hiValStr, actionStr)
+    }
+
+    // 4. Match Respiratory step-up
+    if (!cleanReason.isNullOrBlank() && Regex("(respiratory|asthma|আজমা|হাঁপানি|শ্বাসকষ্ট)", RegexOption.IGNORE_CASE).containsMatchIn(cleanReason)) {
+        return context.getString(R.string.decision_reason_respiratory_stepup)
+    }
+
+    // 5. Match Modeled satellite capping
+    if (!cleanReason.isNullOrBlank() && Regex("(modeled|satellite|মডেল)", RegexOption.IGNORE_CASE).containsMatchIn(cleanReason)) {
+        return context.getString(R.string.decision_reason_modeled_capped)
+    }
+
+    // 6. Match Stale data capping (>90 mins)
+    if (!cleanReason.isNullOrBlank() && Regex("(older than 90|stale|৯০ মিনিটের বেশি)", RegexOption.IGNORE_CASE).containsMatchIn(cleanReason)) {
+        return context.getString(R.string.decision_reason_stale_capped)
+    }
+
+    // 7. If rawReason is not matching triggers but aqi and decision exist and decision is caution/danger
+    if (cleanReason.isNullOrBlank() || cleanReason.equals("safe", ignoreCase = true) || cleanReason.equals("normal", ignoreCase = true)) {
+        if (decision != null && decision != "PROCEED" && decision != "UNKNOWN" && aqi != null && aqi > 50) {
+            val aqiValStr = aqi.toString().toBengaliDigits(isBengali)
+            val actionStr = getLocalizedDecisionAction(decision, isBengali, context)
+            return context.getString(R.string.decision_reason_aqi_trigger, aqiValStr, actionStr)
+        }
+        return context.getString(R.string.decision_reason_normal_policy)
+    }
+
+    return cleanReason
 }

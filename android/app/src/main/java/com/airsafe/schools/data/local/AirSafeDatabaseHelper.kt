@@ -8,6 +8,8 @@ import android.database.sqlite.SQLiteOpenHelper
 import com.airsafe.schools.data.model.DecisionResponse
 import com.airsafe.schools.data.model.SensorSite
 import com.airsafe.schools.data.model.UserSession
+import com.airsafe.schools.data.model.NoteItemDto
+import java.nio.charset.StandardCharsets
 import com.airsafe.schools.util.AppLog
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -40,6 +42,9 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         private const val TABLE_SITES = "cached_sensor_sites"
         private const val COL_SITES_JSON = "json_data"
 
+        private const val TABLE_NOTES = "cached_activity_notes"
+        private const val COL_NOTES_JSON = "json_data"
+
         @Volatile
         private var instance: AirSafeDatabaseHelper? = null
 
@@ -52,7 +57,17 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
 
     private val gson = Gson()
 
+    override fun onConfigure(db: SQLiteDatabase) {
+        super.onConfigure(db)
+        try {
+            db.execSQL("PRAGMA encoding = 'UTF-8';")
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
+        try {
+            db.execSQL("PRAGMA encoding = 'UTF-8';")
+        } catch (_: Exception) {}
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS $TABLE_DECISIONS (
@@ -86,12 +101,23 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
             )
             """.trimIndent()
         )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_NOTES (
+                $COL_SCHOOL_ID TEXT PRIMARY KEY,
+                $COL_NOTES_JSON TEXT NOT NULL,
+                $COL_UPDATED_AT INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_DECISIONS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_SESSIONS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_SITES")
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_NOTES")
         onCreate(db)
     }
 
@@ -259,11 +285,69 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
     /**
      * Clears all cached tables on explicit logout.
      */
+    /**
+     * Persists activity notes snapshot into SQLite table with explicit UTF-8 charset (Issue 2).
+     */
+    fun saveNotes(schoolId: String, notes: List<NoteItemDto>) {
+        try {
+            val json = gson.toJson(notes)
+            // Explicitly enforce UTF-8 bytes to prevent encoding corruption (????)
+            val utf8Bytes = json.toByteArray(StandardCharsets.UTF_8)
+            val utf8Json = String(utf8Bytes, StandardCharsets.UTF_8)
+            val values = ContentValues().apply {
+                put(COL_SCHOOL_ID, schoolId)
+                put(COL_NOTES_JSON, utf8Json)
+                put(COL_UPDATED_AT, System.currentTimeMillis())
+            }
+            writableDatabase.insertWithOnConflict(
+                TABLE_NOTES,
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+            )
+            AppLog.d(TAG, "Persisted ${notes.size} activity notes for $schoolId to SQLite (UTF-8).")
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Error saving activity notes to SQLite: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Retrieves cached activity notes snapshot from SQLite with explicit UTF-8 charset (Issue 2).
+     */
+    fun getNotes(schoolId: String): List<NoteItemDto>? {
+        var cursor: Cursor? = null
+        return try {
+            cursor = readableDatabase.query(
+                TABLE_NOTES,
+                arrayOf(COL_NOTES_JSON),
+                "$COL_SCHOOL_ID = ?",
+                arrayOf(schoolId),
+                null,
+                null,
+                null
+            )
+            if (cursor != null && cursor.moveToFirst()) {
+                val rawBytes = cursor.getBlob(0) ?: cursor.getString(0).toByteArray(StandardCharsets.UTF_8)
+                val utf8Json = String(rawBytes, StandardCharsets.UTF_8)
+                val type = object : TypeToken<List<NoteItemDto>>() {}.type
+                gson.fromJson<List<NoteItemDto>>(utf8Json, type)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Error reading activity notes from SQLite: ${e.message}", e)
+            null
+        } finally {
+            cursor?.close()
+        }
+    }
+
     fun clearAll() {
         try {
             writableDatabase.delete(TABLE_DECISIONS, null, null)
             writableDatabase.delete(TABLE_SESSIONS, null, null)
             writableDatabase.delete(TABLE_SITES, null, null)
+            writableDatabase.delete(TABLE_NOTES, null, null)
             AppLog.d(TAG, "Cleared all SQLite cache tables.")
         } catch (e: Exception) {
             AppLog.e(TAG, "Error clearing SQLite cache tables: ${e.message}", e)

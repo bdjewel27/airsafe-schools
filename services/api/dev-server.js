@@ -520,7 +520,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-school-id');
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
@@ -533,6 +533,7 @@ const server = http.createServer((req, res) => {
   console.log(`[HTTP] ${req.method} ${pathname}`);
 
   let bodyData = '';
+  req.setEncoding('utf8');
   req.on('data', chunk => {
     bodyData += chunk;
   });
