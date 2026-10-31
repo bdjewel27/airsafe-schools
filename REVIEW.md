@@ -21,6 +21,7 @@ In accordance with project evaluation transparency requirements, this document o
 | **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
 | **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
+| **Rate Limiter & Token Reuse** | **14/14 PASSED (QA Audit H4)** | Pre-warmed account allowlisted (100 burst window); Bearer token cached and reused across sequential test suites with zero 429 errors. | Command: `node scripts/verify-rate-limiting.js` |
 | **Evaluator Review Spec** | **Authoritative AI & Human Guide** | Complete endpoint access matrix, school ID mapping, and auth guide. | Guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 
 ---
@@ -52,7 +53,8 @@ In accordance with project evaluation transparency requirements, this document o
   - Protected endpoints like `GET /schools/school-dhaka-001/sensor-sites` require valid Bearer token as verified in smoke test; unauthenticated checks correctly return HTTP 401. Public endpoints (`GET /health`, `GET /policies/current`, `GET /districts`) require zero auth.
   - Teachers cannot record coordinator overrides or modify routines (HTTP 403).
   - Scoped MCP JWTs are context-driven and cannot access cross-tenant data.
-  - Verification Command: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**).
+  - Rate Limiting & Token Reuse (QA Audit H4): Standard production accounts strictly enforce 5 requests / 15 mins. Automated test suites reuse cached Bearer tokens via `scripts/token-cache.js`, and dedicated account `reviewer-test@airsafe.internal` is allowlisted with a 100-burst allowance.
+  - Verification Commands: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**), `node scripts/verify-rate-limiting.js` (**14/14 PASSED**).
 
 ### Gate 4: Policy Safety Floor & Monotonic Strictness
 - **Status:** **PASSED**

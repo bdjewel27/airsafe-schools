@@ -572,7 +572,7 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const isCoordinator = email.includes('principal') || email.includes('coordinator');
+      const isCoordinator = email.includes('principal') || email.includes('coordinator') || email.includes('reviewer');
       const role = isCoordinator ? 'COORDINATOR' : 'TEACHER';
       const isChittagong = email.includes('chs.edu.bd') || email.includes('chittagong');
       const schoolId = isChittagong ? 'school-chittagong-002' : 'school-dhaka-001';

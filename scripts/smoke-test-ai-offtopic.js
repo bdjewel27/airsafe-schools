@@ -11,6 +11,7 @@
 
 const https = require('https');
 const { URL } = require('url');
+const { getOrAuthenticateToken } = require('./token-cache');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev';
 const SCHOOL_ID = process.env.SCHOOL_ID || 'school-dhaka-001';
@@ -69,7 +70,6 @@ function request(urlStr, options, data) {
 }
 
 async function getAuthToken() {
-  const loginUrl = `${API_BASE_URL}/auth/login`;
   const email = process.env.AIRSAFE_TEST_EMAIL || 'rafiq.principal@dms.edu.bd';
   let password = process.env.AIRSAFE_TEST_PASSWORD;
 
@@ -89,30 +89,27 @@ async function getAuthToken() {
     }
   }
 
-  if (!password) {
-    throw new Error('AIRSAFE_TEST_PASSWORD environment variable not set and Secrets Manager unavailable');
-  }
+  return getOrAuthenticateToken(email, password, async (em, pw) => {
+    if (!pw) {
+      throw new Error('AIRSAFE_TEST_PASSWORD environment variable not set and Secrets Manager unavailable');
+    }
+    const loginUrl = `${API_BASE_URL}/auth/login`;
+    const res = await request(loginUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }, { email: em, password: pw });
 
-  const credentials = {
-    email,
-    password,
-  };
+    if (res.statusCode !== 200) {
+      throw new Error(`Auth failed with status ${res.statusCode}: ${res.body}`);
+    }
 
-  const res = await request(loginUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  }, credentials);
+    const parsed = JSON.parse(res.body);
+    if (!parsed.token) {
+      throw new Error(`No token returned in auth response: ${res.body}`);
+    }
 
-  if (res.statusCode !== 200) {
-    throw new Error(`Auth failed with status ${res.statusCode}: ${res.body}`);
-  }
-
-  const parsed = JSON.parse(res.body);
-  if (!parsed.token) {
-    throw new Error(`No token returned in auth response: ${res.body}`);
-  }
-
-  return parsed.token;
+    return parsed.token;
+  });
 }
 
 async function runSmokeTests() {
