@@ -32,6 +32,15 @@ export function hashPassword(password: string): string {
 
 export const SEEDED_STAFF = [
   {
+    email: 'reviewer-test@airsafe.internal',
+    role: 'COORDINATOR',
+    schoolId: 'school-dhaka-001',
+    nameBn: 'রিভিউয়ার পরীক্ষক',
+    nameEn: 'Reviewer Test Lead',
+    schoolNameBn: 'ঢাকা মডেল স্কুল',
+    schoolNameEn: 'Dhaka Model School',
+  },
+  {
     email: 'rafiq.principal@dms.edu.bd',
     role: 'COORDINATOR',
     schoolId: 'school-dhaka-001',

@@ -15,6 +15,7 @@
 const https = require('https');
 const { URL } = require('url');
 const { execSync } = require('child_process');
+const { getOrAuthenticateToken } = require('./token-cache');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev';
 const SCHOOL_A_ID = 'school-dhaka-001';
@@ -146,10 +147,10 @@ async function runSmokeTests() {
     if (!creds.schoolA.password || !creds.schoolB.password) {
       throw new Error('Live passwords unavailable in environment or Secrets Manager');
     }
-    console.log('Authenticating live accounts against Amazon Cognito...');
-    tokenA = await authenticateLive(creds.schoolA.email, creds.schoolA.password);
+    console.log('Authenticating live accounts against Amazon Cognito (with token cache)...');
+    tokenA = await getOrAuthenticateToken(creds.schoolA.email, creds.schoolA.password, authenticateLive);
     console.log(`✅ Authenticated School A Coordinator (${creds.schoolA.email})`);
-    tokenB = await authenticateLive(creds.schoolB.email, creds.schoolB.password);
+    tokenB = await getOrAuthenticateToken(creds.schoolB.email, creds.schoolB.password, authenticateLive);
     console.log(`✅ Authenticated School B Teacher (${creds.schoolB.email})`);
   } catch (err) {
     if (requireLive) {

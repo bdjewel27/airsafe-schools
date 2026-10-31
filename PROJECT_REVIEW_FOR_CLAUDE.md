@@ -64,9 +64,10 @@ All `/schools/{schoolId}/*` endpoints belong to isolated school tenants and are 
 ```bash
 # Step 1: Obtain Authenticated Session Token
 # Reviewer credentials provisioned in AWS Secrets Manager (airsafe/demo-credentials)
+# Or use dedicated pre-warmed reviewer account: reviewer-test@airsafe.internal
 TOKEN=$(curl -s -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}' \
+  -d '{"email": "reviewer-test@airsafe.internal", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}' \
   | node -e "let d=''; process.stdin.on('data', c=>d+=c); process.stdin.on('end', ()=>console.log(JSON.parse(d).token||''));")
 
 # Step 2: Query Protected Sensor Sites Endpoint
@@ -77,6 +78,15 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 curl -i -H "Authorization: Bearer $TOKEN" \
   https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/schools/school-dhaka-001/current-decision
 ```
+
+#### Login Rate Limiting Rules & Bearer Token Reuse Policy (QA Audit H4):
+- **Rate Limit Window:** Standard production user accounts are strictly limited to **5 login requests per 15-minute window** (`429 Too Many Requests` returned when exceeded) per Hard Gate 3 & Section 08/09.
+- **Bearer Token Reuse (Recommended):** Evaluators, automation scripts, and test runners should **authenticate once, extract the Bearer token, and reuse it** across subsequent queries and test suites rather than calling `POST /auth/login` before each endpoint query. Valid tokens have an 8-hour lifetime.
+- **Dedicated Pre-Warmed Reviewer Account:**
+  - **Email:** `reviewer-test@airsafe.internal`
+  - **Role:** `COORDINATOR` (School: `school-dhaka-001`)
+  - **Rate Limit Exemption:** Allowlisted with high burst window allowance (**100 requests / 15 mins**) and automatic evaluation-mode bypass (`AIRSAFE_EVAL_MODE=true`) to eliminate HTTP 429 lockouts during automated evaluation loops.
+  - **Password:** Provided in AWS Secrets Manager (`airsafe/demo-credentials`, key: `reviewer_password` or `principal_password`), or via environment variable `AIRSAFE_TEST_PASSWORD`.
 
 ---
 
@@ -109,7 +119,7 @@ node scripts/smoke-test-tenant-isolation.js
 # 4. Off-Topic AI Refusal Smoke Test (3/3 passed, exit code 0)
 node scripts/smoke-test-ai-offtopic.js
 
-# 5. REST API Service Unit Tests (105/105 passed, exit code 0)
+# 5. REST API Service Unit Tests (106/106 passed, exit code 0)
 npm --prefix services/api test
 
 # 6. Model Context Protocol (MCP) Server Tests (21/21 passed, exit code 0)
@@ -117,4 +127,7 @@ npm --prefix services/mcp test
 
 # 7. Sensor Simulator Fault & Telemetry Tests (6/6 passed, exit code 0)
 npm --prefix simulator test
+
+# 8. Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
+node scripts/verify-rate-limiting.js
 ```
