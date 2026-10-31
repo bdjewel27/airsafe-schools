@@ -43,3 +43,5 @@ google-services.json
 
 .kotlin/
 android/.kotlin/
+.smoke-token.json
+

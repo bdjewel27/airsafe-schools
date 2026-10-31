@@ -56,7 +56,7 @@ In accordance with project evaluation transparency requirements, this document o
   - Protected endpoints like `GET /schools/school-dhaka-001/sensor-sites` require valid Bearer token as verified in smoke test; unauthenticated checks correctly return HTTP 401. Public endpoints (`GET /health`, `GET /policies/current`, `GET /districts`) require zero auth.
   - Teachers cannot record coordinator overrides or modify routines (HTTP 403).
   - Scoped MCP JWTs are context-driven and cannot access cross-tenant data.
-  - Rate Limiting & Token Reuse (QA Audit H4): Standard production accounts strictly enforce 5 requests / 15 mins. Automated test suites reuse cached Bearer tokens via `scripts/token-cache.js`, and dedicated account `reviewer-test@airsafe.internal` is allowlisted with a 100-burst allowance.
+  - Rate Limiting & Token Reuse (QA Audit H4): Standard production accounts strictly enforce 5 requests / 15 mins (৫ বার ভুল login হলে ১৫ মিনিটের জন্য 429 আসবে।). Automated test suites reuse cached Bearer tokens via `scripts/token-cache.js` (persisting to `.smoke-token.json`), and dedicated account `reviewer-test@airsafe.internal` is allowlisted with a 100-burst allowance.
   - Verification Commands: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**), `node scripts/verify-rate-limiting.js` (**14/14 PASSED**).
 
 ### Gate 4: Policy Safety Floor & Monotonic Strictness
