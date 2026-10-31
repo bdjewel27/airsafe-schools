@@ -358,7 +358,12 @@ export class AirSafeMcpServer {
                   max_duration_minutes: item.evaluation?.maxDurationMinutes,
                   is_stale: item.evaluation?.isStale ?? false,
                   is_modeled: item.is_modeled ?? false,
-                  last_updated: item.timestamp
+                  last_updated: item.timestamp,
+                  provenance: {
+                    source: item.sensor_id ? `${schoolId}/${item.sensor_id}` : `${schoolId}/sensor-01`,
+                    timestamp: item.timestamp || new Date().toISOString(),
+                    calculationStandard: 'US-EPA-PM2.5-2024',
+                  },
                 };
               }
             }
@@ -417,7 +422,12 @@ export class AirSafeMcpServer {
                   data_source: siteSource,
                   aqi_source: siteAqiSource,
                   status: 'ONLINE',
-                  timestamp: item.timestamp
+                  timestamp: item.timestamp,
+                  provenance: {
+                    source: `${schoolId}/${schoolId}-field`,
+                    timestamp: item.timestamp || new Date().toISOString(),
+                    calculationStandard: 'US-EPA-PM2.5-2024',
+                  },
                 }
               ];
               if (args.location_type) {

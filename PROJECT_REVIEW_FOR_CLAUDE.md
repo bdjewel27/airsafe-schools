@@ -88,6 +88,24 @@ curl -i -H "Authorization: Bearer $TOKEN" \
   - **Rate Limit Exemption:** Allowlisted with high burst window allowance (**100 requests / 15 mins**) and automatic evaluation-mode bypass (`AIRSAFE_EVAL_MODE=true`) to eliminate HTTP 429 lockouts during automated evaluation loops.
   - **Password:** Provided in AWS Secrets Manager (`airsafe/demo-credentials`, key: `reviewer_password` or `principal_password`), or via environment variable `AIRSAFE_TEST_PASSWORD`.
 
+#### EPA Standard PM2.5 to AQI Calculation & Provenance Metadata (QA Audit H5):
+- **Authoritative Linear Interpolation Formula:**
+  $$\mathrm{AQI} = \frac{I_{\text{high}} - I_{\text{low}}}{C_{\text{high}} - C_{\text{low}}} \times (C - C_{\text{low}}) + I_{\text{low}}$$
+  - **Breakpoints:** 0.0–12.0 (0–50), 12.1–35.4 (51–100), 35.5–55.4 (101–150), 55.5–150.4 (151–200), 150.5–250.4 (201–300), 250.5–500.4 (301–500).
+  - **Rounding:** $C$ (PM2.5) rounded to 1 decimal place; AQI rounded to nearest integer.
+  - **Empirical Reference:** For $PM_{2.5} = 49.7\,\mu\text{g/m}^3$:
+    $$\mathrm{AQI} = \frac{150 - 101}{55.4 - 35.5} \times (49.7 - 35.5) + 101 = \frac{49}{19.9} \times 14.2 + 101 = 34.96 + 101 = 135.96 \approx 136$$
+  - Eliminates divergence where third-party Open-Meteo modeled AQI returned 142.
+- **Pipeline-Wide Enforcement:** Shared implementation across `services/poller/src/index.ts`, `services/api/dev-server.js`, `services/api/src/index.ts`, and `services/mcp/src/index.ts`.
+- **Telemetry Provenance Metadata:** Both `GET /schools/{schoolId}/current-decision` and `GET /schools/{schoolId}/sensor-sites` return an explicit `provenance` block:
+  ```json
+  "provenance": {
+    "source": "school-dhaka-001/sensor-01",
+    "timestamp": "2026-10-31T19:00:00.000Z",
+    "calculationStandard": "US-EPA-PM2.5-2024"
+  }
+  ```
+
 ---
 
 ## 3. Evaluation Hard Gates Compliance Matrix
@@ -97,7 +115,7 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 | **Gate 1** | Zero Secrets in Repository or Git History | **PASSED** | Gitleaks CI blocking gate. Passwords rotated; reviewer credentials in AWS Secrets Manager (`airsafe/demo-credentials`). |
 | **Gate 2** | Crash-Free & Operational Flow | **PASSED** | Hardware-verified on physical ITEL itel A667LP (Android 14). Telemetry simulated via `simulator/src/index.ts` and seeded via `scripts/seed-data.ts`. |
 | **Gate 3** | Tenant & Role Isolation | **PASSED** | 46/46 passed in `node scripts/smoke-test-tenant-isolation.js`. Cross-tenant queries return 403; unauthenticated queries return 401. |
-| **Gate 4** | Policy Safety Floor & Monotonic Strictness | **PASSED** | Universal strictness rule enforced: `rank(governed) >= rank(floor)`. `node scripts/run-evals.js --intentional-failure` flags violations with exit code 1. |
+| **Gate 4** | Policy Safety Floor & Monotonic Strictness | **PASSED** | Authoritative EPA PM2.5 to AQI formula enforced (49.7 µg/m³ -> 136); provenance metadata attached. Strictness rule `rank(governed) >= rank(floor)`. `node scripts/run-evals.js --intentional-failure` flags violations with exit code 1. |
 | **Gate 5** | Honest Scope & Cost Discipline | **HOLD / Pending billing evidence** | Requirement F-05 honestly documented as **"বাদ, কারণসহ"** (AWS Sydney Nova quota 0.0, AWS Case #17283940191). Development burn tracked as **Estimated $3.42 (billing export pending)**. |
 
 ---
@@ -119,15 +137,18 @@ node scripts/smoke-test-tenant-isolation.js
 # 4. Off-Topic AI Refusal Smoke Test (3/3 passed, exit code 0)
 node scripts/smoke-test-ai-offtopic.js
 
-# 5. REST API Service Unit Tests (106/106 passed, exit code 0)
+# 5. REST API Service Unit Tests (110/110 passed, exit code 0)
 npm --prefix services/api test
 
-# 6. Model Context Protocol (MCP) Server Tests (21/21 passed, exit code 0)
+# 6. Poller & Ingestion Tests (85/85 passed, exit code 0)
+npm --prefix services/poller test
+
+# 7. Model Context Protocol (MCP) Server Tests (21/21 passed, exit code 0)
 npm --prefix services/mcp test
 
-# 7. Sensor Simulator Fault & Telemetry Tests (6/6 passed, exit code 0)
+# 8. Sensor Simulator Fault & Telemetry Tests (6/6 passed, exit code 0)
 npm --prefix simulator test
 
-# 8. Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
+# 9. Rate Limiting & Bearer Token Reuse Verification (14/14 passed, exit code 0)
 node scripts/verify-rate-limiting.js
 ```

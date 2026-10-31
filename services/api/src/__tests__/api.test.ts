@@ -19,6 +19,7 @@ import {
   evaluateDecisionForActivity,
   evaluatePolicy,
   isOverrideActive,
+  calculateAqiFromPm25,
 } from '../index';
 
 describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
@@ -2562,6 +2563,91 @@ describe('AirSafe API Service - Hard Gates 2, 3, 4 & Endpoints', () => {
       expect(body.service).toBe('AirSafe-API');
       expect(body.version).toBe('1.2.0');
       expect(body.timestamp).toBeDefined();
+    });
+  });
+
+  describe('EPA Standard PM2.5 to AQI Calculation & Provenance (QA Audit H5)', () => {
+    test('calculateAqiFromPm25(49.7) strictly returns 136 according to EPA standard linear interpolation', () => {
+      const aqi = calculateAqiFromPm25(49.7);
+      expect(aqi).toBe(136);
+    });
+
+    test('calculateAqiFromPm25 matches EPA breakpoints across multiple points', () => {
+      expect(calculateAqiFromPm25(0.0)).toBe(0);
+      expect(calculateAqiFromPm25(35.5)).toBe(101);
+      expect(calculateAqiFromPm25(49.7)).toBe(136);
+      expect(calculateAqiFromPm25(55.4)).toBe(150);
+      expect(calculateAqiFromPm25(58.2)).toBe(152);
+    });
+
+    test('GET /schools/school-dhaka-001/current-decision includes provenance metadata with US-EPA-PM2.5-2024 and consistent AQI', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async (command: any) => {
+        if (command.input?.TableName === 'AirSafe-Readings-dev') {
+          return {
+            Items: [
+              {
+                school_id: 'school-dhaka-001',
+                timestamp: new Date().toISOString(),
+                readings: { heat_index_c: 28.0, aqi: 136, pm25_ugm3: 49.7 },
+              },
+            ],
+          } as never;
+        }
+        return { Item: null, Items: [] } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/current-decision',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+
+      // Provenance metadata verification (H5)
+      expect(body.provenance).toBeDefined();
+      expect(body.provenance.source).toBeDefined();
+      expect(body.provenance.timestamp).toBeDefined();
+      expect(body.provenance.calculationStandard).toBe('US-EPA-PM2.5-2024');
+
+      // Assert that if pm25_ugm3 is present, aqi strictly matches calculateAqiFromPm25
+      expect(body.aqi).toBe(136);
+      expect(body.aqi).toBe(calculateAqiFromPm25(49.7));
+    });
+
+    test('GET /schools/school-dhaka-001/sensor-sites includes provenance metadata with US-EPA-PM2.5-2024', async () => {
+      jest.spyOn(docClient, 'send').mockImplementation(async () => {
+        return {
+          Items: [
+            {
+              timestamp: new Date().toISOString(),
+              readings: { temperature_c: 31.0, relative_humidity_pct: 65, heat_index_c: 35.5, pm25_ugm3: 38.0 },
+            },
+          ],
+        } as never;
+      });
+
+      const res = await handler(
+        makeEvent({
+          httpMethod: 'GET',
+          path: '/schools/school-dhaka-001/sensor-sites',
+          headers: { Authorization: `Bearer ${teacherToken}` },
+        })
+      );
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.sites).toBeDefined();
+      expect(body.sites.length).toBeGreaterThan(0);
+
+      const activeSitesWithReading = body.sites.filter((s: any) => s.provenance);
+      expect(activeSitesWithReading.length).toBeGreaterThan(0);
+      for (const site of activeSitesWithReading) {
+        expect(site.provenance.calculationStandard).toBe('US-EPA-PM2.5-2024');
+        expect(site.provenance.source).toBeDefined();
+        expect(site.provenance.timestamp).toBeDefined();
+      }
     });
   });
 });

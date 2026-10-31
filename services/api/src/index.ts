@@ -2224,6 +2224,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             heartbeat_status: freshness.isFresh ? 'HEALTHY' : 'STALE_OR_OFFLINE',
             last_updated_bn: freshness.ageBn,
             last_updated_en: freshness.ageEn,
+            provenance: {
+              source: `${schoolId}/${siteConfig.id}`,
+              timestamp: matchingItem.observed_at || matchingItem.timestamp || ts || new Date().toISOString(),
+              calculationStandard: 'US-EPA-PM2.5-2024',
+            },
           };
         }
 
@@ -2279,10 +2284,16 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
               temp_c: typeof dr.temperature_c === 'number' && Number.isFinite(dr.temperature_c) ? dr.temperature_c : null,
               rh_pct: typeof dr.relative_humidity_pct === 'number' && Number.isFinite(dr.relative_humidity_pct) ? dr.relative_humidity_pct : null,
               pm25_ugm3: typeof dr.pm25_ugm3 === 'number' && Number.isFinite(dr.pm25_ugm3) ? dr.pm25_ugm3 : null,
+              aqi: typeof dr.pm25_ugm3 === 'number' && Number.isFinite(dr.pm25_ugm3) ? calculateAqiFromPm25(dr.pm25_ugm3) : (typeof dr.aqi === 'number' ? dr.aqi : null),
               heat_index_c: typeof dr.heat_index_c === 'number' && Number.isFinite(dr.heat_index_c) ? dr.heat_index_c : null,
               is_online: Boolean(dFresh.isFresh),
               last_updated_bn: dFresh.ageBn,
               last_updated_en: dFresh.ageEn,
+              provenance: {
+                source: `district/${districtInfo.id}`,
+                timestamp: distItem?.timestamp || new Date().toISOString(),
+                calculationStandard: 'US-EPA-PM2.5-2024',
+              },
             };
           } else {
             districtBaseline = {
@@ -3642,6 +3653,18 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       }
     }
 
+    const stationSource = latestItem.sensor_id
+      ? `${latestItem.school_id}/${latestItem.sensor_id}`
+      : (latestItem.source && latestItem.source.includes('/') ? latestItem.source : `${latestItem.school_id}/sensor-01`);
+    const readingTimestamp = latestItem.timestamp || latestItem.observed_at || new Date().toISOString();
+
+    const provenanceMetadata = {
+      source: stationSource,
+      timestamp: readingTimestamp,
+      ...(typeof latestItem.provenance === 'object' && latestItem.provenance ? latestItem.provenance : {}),
+      calculationStandard: 'US-EPA-PM2.5-2024',
+    };
+
     const decisionPayload = {
       school_id: latestItem.school_id,
       school_name: latestItem.school_name || `${auth.schoolNameBn} (${auth.schoolNameEn})`,
@@ -3663,7 +3686,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       requires_shade: policyEval.requiresShade,
       is_stale: isStale,
       is_modeled: isModeled,
-      provenance: latestItem.provenance || null,
+      provenance: provenanceMetadata,
       hourly_forecast: latestItem.hourly_forecast || [],
       last_updated: latestItem.timestamp || null,
       confidence_level_pct: confidenceLevelPct,
