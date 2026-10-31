@@ -6,17 +6,17 @@
 
 ---
 
-## 1. Actual Project Development & Evaluation Burn (Weeks 1 to 3)
+## 1. Estimated Project Development & Evaluation Burn (Weeks 1 to 3 — Billing Export Pending)
 
-Per Section 9 of the Project Brief, the table below documents the project's actual, empirical resource burn across development, infrastructure testing, load testing, and AI evaluations against published Sydney (`ap-southeast-2`) rates:
+Per Section 9 of the Project Brief, the table below documents the project's estimated resource burn across development, infrastructure testing, load testing, and AI evaluations against published Sydney (`ap-southeast-2`) rates (Estimated $3.42 (billing export pending)):
 
-| Week / Period | Primary Activities & Workloads | Invocations & Operations | Empirical AWS Spend |
+| Week / Period | Primary Activities & Workloads | Invocations & Operations | Estimated AWS Spend (Export Pending) |
 | :--- | :--- | :--- | :---: |
 | **Week 1** | CDK Stack bootstrapping, EventBridge scheduled external poller (OpenAQ & Open-Meteo for 5 pilot schools), DynamoDB single-table schema creation. | • 168 Poller Lambda executions (1 batch execution/hour via EventBridge cron across 7 days)<br>• 2,520 DynamoDB writes (5 schools × 3 sites × 168 hours)<br>• Initial CDK deployments, S3 staging assets & CloudWatch log groups | **$0.85** |
 | **Week 2** | API Gateway deployment, JWT auth authorizer, MCP server (JSON-RPC 2.0), Android client integration tests. | • 6,500 API Gateway calls<br>• 15,000 DynamoDB reads/writes<br>• 250 AI assistant test queries (attempted Bedrock Nova; intercepted via ADR-001 deterministic fallback due to Sydney quota 0.0)<br>• Secrets Manager & KMS baseline configuration | **$1.42** |
 | **Week 3** | Ingestion pipeline (SQS + DLQ), 200 ev/s burst load tests (8 test runs, 12,800 events total), Golden Dataset evaluations (40 golden queries), regression test suites. | • 12,800 SQS batch messages<br>• 8 load test executions<br>• 160 AI evaluation queries (ADR-001 policy engine fallback)<br>• 15,000 Lambda invocations | **$1.15** |
-| **Total Cumulative Spend** | **Weeks 1 to 3 Total Burn** | **Cumulative development & test cycle** | **$3.42** |
-| **Remaining Budget** | **AWS Credit Balance Remaining** | **$100.00 credit - $3.42 spend** | **$96.58 (96.6% intact)** |
+| **Total Cumulative Spend** | **Weeks 1 to 3 Total Burn** | **Cumulative development & test cycle** | **Estimated $3.42 (billing export pending)** |
+| **Remaining Budget** | **AWS Credit Balance Remaining** | **$100.00 credit - estimated $3.42 spend** | **$96.58 (96.6% intact)** |
 
 > [!NOTE]
 > Average weekly burn rate has stabilized at **$1.14 / week**, comfortably beneath the project's maximum allowed burn ceiling of **$15.00 / week**. Per `docs/day1-checks.md` and `docs/adr/001-bedrock-model-fallback.md`, Bedrock Nova tokens in Sydney (`ap-southeast-2`) returned quota 0.0 (`ThrottlingException`), so test AI chat queries ran via the deterministic Policy Engine fallback incurring $0.00 model token cost while API Gateway and Lambda execution accounted for the measured burn.
@@ -27,14 +27,14 @@ Per Section 9 of the Project Brief, the table below documents the project's actu
 
 ### Cost Reality Reconciliation
 A realistic audit of AWS cloud spend differentiates between variable serverless consumption and baseline fixed infrastructure components:
-1. **Variable Serverless Operations:** DynamoDB On-Demand (WCU/RCU), AWS Lambda compute duration (ARM64 Graviton2), Amazon API Gateway invocations, Amazon S3 storage, and SQS queue transactions scale to zero when idle ($0.00 idle cost). During active load testing (e.g. 12,800 burst events in Week 3, 44+ golden dataset evaluations, poller cron cycles), these services incurred legitimate variable consumption totaling **$3.42 USD**.
+1. **Variable Serverless Operations:** DynamoDB On-Demand (WCU/RCU), AWS Lambda compute duration (ARM64 Graviton2), Amazon API Gateway invocations, Amazon S3 storage, and SQS queue transactions scale to zero when idle ($0.00 idle cost). During active load testing (e.g. 12,800 burst events in Week 3, 44+ golden dataset evaluations, poller cron cycles), these services incurred legitimate variable consumption totaling **Estimated $3.42 (billing export pending)**.
 2. **Fixed Security Infrastructure Considerations:**
    - **AWS Secrets Manager:** Secrets provisioned for credentials (e.g. `airsafe/demo-credentials`) are billed at $0.40/secret/month after the initial 30-day trial period.
    - **AWS KMS (Key Management Service):** Customer-managed encryption keys (CMKs) incur $1.00/key/month when active.
-   - Project configurations utilize AWS-managed keys (`aws/secretsmanager`, `aws/dynamodb`) and initial trial windows where feasible to prevent fixed billing leakages, ensuring cumulative expenditure remained at **$3.42 USD**.
+   - Project configurations utilize AWS-managed keys (`aws/secretsmanager`, `aws/dynamodb`) and initial trial windows where feasible to prevent fixed billing leakages, ensuring cumulative expenditure remained at **Estimated $3.42 (billing export pending)**.
 3. **Budget Compliance:** The total cumulative burn of **$3.42 USD** preserves **96.6%** ($96.58) of the $100.00 AWS budget, fully complying with the project burn ceiling ($\le \$40.00$) and weekly burn velocity limit ($\le \$15.00/\text{week}$).
 
-### Daily & Service-by-Service Empirical Breakdown (Sydney `ap-southeast-2`)
+### Daily & Service-by-Service Estimated Breakdown (Sydney `ap-southeast-2`)
 
 | Date | DynamoDB ($) | API Gateway ($) | Lambda ($) | CloudWatch ($) | S3 ($) | SQS ($) | Bedrock ($) | Daily Total ($) | Workload / Activity Milestone |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -62,7 +62,7 @@ A realistic audit of AWS cloud spend differentiates between variable serverless 
 | **2026-10-20** | 0.05 | 0.05 | 0.02 | 0.02 | 0.00 | 0.00 | 0.00 | **$0.14** | Regression & multi-tenant live smoke tests |
 | **2026-10-21** | 0.07 | 0.04 | 0.01 | 0.00 | 0.00 | 0.00 | 0.00 | **$0.12** | Final security hardening & secrets rotation |
 | **Week 3 Subtotal** | **0.45** | **0.35** | **0.20** | **0.10** | **0.02** | **0.03** | **0.00** | **$1.15** | **Load tests, Evals & Hardening** |
-| **Cumulative Total** | **$1.25** | **$0.92** | **$0.68** | **$0.34** | **$0.19** | **$0.04** | **$0.00** | **$3.42** | **100.0% Empirical Spend Match** |
+| **Cumulative Total** | **$1.25** | **$0.92** | **$0.68** | **$0.34** | **$0.19** | **$0.04** | **$0.00** | **Estimated $3.42 (billing export pending)** | **Pending Console CSV Export** |
 
 ---
 
