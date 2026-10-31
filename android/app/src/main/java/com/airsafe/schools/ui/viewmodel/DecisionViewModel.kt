@@ -680,8 +680,8 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             lastUpdated = java.time.Instant.now().toString(),
             currentActivityBn = "মাঠের খেলাধুলা",
             currentActivityEn = "Outdoor Sports",
-            nextActivityBn = "ইনডোর অ্যাসেম্বলি",
-            nextActivityEn = "Indoor Assembly",
+            nextActivityBn = null,
+            nextActivityEn = null,
             routineIntensity = "VIGOROUS"
         )
         saveDecisionToCache(severeDecision)
@@ -1244,56 +1244,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
-        val scheduleActivities = listOf(
-            ActivityScheduleItem(
-                id = "current",
-                activityId = "ACTIVITY#current",
-                nameBn = "সকালের পিই ক্লাস",
-                nameEn = "Morning PE Class",
-                timeSlot = "০৮:৪৫ – ০৯:৩০",
-                intensity = currentRoutineIntensity.uppercase(),
-                locationType = "FIELD",
-                targetClass = "৬ষ্ঠ–১০ম শ্রেণি",
-                durationMinutes = 45,
-                isCurrent = true,
-                order = 1,
-                decision = plan.decision,
-                status = plan.status,
-                primaryReason = plan.primaryReason
-            ),
-            ActivityScheduleItem(
-                id = "next",
-                activityId = "ACTIVITY#next",
-                nameBn = "স্কুল সমাবেশ",
-                nameEn = "School Assembly",
-                timeSlot = "০৯:৩৫ – ১০:০৫",
-                intensity = "LIGHT",
-                locationType = "COURTYARD",
-                targetClass = "সকল শ্রেণি",
-                durationMinutes = 30,
-                isCurrent = false,
-                order = 2,
-                decision = "PROCEED",
-                status = "GREEN",
-                primaryReason = "স্বাভাবিক সহনশীল আবহাওয়া ও হালকা শারীরিক কসরত"
-            ),
-            ActivityScheduleItem(
-                id = "games",
-                activityId = "ACTIVITY#games",
-                nameBn = "মাঠের খেলাধুলা",
-                nameEn = "Outdoor Sports & Games",
-                timeSlot = "১০:১৫ – ১১:০০",
-                intensity = "VIGOROUS",
-                locationType = "FIELD",
-                targetClass = "৮ম–১০ম শ্রেণি",
-                durationMinutes = 45,
-                isCurrent = false,
-                order = 3,
-                decision = if (plan.status == "RED") "MOVE_INDOORS" else "MODIFY",
-                status = if (plan.status == "RED") "RED" else "ORANGE",
-                primaryReason = "তীব্র শারীরিক কসরত — সর্বোচ্চ ৩০ মিনিট ও ছায়া বাধ্যতামূলক"
-            )
-        )
+        val scheduleActivities = emptyList<ActivityScheduleItem>()
 
         return DecisionResponse(
             schoolId = schoolId,
@@ -1315,18 +1266,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             isModeled = true,
             lastUpdated = if (_isBengali.value) "এইমাত্র হালনাগাদকৃত" else "Just now",
             routineIntensity = currentRoutineIntensity,
-            currentActivityBn = "সকালের পিই ক্লাস",
-            currentActivityEn = "Morning PE Class",
-            nextActivityBn = "স্কুল সমাবেশ",
-            nextActivityEn = "School Assembly",
+            currentActivityBn = if (_isBengali.value) "তথ্য নেই" else "No data available",
+            currentActivityEn = "No data available",
+            nextActivityBn = null,
+            nextActivityEn = null,
             confidenceLevelPct = 95,
             confidenceLabelBn = if (_isBengali.value) "পরিমাপিত ক্যাম্পাস IoT সেন্সর" else "Measured Campus IoT Sensor",
             confidenceLabelEn = "Measured Campus IoT Sensor",
             changeForecastBn = if (_isBengali.value) "পরবর্তী ৪ ঘণ্টায় পরিবর্তনের সম্ভাবনা নেই (স্থিতিশীল)" else "No decision change expected in the next 4 hours (Stable)",
             changeForecastEn = "No decision change expected in the next 4 hours (Stable)",
             activities = scheduleActivities,
-            currentActivity = scheduleActivities.getOrNull(0),
-            nextActivity = scheduleActivities.getOrNull(1)
+            currentActivity = null,
+            nextActivity = null
         )
     }
 

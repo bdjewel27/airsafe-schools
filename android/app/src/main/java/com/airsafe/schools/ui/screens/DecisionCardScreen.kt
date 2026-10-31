@@ -106,7 +106,7 @@ fun DecisionCardScreen(
                         Text(
                             text = actionError ?: "",
                             color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(1f)
                         )
@@ -137,11 +137,10 @@ fun DecisionCardScreen(
                             (userSession?.schoolNameBn ?: "ঢাকা মডেল স্কুল")
                         else
                             (userSession?.schoolNameEn ?: "Dhaka Model School"),
-                        fontSize = 17.sp,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = SafeGreen,
-                        maxLines = 2,
-                        lineHeight = 22.sp
+                        maxLines = 2
                     )
                     Text(
                         text = if (userSession != null) {
@@ -161,10 +160,9 @@ fun DecisionCardScreen(
                         } else {
                             if (isBengali) "এয়ারসেফ পোর্টাল" else "AirSafe Portal"
                         },
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
-                        maxLines = 2,
-                        lineHeight = 18.sp
+                        maxLines = 2
                     )
                 }
 
@@ -188,7 +186,7 @@ fun DecisionCardScreen(
                         ) {
                             Text(
                                 text = if (isBengali) "English" else "বাংলা",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = SafeGreen
                             )
@@ -233,7 +231,7 @@ fun DecisionCardScreen(
                             else
                                 "Offline: Displaying latest cached snapshot.",
                             color = CautionText,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -261,7 +259,7 @@ fun DecisionCardScreen(
                             else
                                 "Coordinator Override Active: $activeOverride",
                             color = DangerRed,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -303,7 +301,7 @@ fun DecisionCardScreen(
                                     else
                                         "Warning: Data is $staleMins mins old (Safety caps applied).",
                                     color = CautionText,
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -351,8 +349,7 @@ fun DecisionCardScreen(
                                 } else {
                                     if (isBengali) "অ্যাক্টিভিটি প্রেক্ষাপট নোট (যেমন: আজমা)" else "Add Activity Note (e.g. Asthma)"
                                 },
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
+                                style = MaterialTheme.typography.labelLarge,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -362,7 +359,7 @@ fun DecisionCardScreen(
                             activityNotes.forEach { note ->
                                 Text(
                                     text = "📝 $note",
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
                                     fontFamily = FontFamily.Default,
                                     softWrap = true,
@@ -401,8 +398,7 @@ fun DecisionCardScreen(
                                     stringResource(R.string.btn_coordinator_override)
                                 },
                                 color = if (!isOffline) Color.White else Color(0xFF757575),
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
@@ -433,8 +429,7 @@ fun DecisionCardScreen(
                                 } else {
                                     if (isBengali) "রুটিন ও অ্যাক্টিভিটি কনফিগার করুন" else "Manage Routine & Activities"
                                 },
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
@@ -463,7 +458,7 @@ fun DecisionCardScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isBengali) "🚨 সতর্কতা টেস্ট: অবস্থা খারাপ হলে নোটিফিকেশন" else "🚨 Test Alert: Notify on Deterioration",
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
@@ -493,7 +488,7 @@ fun DecisionCardScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "🔄 " + stringResource(R.string.decision_cloud_reset),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
@@ -532,13 +527,13 @@ fun DecisionCardScreen(
                                 Column {
                                     Text(
                                         text = stringResource(R.string.active_policy_tag),
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = TextPrimary
                                     )
                                     Text(
                                         text = if (isBengali) "সিদ্ধান্ত লিংক: ${state.data.decision} • ১ অক্টোবর ২০২৬" else "Governed: ${state.data.decision} • Oct 1, 2026",
-                                        fontSize = 11.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary
                                     )
                                 }
@@ -549,7 +544,7 @@ fun DecisionCardScreen(
                             ) {
                                 Text(
                                     text = stringResource(R.string.view_policy_rules),
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = SafeGreen
                                 )
@@ -581,14 +576,13 @@ fun DecisionCardScreen(
                                 text = if (isBengali) "সার্ভার সংযোগে ত্রুটি" else "Server Connection Error",
                                 color = DangerRed,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                style = MaterialTheme.typography.titleMedium
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = state.message,
                                 color = TextPrimary,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
