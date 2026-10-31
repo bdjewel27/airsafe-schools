@@ -59,16 +59,21 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 > Under Hard Gate 2 & 3, tenant endpoints (e.g. `/sensor-sites`, `/current-decision`) require a valid Bearer token.
 > Reviewers can authenticate directly on the mobile app or via API:
 > ```bash
-> # 1. Authenticate to receive JWT token:
+> # 1. Authenticate to receive JWT token (using dedicated reviewer account):
 > TOKEN=$(curl -s -X POST https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/auth/login \
 >   -H "Content-Type: application/json" \
->   -d '{"email": "fatema.teacher@dms.edu.bd", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}' \
+>   -d '{"email": "reviewer-test@airsafe.internal", "password": "<PROVIDED_VIA_AWS_SECRETS_MANAGER>"}' \
 >   | node -e "let d=''; process.stdin.on('data', c=>d+=c); process.stdin.on('end', ()=>console.log(JSON.parse(d).token||''));")
 >
 > # 2. Query protected sensor sites endpoint with token:
 > curl -i -H "Authorization: Bearer $TOKEN" \
 >   https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/schools/school-dhaka-001/sensor-sites
 > ```
+>
+> ### Rate Limiting Rules & Token Reuse (QA Audit H4):
+> - **Standard Account Limit:** Strictly capped at 5 login requests per 15 minutes (`HTTP 429 Too Many Requests`) for brute-force protection.
+> - **Token Reuse Policy:** Evaluators and automated scripts should authenticate once and reuse the extracted `$TOKEN` for subsequent queries (8-hour lifetime).
+> - **Pre-Warmed Reviewer Account:** Evaluators can use `reviewer-test@airsafe.internal` (Role: `COORDINATOR`, School: `school-dhaka-001`), which is allowlisted with a 100-burst window allowance to prevent test lockouts.
 > Detailed reviewer guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md)
 
 ---
