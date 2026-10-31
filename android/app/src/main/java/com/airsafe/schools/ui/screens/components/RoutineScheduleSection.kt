@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,13 +41,13 @@ fun RoutineScheduleSection(
             ) {
                 Text(
                     text = if (isBengali) "📅 অ্যাক্টিভিটি ও সময়সূচি" else "📅 Activity Schedule",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = SafeGreen
                 )
                 Text(
                     text = if (isBengali) "${activities.size}টি সেশন" else "${activities.size} sessions",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary
                 )
             }
@@ -86,7 +87,7 @@ fun RoutineScheduleSection(
                                     ) {
                                         Text(
                                             text = if (isBengali) "চলমান" else "NOW",
-                                            fontSize = 9.sp,
+                                            style = MaterialTheme.typography.labelSmall,
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
@@ -95,14 +96,14 @@ fun RoutineScheduleSection(
                                 }
                                 Text(
                                     text = actName,
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary
                                 )
                             }
                             Text(
                                 text = "${act.timeSlot ?: "সময় নির্ধারিত নেই"} • ${act.targetClass ?: "সকল শ্রেণি"} • ${act.intensity ?: "MODERATE"}",
-                                fontSize = 10.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = TextSecondary
                             )
                         }
@@ -112,7 +113,7 @@ fun RoutineScheduleSection(
                         ) {
                             Text(
                                 text = act.decision ?: "PROCEED",
-                                fontSize = 10.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = actStatusColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)

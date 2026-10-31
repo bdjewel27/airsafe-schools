@@ -68,9 +68,9 @@ fun DecisionCardScreen(
 
     var showRoutineDialog by remember { mutableStateOf(false) }
     var showPolicyDialog by remember { mutableStateOf(false) }
-    var routineActivityName by remember { mutableStateOf("সকালের পিই ক্লাস (Morning PE)") }
-    var routineNextActivityName by remember { mutableStateOf("স্কুল সমাবেশ (School Assembly)") }
-    var routineTimeSlot by remember { mutableStateOf("০৮:৪৫ – ০৯:৩০") }
+    var routineActivityName by remember { mutableStateOf("") }
+    var routineNextActivityName by remember { mutableStateOf("") }
+    var routineTimeSlot by remember { mutableStateOf("") }
     var selectedIntensity by remember { mutableStateOf("MODERATE") }
     var routineDurationMinutes by remember { mutableStateOf("45") }
     var routineTargetClass by remember { mutableStateOf("৬ষ্ঠ–১০ম শ্রেণি") }
@@ -650,9 +650,9 @@ fun DecisionCardScreen(
     if (showNoteDialog) {
         val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
         val currentActName = if (isBengali)
-            (safeData?.currentActivityBn ?: "সকালের বহিরাঙ্গন ক্লাস")
+            (safeData?.currentActivityBn ?: "তথ্য নেই")
         else
-            (safeData?.currentActivityEn ?: "Morning Outdoor Session")
+            (safeData?.currentActivityEn ?: "No data available")
 
         ActivityNoteDialog(
             currentActName = currentActName,
@@ -677,9 +677,10 @@ fun DecisionCardScreen(
     }
 
     if (showRoutineDialog) {
+        val safeData = (uiState as? DecisionUiState.Success)?.data?.sanitized()
         RoutineUpdateDialog(
-            initialActivityName = routineActivityName,
-            initialNextActivityName = routineNextActivityName,
+            initialActivityName = safeData?.currentActivityBn ?: routineActivityName,
+            initialNextActivityName = safeData?.nextActivityBn ?: routineNextActivityName,
             isBengali = isBengali,
             onSaveRoutine = { name, nextName, intensity, classGrade, duration ->
                 viewModel.updateRoutineActivity(
@@ -793,8 +794,7 @@ fun DecisionCardContent(
                     .wrapContentWidth(Alignment.CenterHorizontally)
                     .testTag("primary_decision_text"),
                 textAlign = TextAlign.Center,
-                fontSize = 22.sp,
-                lineHeight = 28.sp,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = statusColor
             )
@@ -815,7 +815,7 @@ fun DecisionCardContent(
                         Text(
                             text = if (isBengali) "সর্বোচ্চ ${durationLimit.toString().toBengaliDigits(isBengali)} মিনিট" else "Max $durationLimit mins",
                             color = ModifyOrange,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
@@ -829,7 +829,7 @@ fun DecisionCardContent(
                             Text(
                                 text = if (isBengali) "ছায়াযুক্ত স্থান আবশ্যক" else "Shade Required",
                                 color = ModifyOrange,
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
@@ -870,7 +870,7 @@ fun DecisionCardContent(
                     Text(
                         text = primaryReasonText,
                         textAlign = TextAlign.Center,
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = TextPrimary,
                         softWrap = true,
@@ -895,7 +895,7 @@ fun DecisionCardContent(
             Text(
                 text = freshnessText,
                 textAlign = TextAlign.Center,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = if (isDataStale) FontWeight.Bold else FontWeight.Normal,
                 color = if (isDataStale) CautionText else TextSecondary,
                 softWrap = true,
@@ -939,14 +939,14 @@ fun DecisionCardContent(
                     ) {
                         Text(
                             text = if (isBengali) "হিট ইনডেক্স: " else "Heat Index: ",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
                             softWrap = true
                         )
                         Text(
                             text = hiFormatted,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
                             softWrap = false
@@ -968,14 +968,14 @@ fun DecisionCardContent(
                     ) {
                         Text(
                             text = if (isBengali) "বায়ুমান সূচক: " else "AQI: ",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
                             softWrap = true
                         )
                         Text(
                             text = aqiFormatted,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
                             softWrap = false
@@ -991,15 +991,17 @@ fun DecisionCardContent(
             val nextActItem = safeData.nextActivity ?: safeData.activities?.find { it.isCurrent == false && it.order == 2 }
             val nextAct = if (isBengali) (nextActItem?.nameBn ?: safeData.nextActivityBn) else (nextActItem?.nameEn ?: safeData.nextActivityEn)
 
-            val noDataText = if (isBengali) "তথ্য নেই" else "No data"
+            val noDataText = if (isBengali) "তথ্য নেই" else "No data available"
+            val isCurrValid = !currAct.isNullOrBlank() && currAct != "তথ্য নেই" && currAct != "No routine scheduled"
+            val isNextValid = !nextAct.isNullOrBlank() && nextAct != "তথ্য নেই" && nextAct != "No routine scheduled"
             val activitiesLine = when {
-                !currAct.isNullOrBlank() && !nextAct.isNullOrBlank() -> {
+                isCurrValid && isNextValid -> {
                     if (isBengali) "এখন: $currAct · পরে: $nextAct" else "Now: $currAct · Next: $nextAct"
                 }
-                !currAct.isNullOrBlank() -> {
+                isCurrValid -> {
                     if (isBengali) "এখন: $currAct" else "Now: $currAct"
                 }
-                !nextAct.isNullOrBlank() -> {
+                isNextValid -> {
                     if (isBengali) "পরে: $nextAct" else "Next: $nextAct"
                 }
                 else -> {
@@ -1009,7 +1011,7 @@ fun DecisionCardContent(
 
             Text(
                 text = activitiesLine,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
@@ -1039,7 +1041,7 @@ fun DecisionCardContent(
                             } else {
                                 if (isScheduleExpanded) "Hide Schedule ▲" else "View All Schedule ▼"
                             },
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = statusColor
                         )
@@ -1085,7 +1087,7 @@ fun DecisionCardContent(
                     } else {
                         if (isBengali) "রিফ্রেশ করুন" else "Refresh Live Decision"
                     },
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (!isOffline) Color.White else Color(0xFF757575)
                 )

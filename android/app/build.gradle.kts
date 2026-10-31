@@ -64,8 +64,7 @@ android {
     }
 
     gradle.taskGraph.whenReady {
-        val isReleaseRequested = allTasks.any { task ->
-            task.name.contains("Release", ignoreCase = true) && !task.name.contains("Test", ignoreCase = true)
+        val isReleaseRequested = gradle.startParameter.taskNames.any { taskName -> taskName.contains("Release", ignoreCase = true) && !taskName.contains("Test", ignoreCase = true)
         }
         if (isReleaseRequested && !hasReleaseSigning) {
             throw GradleException(
@@ -144,3 +143,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+

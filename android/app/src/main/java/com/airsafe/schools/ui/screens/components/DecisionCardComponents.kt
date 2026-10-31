@@ -54,9 +54,9 @@ fun MetricItem(label: String, value: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.defaultMinSize(minWidth = 68.dp)
     ) {
-        Text(text = label, fontSize = 12.sp, color = TextSecondary)
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         Spacer(modifier = Modifier.height(2.dp))
-        Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
     }
 }
 
@@ -130,7 +130,7 @@ fun DecisionCardSkeleton(isBengali: Boolean) {
             Spacer(modifier = Modifier.height(14.dp))
             Text(
                 text = if (isBengali) "যাচাইকৃত লাইভ ডেটা লোড হচ্ছে..." else "Loading verified live telemetry...",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 fontWeight = FontWeight.Medium
             )
