@@ -1,4 +1,6 @@
+import * as crypto from 'crypto';
 import { isQuietHoursBst, hasConditionWorsened } from '../index';
+import { initializeFirebase, sendSchoolAlertPushNotification, resetFirebaseForTesting, isFirebaseConfigured } from '../fcm';
 
 describe('F-06: FCM Push Notification & Quiet Hours Enforcement (21:00 - 06:00 BST)', () => {
   test('Quiet hours are active from 21:00 (9 PM) to 06:00 (6 AM) Asia/Dhaka (UTC+6)', () => {
@@ -60,5 +62,37 @@ describe('F-06: FCM Push Notification & Quiet Hours Enforcement (21:00 - 06:00 B
     expect(hasConditionWorsened('MODIFY', 'PROCEED')).toBe(false);
     expect(hasConditionWorsened('PROCEED', 'PROCEED')).toBe(false);
     expect(hasConditionWorsened(null, 'PROCEED')).toBe(false);
+  });
+
+  describe('FCM Modular API Integration (firebase-admin v14 compat - QA Audit M4)', () => {
+    beforeEach(() => {
+      resetFirebaseForTesting();
+    });
+
+    test('Gracefully handles uninitialized state without crashing', async () => {
+      const res = await sendSchoolAlertPushNotification({
+        schoolId: 'school-dhaka-001',
+        title: 'Alert',
+        body: 'Severe pollution',
+      });
+      expect(res).toBe(false);
+    });
+
+    test('Initializes Firebase Admin using modular app & messaging exports without undefined errors', () => {
+      const { privateKey } = (crypto.generateKeyPairSync as any)('rsa', {
+        modulusLength: 2048,
+        privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      });
+
+      const mockKey = JSON.stringify({
+        project_id: 'airsafe-test',
+        client_email: 'firebase-adminsdk@airsafe-test.iam.gserviceaccount.com',
+        private_key: privateKey,
+      });
+
+      const initialized = initializeFirebase(mockKey);
+      expect(initialized).toBe(true);
+      expect(isFirebaseConfigured()).toBe(true);
+    });
   });
 });

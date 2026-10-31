@@ -64,8 +64,13 @@ android {
     }
 
     gradle.taskGraph.whenReady {
-        val isReleaseRequested = gradle.startParameter.taskNames.any { taskName -> taskName.contains("Release", ignoreCase = true) && !taskName.contains("Test", ignoreCase = true)
-        }
+        val isReleaseRequested = allTasks.any { task ->
+            val name = task.name
+            (name.equals("assembleRelease", ignoreCase = true) ||
+             name.equals("bundleRelease", ignoreCase = true) ||
+             name.equals("packageRelease", ignoreCase = true) ||
+             name.startsWith("packageReleaseBundle", ignoreCase = true))
+        } || gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) && !it.contains("Test", ignoreCase = true) }
         if (isReleaseRequested && !hasReleaseSigning) {
             throw GradleException(
                 "FAIL-CLOSED (Hard Gate 1): AIRSAFE_KEYSTORE_PASSWORD and AIRSAFE_KEY_PASSWORD environment variables or project properties are required for release build."
