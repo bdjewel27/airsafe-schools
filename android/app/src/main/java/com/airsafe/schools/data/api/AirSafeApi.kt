@@ -5,6 +5,8 @@ import com.airsafe.schools.BuildConfig
 import com.airsafe.schools.data.model.*
 import com.airsafe.schools.util.AppLog
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -192,9 +194,21 @@ object AirSafeApiClient {
                 if (!token.isNullOrBlank()) {
                     reqBuilder.header("Authorization", "Bearer $token")
                 }
+                // Issue 2: Explicitly request and enforce UTF-8 charset to prevent Bangla encoding artifacts (????)
+                reqBuilder.header("Accept", "application/json; charset=utf-8")
+                reqBuilder.header("Accept-Charset", "utf-8")
                 AppLog.d(TAG, "--> ${original.method} ${original.url}")
                 val response = chain.proceed(reqBuilder.build())
                 AppLog.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
+
+                val body = response.body
+                val contentType = body?.contentType()
+                if (body != null && contentType != null && (contentType.charset() == null || contentType.charset() != java.nio.charset.StandardCharsets.UTF_8)) {
+                    val utf8MediaType = ("${contentType.type}/${contentType.subtype}; charset=utf-8").toMediaTypeOrNull()
+                    val bytes = body.bytes()
+                    val newBody = bytes.toResponseBody(utf8MediaType)
+                    return@addInterceptor response.newBuilder().body(newBody).build()
+                }
                 response
             }
             .addInterceptor(logging)

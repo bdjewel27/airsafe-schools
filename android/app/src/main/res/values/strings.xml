@@ -108,4 +108,17 @@
     <string name="active_policy_tag">Active Policy: Policy v1.2</string>
     <string name="metric_dialog_title">Sensor Metric Details &amp; Clinical Thresholds</string>
     <string name="metric_clinical_guidance">Clinical Guidance &amp; Policy Impact:</string>
+    <!-- Trigger Reasons & Decision Mapping -->
+    <string name="decision_reason_aqi_trigger">AQI %1$s triggers %2$s</string>
+    <string name="decision_reason_heat_index_trigger">Heat Index %1$s°C triggers %2$s</string>
+    <string name="decision_reason_respiratory_stepup">Respiratory condition active: AQI category stepped up</string>
+    <string name="decision_reason_modeled_capped">Data is modeled: capped at PROCEED_WITH_PRECAUTIONS</string>
+    <string name="decision_reason_stale_capped">Data is older than 90 mins: capped at PROCEED_WITH_PRECAUTIONS</string>
+    <string name="decision_reason_normal_policy">Conditions within safety policy limits</string>
+
+    <string name="decision_action_proceed">PROCEED</string>
+    <string name="decision_action_precautions">PROCEED WITH PRECAUTIONS</string>
+    <string name="decision_action_modify">MODIFY</string>
+    <string name="decision_action_move_indoors">MOVE INDOORS</string>
+    <string name="decision_action_unknown">UNKNOWN</string>
 </resources>

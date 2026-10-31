@@ -491,6 +491,7 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             try {
                 val resp = AirSafeApiClient.service.getNotes(schoolId)
                 if (resp.notes.isNotEmpty()) {
+                    try { dbHelper.saveNotes(schoolId, resp.notes) } catch (_: Exception) {}
                     _activityNotes.value = resp.notes.map { n ->
                         val actLabel = if (!n.activityName.isNullOrBlank()) " [" + n.activityName + "]" else if (!n.activityId.isNullOrBlank() && n.activityId != "current") " [" + n.activityId + "]" else ""
                         n.note + actLabel
@@ -501,6 +502,18 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 }
             } catch (e: Exception) {
                 AppLog.d(TAG, "loadNotes skipped or failed: ${e.message}")
+                try {
+                    val cachedNotes = dbHelper.getNotes(schoolId)
+                    if (!cachedNotes.isNullOrEmpty()) {
+                        _activityNotes.value = cachedNotes.map { n ->
+                            val actLabel = if (!n.activityName.isNullOrBlank()) " [" + n.activityName + "]" else if (!n.activityId.isNullOrBlank() && n.activityId != "current") " [" + n.activityId + "]" else ""
+                            n.note + actLabel
+                        }
+                        if (cachedNotes.any { it.hasRespiratory == true }) {
+                            hasRespiratoryNote = true
+                        }
+                    }
+                } catch (_: Exception) {}
             }
         }
     }
