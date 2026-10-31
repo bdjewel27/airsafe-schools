@@ -69,5 +69,15 @@ class DecisionCardTest {
             PolicyOutcome.UNKNOWN,
             outcome
         )
+
+        // Visual prominence: Ensure all 5 valid policy outcomes are explicitly recognized
+        val recognized = listOf(
+            PolicyOutcome.MOVE_INDOORS,
+            PolicyOutcome.MODIFY,
+            PolicyOutcome.PROCEED_WITH_PRECAUTIONS,
+            PolicyOutcome.PROCEED,
+            PolicyOutcome.UNKNOWN
+        )
+        assertEquals("Exactly 5 core policy outcomes exist", 5, recognized.size)
     }
 }

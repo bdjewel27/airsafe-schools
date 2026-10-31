@@ -1,6 +1,6 @@
 # AirSafe Schools - AI Assistant Evaluation Report (A-9)
 
-**Evaluation Date:** 2026-10-31T17:36:11.239Z  
+**Evaluation Date:** 2026-10-31T20:20:34.880Z  
 **Dataset Size:** 44 Golden & Adversarial Queries (Appendix C Coverage)  
 **Evaluation Execution Mode:** **Mocked eval: 44/44 (PASSED)** (Deterministic Policy Engine & Grounded Fallback)  
 **Live Bedrock Status:** **চালানো হয়নি (quota 0)** — Sydney `ap-southeast-2` Bedrock on-demand quota constrained to 0.0 tokens/min ([ADR-001](adr/001-bedrock-model-fallback.md) & [AWS Support Case #17283940191](aws-service-quota-case-17283940191.png))  
