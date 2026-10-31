@@ -58,10 +58,10 @@ In accordance with project evaluation transparency requirements, this document o
   - Intentional Failure Verification: `node scripts/run-evals.js --intentional-failure` flags safety floor violations and terminates with exit code 1.
 
 ### Gate 5: Honest Scope & Cost Discipline
-- **Status:** **PASSED**
+- **Status:** **HOLD / Pending billing evidence**
 - **Verification:**
   - Requirement F-05 is honestly documented as **"বাদ, কারণসহ"** (Excluded with documented rationale: AWS Sydney Bedrock Nova quota 0.0, AWS Support Case #17283940191, ADR-001).
-  - Total empirical development cloud cost tracked in [`docs/COST.md`](docs/COST.md) is **$3.42 USD**.
+  - Total estimated development cloud cost tracked in [`docs/COST.md`](docs/COST.md) is **Estimated $3.42 (export pending)**.
 
 ---
 
