@@ -210,7 +210,10 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const lambdaIntegration = new apigateway.LambdaIntegration(this.apiFunction);
+    const lambdaIntegration = new apigateway.LambdaIntegration(this.apiFunction, {
+      proxy: true,
+      allowTestInvoke: false,
+    });
 
     // Optional Cognito Authorizer when userPool is provided (Hard Gate 2 & 3)
     const authorizer = props.userPool
@@ -312,6 +315,7 @@ export class ApiStack extends cdk.Stack {
     // F-22: Deployable Hardened MCP Server Route: POST /mcp
     const mcpIntegration = new apigateway.LambdaIntegration(this.mcpFunction, {
       proxy: true,
+      allowTestInvoke: false,
     });
     const mcpResource = this.restApi.root.addResource('mcp');
     mcpResource.addMethod('POST', mcpIntegration);
