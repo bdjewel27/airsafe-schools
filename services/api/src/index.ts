@@ -592,6 +592,8 @@ export function getWorstCaseConditionsForActivity(params: {
   durationMinutes?: number | null;
   hourlyForecast?: Array<{
     time?: string;
+    pm25?: number;
+    pm25_ugm3?: number;
     aqi?: number;
     usAqi?: number;
     heat_index_c?: number;
@@ -632,7 +634,8 @@ export function getWorstCaseConditionsForActivity(params: {
     if (!Number.isFinite(ptMs)) continue;
     // Check if forecast timestamp falls within or overlaps with the activity window
     if (ptMs >= startMs - 30 * 60 * 1000 && ptMs <= endMs + 30 * 60 * 1000) {
-      const ptAqi = pt.usAqi ?? pt.aqi;
+      const ptPm25 = (typeof pt.pm25 === 'number' && Number.isFinite(pt.pm25)) ? pt.pm25 : ((typeof pt.pm25_ugm3 === 'number' && Number.isFinite(pt.pm25_ugm3)) ? pt.pm25_ugm3 : null);
+      const ptAqi = ptPm25 !== null ? calculateAqiFromPm25(ptPm25) : (pt.usAqi ?? pt.aqi);
       const ptHeat = pt.heatIndexC ?? pt.heat_index_c ?? pt.temperatureC ?? pt.temperature_c;
 
       if (typeof ptAqi === 'number' && Number.isFinite(ptAqi) && ptAqi > worstAqi) {
