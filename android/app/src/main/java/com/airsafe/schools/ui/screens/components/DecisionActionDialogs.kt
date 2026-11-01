@@ -176,7 +176,7 @@ fun PolicyDialog(
                 }
 
                 Text(
-                    text = if (isBengali) "মূল নিরাপত্তা বিধি ও নিয়মাবলী (F-15):" else "Governing Safety Rules (F-15):",
+                    text = if (isBengali) "মূল নিরাপত্তা বিধি ও নিয়মাবলী:" else "Governing Safety Rules:",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -316,10 +316,27 @@ fun OverrideDialog(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     allowedOptions.forEach { opt ->
+                        val chipLabel = if (isBengali) {
+                            when (opt) {
+                                "MOVE_INDOORS" -> "ভেতরে নিন"
+                                "MODIFY" -> "পরিবর্তন করুন"
+                                "PRECAUTIONS", "PROCEED_WITH_PRECAUTIONS" -> "সতর্কতা সহ চালান"
+                                "PROCEED" -> "এগিয়ে যান"
+                                else -> opt
+                            }
+                        } else {
+                            when (opt) {
+                                "MOVE_INDOORS" -> "Move Indoors"
+                                "MODIFY" -> "Modify"
+                                "PRECAUTIONS", "PROCEED_WITH_PRECAUTIONS" -> "Precautions"
+                                "PROCEED" -> "Proceed"
+                                else -> opt
+                            }
+                        }
                         FilterChip(
                             selected = selectedOverrideDecision.contains(opt),
                             onClick = { selectedOverrideDecision = opt },
-                            label = { Text(opt, fontSize = 11.sp) }
+                            label = { Text(chipLabel, fontSize = 11.sp, softWrap = true) }
                         )
                     }
                 }

@@ -121,4 +121,12 @@
     <string name="decision_action_modify">MODIFY</string>
     <string name="decision_action_move_indoors">MOVE INDOORS</string>
     <string name="decision_action_unknown">UNKNOWN</string>
+
+    <string name="action_proceed">Proceed</string>
+    <string name="action_modify">Modify</string>
+    <string name="action_precautions">Proceed with Precautions</string>
+    <string name="action_move_indoors">Move Indoors</string>
+    <string name="action_unknown">Unknown</string>
+    <string name="audit_trail_title">Immutable Override Audit Trail</string>
+    <string name="audit_export_pdf">Export Weekly PDF Report</string>
 </resources>
