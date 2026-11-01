@@ -202,9 +202,11 @@ object AirSafeApiClient {
                 AppLog.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
 
                 val body = response.body
-                val contentType = body?.contentType()
-                if (body != null && contentType != null && (contentType.charset() == null || contentType.charset() != java.nio.charset.StandardCharsets.UTF_8)) {
-                    val utf8MediaType = ("${contentType.type}/${contentType.subtype}; charset=utf-8").toMediaTypeOrNull()
+                if (body != null) {
+                    val contentType = body.contentType()
+                    val type = contentType?.type ?: "application"
+                    val subtype = contentType?.subtype ?: "json"
+                    val utf8MediaType = "$type/$subtype; charset=utf-8".toMediaTypeOrNull()
                     val bytes = body.bytes()
                     val newBody = bytes.toResponseBody(utf8MediaType)
                     return@addInterceptor response.newBuilder().body(newBody).build()

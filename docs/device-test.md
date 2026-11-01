@@ -153,6 +153,7 @@ All physical device captures, accessibility audit proofs, and installation binar
 
 | Deliverable Artifact | Description & Scope | Verified In-Repo Artifact / Link |
 | :--- | :--- | :--- |
+| **8–10 Min End-to-End Demo Video** | Full walkthrough of Journeys J-1 through J-4 & TalkBack on physical ITEL itel A667LP (Duration: 08:07, 720x1612 px, Android 14) | [docs/real-phone-demo-walkthrough.mp4](real-phone-demo-walkthrough.mp4) |
 | **Action-First Decision Card** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-decision-card.png`](real-phone-decision-card.png) |
 | **Bilingual Localized Decision Card** | Bangla localized decision card with Bengali numerals, status & action recommendations | [`docs/screen_decision_bangla.png`](screen_decision_bangla.png) |
 | **200% Font Scale Accessibility View** | Accessibility typography audit under 2.0x font scaling without layout clipping | [`docs/screen_decision_font200.png`](screen_decision_font200.png) |
@@ -166,6 +167,8 @@ All physical device captures, accessibility audit proofs, and installation binar
 - **Display Resolution:** 720 x 1612 px
 - **Physical RAM (MemTotal):** 3,918,536 kB (~3.7 GB Low-RAM Tier Target)
 - **Locale Tested:** bn-BD / en-US bilingual runtime configuration
+- **Live Physical Video Recording:**
+  - Full 8-Minute J-1 to J-4 Walkthrough & TalkBack: [docs/real-phone-demo-walkthrough.mp4](real-phone-demo-walkthrough.mp4) (08:07 duration, 720x1612 px real device screen recording)
 - **Live Physical Screen Captures & Accessibility Proofs:**
   - Action-First Decision Card: [docs/real-phone-decision-card.png](real-phone-decision-card.png)
   - Bengali Localized Decision Card: [docs/screen_decision_bangla.png](screen_decision_bangla.png)

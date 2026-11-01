@@ -107,15 +107,27 @@ fun RoutineScheduleSection(
                                 color = TextSecondary
                             )
                         }
+                        val actDecisionLabel = if (isBengali) {
+                            when (act.decision) {
+                                "MOVE_INDOORS" -> "ভেতরে নিন"
+                                "MODIFY" -> "পরিবর্তন করুন"
+                                "PRECAUTIONS", "PROCEED_WITH_PRECAUTIONS" -> "সতর্কতা সহ চালান"
+                                "PROCEED" -> "স্বাভাবিক"
+                                else -> act.decision ?: "স্বাভাবিক"
+                            }
+                        } else {
+                            act.decision ?: "PROCEED"
+                        }
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = actStatusColor.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                text = act.decision ?: "PROCEED",
+                                text = actDecisionLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = actStatusColor,
+                                softWrap = true,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
