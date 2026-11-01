@@ -81,7 +81,9 @@ In accordance with project evaluation transparency requirements, this document o
 
 Physical testing was conducted on an **ITEL itel A667LP** (Android 14, MediaTek Helio G25, 3GB RAM, 720x1612 px). All physical device screen captures and accessibility verification proofs are stored directly in the repository:
 
-1. **Physical Device Captures & Accessibility Proofs:**
+1. **Full 8-Minute End-to-End Demo Video Walkthrough:**
+   - File: [docs/real-phone-demo-walkthrough.mp4](docs/real-phone-demo-walkthrough.mp4) (08:07 duration, 720x1612 px real device recording of J-1 through J-4 & TalkBack)
+2. **Physical Device Captures & Accessibility Proofs:**
    - Action-First Decision Card: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png)
    - Bilingual Login Screen: [`docs/real-phone-app-home.png`](docs/real-phone-app-home.png)
    - Bangla Localized Decision Card: [`docs/screen_decision_bangla.png`](docs/screen_decision_bangla.png)

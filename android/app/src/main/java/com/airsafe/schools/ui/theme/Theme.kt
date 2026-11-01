@@ -17,6 +17,7 @@ private val LightColorScheme = lightColorScheme(
 fun AirSafeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = LightColorScheme,
+        typography = AirSafeTypography,
         content = content
     )
 }

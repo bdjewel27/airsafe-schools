@@ -493,8 +493,13 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                 if (resp.notes.isNotEmpty()) {
                     try { dbHelper.saveNotes(schoolId, resp.notes) } catch (_: Exception) {}
                     _activityNotes.value = resp.notes.map { n ->
+                        val safeNote = if (n.note.contains("???")) {
+                            if (_isBengali.value) "কয়েকজন শিক্ষার্থীর শ্বাসকষ্ট সমস্যা রয়েছে" else "Several students have respiratory/asthma caution"
+                        } else {
+                            n.note
+                        }
                         val actLabel = if (!n.activityName.isNullOrBlank()) " [" + n.activityName + "]" else if (!n.activityId.isNullOrBlank() && n.activityId != "current") " [" + n.activityId + "]" else ""
-                        n.note + actLabel
+                        safeNote + actLabel
                     }
                     if (resp.notes.any { it.hasRespiratory == true }) {
                         hasRespiratoryNote = true
@@ -506,8 +511,13 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
                     val cachedNotes = dbHelper.getNotes(schoolId)
                     if (!cachedNotes.isNullOrEmpty()) {
                         _activityNotes.value = cachedNotes.map { n ->
+                            val safeNote = if (n.note.contains("???")) {
+                                if (_isBengali.value) "কয়েকজন শিক্ষার্থীর শ্বাসকষ্ট সমস্যা রয়েছে" else "Several students have respiratory/asthma caution"
+                            } else {
+                                n.note
+                            }
                             val actLabel = if (!n.activityName.isNullOrBlank()) " [" + n.activityName + "]" else if (!n.activityId.isNullOrBlank() && n.activityId != "current") " [" + n.activityId + "]" else ""
-                            n.note + actLabel
+                            safeNote + actLabel
                         }
                         if (cachedNotes.any { it.hasRespiratory == true }) {
                             hasRespiratoryNote = true

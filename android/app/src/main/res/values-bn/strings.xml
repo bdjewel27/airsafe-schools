@@ -119,7 +119,15 @@
 
     <string name="decision_action_proceed">স্বাভাবিক কার্যক্রম চলবে</string>
     <string name="decision_action_precautions">সতর্কতাসহ কার্যক্রম চালু</string>
-    <string name="decision_action_modify">কার্যক্রম সীমিত (MODIFY)</string>
-    <string name="decision_action_move_indoors">অবিলম্বে ইনডোরে যান (MOVE INDOORS)</string>
-    <string name="decision_action_unknown">অজানা অবস্থা (Fail-Closed)</string>
+    <string name="decision_action_modify">কার্যক্রম সীমিত</string>
+    <string name="decision_action_move_indoors">অবিলম্বে ইনডোরে যান</string>
+    <string name="decision_action_unknown">অজানা অবস্থা</string>
+
+    <string name="action_proceed">এগিয়ে যান</string>
+    <string name="action_modify">পরিবর্তন করুন</string>
+    <string name="action_precautions">সতর্কতা সহ চালান</string>
+    <string name="action_move_indoors">ভেতরে নিন</string>
+    <string name="action_unknown">অজানা</string>
+    <string name="audit_trail_title">অপরিবর্তনীয় ওভাররাইড অডিট ট্রেইল</string>
+    <string name="audit_export_pdf">PDF সাপ্তাহিক রিপোর্ট এক্সপোর্ট করুন</string>
 </resources>

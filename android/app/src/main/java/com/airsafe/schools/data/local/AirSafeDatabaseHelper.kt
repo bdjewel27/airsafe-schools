@@ -126,7 +126,8 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
      */
     fun saveDecision(decision: DecisionResponse) {
         try {
-            val json = gson.toJson(decision)
+            val rawJson = gson.toJson(decision)
+            val json = String(rawJson.toByteArray(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
             val values = ContentValues().apply {
                 put(COL_SCHOOL_ID, decision.schoolId)
                 put(COL_DECISION_JSON, json)
@@ -164,7 +165,12 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
                 null
             )
             if (cursor != null && cursor.moveToFirst()) {
-                val json = cursor.getString(0)
+                val jsonBytes = cursor.getBlob(0)
+                val json = if (jsonBytes != null && jsonBytes.isNotEmpty()) {
+                    String(jsonBytes, StandardCharsets.UTF_8)
+                } else {
+                    cursor.getString(0)
+                }
                 gson.fromJson(json, DecisionResponse::class.java)
             } else {
                 null
@@ -182,7 +188,8 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
      */
     fun saveUserSession(session: UserSession) {
         try {
-            val json = gson.toJson(session)
+            val rawJson = gson.toJson(session)
+            val json = String(rawJson.toByteArray(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
             val values = ContentValues().apply {
                 put(COL_EMAIL, session.email.lowercase())
                 put(COL_SESSION_JSON, json)
@@ -216,7 +223,12 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
                 null
             )
             if (cursor != null && cursor.moveToFirst()) {
-                val json = cursor.getString(0)
+                val jsonBytes = cursor.getBlob(0)
+                val json = if (jsonBytes != null && jsonBytes.isNotEmpty()) {
+                    String(jsonBytes, StandardCharsets.UTF_8)
+                } else {
+                    cursor.getString(0)
+                }
                 gson.fromJson(json, UserSession::class.java)
             } else {
                 null
@@ -234,7 +246,8 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
      */
     fun saveSensorSites(schoolId: String, sites: List<SensorSite>) {
         try {
-            val json = gson.toJson(sites)
+            val rawJson = gson.toJson(sites)
+            val json = String(rawJson.toByteArray(StandardCharsets.UTF_8), StandardCharsets.UTF_8)
             val values = ContentValues().apply {
                 put(COL_SCHOOL_ID, schoolId)
                 put(COL_SITES_JSON, json)
@@ -268,7 +281,12 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
                 null
             )
             if (cursor != null && cursor.moveToFirst()) {
-                val json = cursor.getString(0)
+                val jsonBytes = cursor.getBlob(0)
+                val json = if (jsonBytes != null && jsonBytes.isNotEmpty()) {
+                    String(jsonBytes, StandardCharsets.UTF_8)
+                } else {
+                    cursor.getString(0)
+                }
                 val type = object : TypeToken<List<SensorSite>>() {}.type
                 gson.fromJson(json, type)
             } else {

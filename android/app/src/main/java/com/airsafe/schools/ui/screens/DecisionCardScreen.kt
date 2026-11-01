@@ -357,11 +357,15 @@ fun DecisionCardScreen(
                         if (activityNotes.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             activityNotes.forEach { note ->
+                                val displayNote = if (note.contains("???")) {
+                                    if (isBengali) "কয়েকজন শিক্ষার্থীর শ্বাসকষ্ট সমস্যা রয়েছে" else "Several students have respiratory/asthma caution"
+                                } else {
+                                    note
+                                }
                                 Text(
-                                    text = "📝 $note",
+                                    text = "📝 $displayNote",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
-                                    fontFamily = FontFamily.Default,
                                     softWrap = true,
                                     modifier = Modifier.align(Alignment.Start)
                                 )
@@ -790,16 +794,19 @@ fun DecisionCardContent(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = statusColor
+                color = statusColor,
+                softWrap = true,
+                maxLines = 2
             )
 
             // D-4: If outcome is MODIFY, show mandatory time limit & shade requirement badges
             if (outcome == PolicyOutcome.MODIFY) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val durationLimit = safeData.maxDurationMinutes ?: 30
                     Surface(
@@ -893,8 +900,7 @@ fun DecisionCardContent(
                 fontWeight = if (isDataStale) FontWeight.Bold else FontWeight.Normal,
                 color = if (isDataStale) CautionText else TextSecondary,
                 softWrap = true,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                maxLines = 4
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -905,8 +911,7 @@ fun DecisionCardContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = 2
-            ) {
+                            ) {
                 val hiFormatted = if (safeData.heatIndexC != null) {
                     "${safeData.heatIndexC.toString().toBengaliDigits(isBengali)}°C"
                 } else {
@@ -943,7 +948,7 @@ fun DecisionCardContent(
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
-                            softWrap = false
+                            softWrap = true
                         )
                     }
                 }
@@ -972,7 +977,7 @@ fun DecisionCardContent(
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
-                            softWrap = false
+                            softWrap = true
                         )
                     }
                 }
@@ -1009,7 +1014,8 @@ fun DecisionCardContent(
                 fontWeight = FontWeight.Medium,
                 color = TextSecondary,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                softWrap = true,
+                maxLines = 3,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()

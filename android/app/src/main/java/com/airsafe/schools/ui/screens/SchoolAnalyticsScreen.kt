@@ -223,7 +223,7 @@ fun SchoolAnalyticsScreen(
 
         // F-11: Immutable Coordinator Override Audit Trail
         Text(
-            text = if (isBengali) "অপরিবর্তনীয় ওভাররাইড অডিট ট্রেইল (F-11)" else "Immutable Override Audit Trail (F-11)",
+            text = if (isBengali) "অপরিবর্তনীয় ওভাররাইড অডিট ট্রেইল" else "Immutable Override Audit Trail",
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = TextPrimary
@@ -252,8 +252,25 @@ fun SchoolAnalyticsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val requestedAction = if (isBengali) {
+                                    when (item.requestedDecision) {
+                                        "PROCEED" -> "এগিয়ে যান"
+                                        "MODIFY" -> "পরিবর্তন করুন"
+                                        "MOVE_INDOORS" -> "ভেতরে নিন"
+                                        "PRECAUTIONS", "PROCEED_WITH_PRECAUTIONS" -> "সতর্কতা সহ চালান"
+                                        else -> item.requestedDecision ?: "ওভাররাইড"
+                                    }
+                                } else {
+                                    when (item.requestedDecision) {
+                                        "PROCEED" -> "Proceed"
+                                        "MODIFY" -> "Modify"
+                                        "MOVE_INDOORS" -> "Move Indoors"
+                                        "PRECAUTIONS", "PROCEED_WITH_PRECAUTIONS" -> "Proceed with Precautions"
+                                        else -> item.requestedDecision ?: "OVERRIDE"
+                                    }
+                                }
                                 Text(
-                                    text = item.requestedDecision ?: "OVERRIDE",
+                                    text = requestedAction,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = if (item.requestedDecision == "MOVE_INDOORS") DangerRed else CautionYellow
@@ -331,7 +348,7 @@ fun SchoolAnalyticsScreen(
             Icon(Icons.Default.Description, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isBengali) "PDF সাপ্তাহিক রিপোর্ট এক্সপোর্ট করুন (F-14)" else "Export Weekly PDF Report (F-14)",
+                text = if (isBengali) "PDF সাপ্তাহিক রিপোর্ট এক্সপোর্ট করুন" else "Export Weekly PDF Report",
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 fontSize = 15.sp
