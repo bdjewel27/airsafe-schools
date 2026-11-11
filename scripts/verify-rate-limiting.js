@@ -14,11 +14,47 @@
  */
 
 const https = require('https');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
 const { URL } = require('url');
 const { getOrAuthenticateToken, clearCachedTokens, saveCachedToken, getCachedToken } = require('./token-cache');
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev';
 const SCHOOL_ID = 'school-dhaka-001';
+
+let reviewerPassword = null;
+
+function resolveReviewerPassword() {
+  if (reviewerPassword) return reviewerPassword;
+  if (process.env.AIRSAFE_TEST_PASSWORD && process.env.AIRSAFE_TEST_PASSWORD.trim()) {
+    reviewerPassword = process.env.AIRSAFE_TEST_PASSWORD.trim();
+    return reviewerPassword;
+  }
+  try {
+    const raw = execSync(
+      'aws secretsmanager get-secret-value --secret-id airsafe/demo-credentials --region ap-southeast-2 --query SecretString --output text',
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+    );
+    const parsed = JSON.parse(raw);
+    const pw = parsed.reviewer_password || parsed.principal_password;
+    if (pw) {
+      reviewerPassword = pw;
+      process.env.AIRSAFE_TEST_PASSWORD = pw;
+      return reviewerPassword;
+    }
+  } catch {
+    // Secrets Manager unavailable (offline/local env)
+  }
+  return null;
+}
+
+function ensureLocalEphemeralPassword() {
+  if (!reviewerPassword) {
+    reviewerPassword = `LocalEphemeral#${crypto.randomBytes(12).toString('hex')}!`;
+  }
+  process.env.AIRSAFE_TEST_PASSWORD = reviewerPassword;
+  return reviewerPassword;
+}
 
 let useLocalHandler = false;
 let localApiHandler = null;
@@ -55,8 +91,9 @@ function makeHttpRequest(urlStr, options = {}, body = null) {
 }
 
 function initLocalHandler() {
-  process.env.API_JWT_SECRET = process.env.API_JWT_SECRET || 'MockUnitTestCredential_OnlyForTesting#2026';
-  process.env.MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || '0'.repeat(32);
+  ensureLocalEphemeralPassword();
+  process.env.API_JWT_SECRET = process.env.API_JWT_SECRET || crypto.randomBytes(32).toString('hex');
+  process.env.MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || crypto.randomBytes(32).toString('hex');
   process.env.AWS_REGION = process.env.AWS_REGION || 'ap-southeast-2';
   const apiModule = require('../services/api/dist/index');
   if (apiModule.docClient) {
@@ -127,25 +164,35 @@ async function runVerification() {
   console.log(`Target: ${API_BASE_URL}`);
   console.log('========================================================================\n');
 
+  const livePassword = resolveReviewerPassword();
+
   // Check if live API has reviewer-test account provisioned or if local handler should be used
-  try {
-    const probe = await makeHttpRequest(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }, { email: 'reviewer-test@airsafe.internal', password: process.env.AIRSAFE_TEST_PASSWORD || '[REDACTED_PASSWORD]' });
-    if (probe.statusCode !== 200) {
+  if (!livePassword) {
+    console.warn('⚠️ ========================================================');
+    console.warn('⚠️ WARNING: LOCAL — NOT LIVE (AIRSAFE_TEST_PASSWORD / Secrets Manager unavailable)');
+    console.warn('⚠️ Testing via local compiled API service handler with ephemeral credentials.');
+    console.warn('⚠️ ========================================================\n');
+    initLocalHandler();
+  } else {
+    try {
+      const probe = await makeHttpRequest(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }, { email: 'reviewer-test@airsafe.internal', password: livePassword });
+      if (probe.statusCode !== 200) {
+        console.warn('⚠️ ========================================================');
+        console.warn(`⚠️ WARNING: LOCAL — NOT LIVE (Live deployed API returned HTTP ${probe.statusCode})`);
+        console.warn('⚠️ Testing via local compiled API service handler.');
+        console.warn('⚠️ ========================================================\n');
+        initLocalHandler();
+      }
+    } catch (err) {
       console.warn('⚠️ ========================================================');
-      console.warn(`⚠️ WARNING: LOCAL — NOT LIVE (Live deployed API returned HTTP ${probe.statusCode})`);
+      console.warn(`⚠️ WARNING: LOCAL — NOT LIVE (Live API unreachable: ${err.message})`);
       console.warn('⚠️ Testing via local compiled API service handler.');
       console.warn('⚠️ ========================================================\n');
       initLocalHandler();
     }
-  } catch (err) {
-    console.warn('⚠️ ========================================================');
-    console.warn(`⚠️ WARNING: LOCAL — NOT LIVE (Live API unreachable: ${err.message})`);
-    console.warn('⚠️ Testing via local compiled API service handler.');
-    console.warn('⚠️ ========================================================\n');
-    initLocalHandler();
   }
 
   let passed = 0;
@@ -171,7 +218,7 @@ async function runVerification() {
   for (let i = 1; i <= 5; i++) {
     const res = await invokeEndpoint('POST', '/auth/login', {}, {
       email: 'reviewer-test@airsafe.internal',
-      password: process.env.AIRSAFE_TEST_PASSWORD || '[REDACTED_PASSWORD]',
+      password: reviewerPassword,
     });
 
     if (res.statusCode === 429) {
@@ -207,7 +254,7 @@ async function runVerification() {
 
   const cachedToken = await getOrAuthenticateToken(
     'reviewer-test@airsafe.internal',
-    '[REDACTED_PASSWORD]',
+    reviewerPassword,
     async () => reviewerToken
   );
 

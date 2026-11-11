@@ -19,7 +19,7 @@ In accordance with project evaluation transparency requirements, this document o
 | **Campus Sensors** | **কোনো physical sensor online নেই (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
 | **Multi-Tenant & MCP Auth** | **46/46 PASSED (Live/Local API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
 | **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
-| **Security & Secrets** | **Zero Secrets in Git History** | PBKDF2 passwords rotated. All reviewer credentials provisioned in AWS Secrets Manager (`airsafe/demo-credentials`). | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| **Security & Secrets** | **Hard Gate 1 Remediation In Progress** | Hardcoded passwords removed from source; reviewer credentials loaded from AWS Secrets Manager (`airsafe/demo-credentials`). Full git history scrub & secret rotation pending verification before claiming clean history. | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 | **Rate Limiter & Token Reuse** | **14/14 PASSED (QA Audit H4)** | Pre-warmed account allowlisted (100 burst window); Bearer token cached and reused across sequential test suites with zero 429 errors. | Command: `node scripts/verify-rate-limiting.js` |
 | **EPA AQI Standard & Provenance** | **136 AQI & Provenance (QA Audit H5)** | Authoritative EPA PM2.5 linear interpolation enforced across poller, API, and MCP (49.7 µg/m³ -> 136). Provenance metadata attached. | Unit Tests: `npm --prefix services/api test` (110/110 passed) |
@@ -31,10 +31,10 @@ In accordance with project evaluation transparency requirements, this document o
 
 ## 2. Hard Gates Verification Matrix
 
-### Gate 1: Zero Secrets in Repository or History
-- **Status:** **PASSED**
+### Gate 1: Secret Hygiene & History Scrubbing (Remediation In Progress)
+- **Status:** **IN PROGRESS (Pending git-filter-repo scrub, secret rotation & gitleaks re-scan)**
 - **Verification:**
-  - Ran `git-filter-repo` to purge all historical passwords across all 181 commits.
+  - Hardcoded passwords and unintended media files removed from working tree; full `git-filter-repo` history scrub and secret rotation pending final verification before asserting clean history.
   - Gitleaks configured in [`.gitleaks.toml`](.gitleaks.toml) and enforced as a mandatory blocking prerequisite in [GitHub Actions CI](.github/workflows/ci.yml).
   - Reviewer and demo credentials are stored securely in AWS Secrets Manager under secret ID `airsafe/demo-credentials`:
     ```bash

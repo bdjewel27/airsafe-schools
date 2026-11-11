@@ -37,7 +37,7 @@
 
 ## 2. Audit Hard Gates Summary (Aligned with Brief)
 
-- **Gate 1 (Zero Secrets in Repository or History):** **PASSED**. Keystore fallback removed (`android/app/build.gradle.kts`); clean orphan git history established (`5f7164c`). Zero credentials in code, repo, or git history.
+- **Gate 1 (Secret Hygiene & Git History Scrubbing):** **IN PROGRESS (Remediation)**. Hardcoded test passwords and unintended images removed from working tree; full `git-filter-repo` history scrub, JWT/credential rotation, and full-history secret scan verification pending before asserting clean history.
 - **Gate 2 (Crash-Free & Operational Flow):** **PASSED (Simulated/Seeded Telemetry)**. Clean execution across backend API, MCP server, sensor simulator, and signed release Android APK (`app-release.apk`). **Sensor Status:** কোনো physical hardware sensor online নেই (Zero physical sensors on campus). Telemetry is simulated via [`simulator/src/index.ts`](../simulator/src/index.ts) (`npm --prefix simulator run start`) and seeded via [`scripts/seed-data.ts`](../scripts/seed-data.ts) (`node scripts/seed-data.ts`). Verified via live smoke test: `node scripts/smoke-test-tenant-isolation.js` (45/45 PASS).
 - **Gate 3 (Tenant & Role Isolation):** **PASSED**. Strictly enforced server-side. Teachers cannot execute coordinator overrides or routines (`403 Forbidden`). Cross-tenant requests rejected. Cognito attributes client read-only.
 - **Gate 4 (Policy Safety Floor & Monotonic Strictness):** **PASSED**. `policy.ts` and `policy/v1.2.json` serve as the single source of truth. Coordinator overrides and AI assistant can only tighten safety decisions, never relax below the calculated floor. Zero demo fallbacks in production Android builds.

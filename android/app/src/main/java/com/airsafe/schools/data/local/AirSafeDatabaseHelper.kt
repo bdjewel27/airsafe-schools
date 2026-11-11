@@ -360,6 +360,18 @@ class AirSafeDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         }
     }
 
+    /**
+     * Clears all persisted user sessions from SQLite (fail-closed on logout or auth failure).
+     */
+    fun clearUserSessions() {
+        try {
+            writableDatabase.delete(TABLE_SESSIONS, null, null)
+            AppLog.d(TAG, "Cleared persisted user sessions from SQLite.")
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Error clearing user sessions from SQLite: ${e.message}", e)
+        }
+    }
+
     fun clearAll() {
         try {
             writableDatabase.delete(TABLE_DECISIONS, null, null)
