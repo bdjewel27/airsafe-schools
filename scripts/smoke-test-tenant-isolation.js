@@ -66,7 +66,7 @@ function getCredentials() {
       if (raw && raw.trim()) {
         const parsed = JSON.parse(raw.trim());
         principalPassword = parsed.principal_password;
-        teacherPassword = parsed.teacher_password || parsed.principal_password;
+        teacherPassword = parsed.school_b_teacher_password || parsed.teacher_password || parsed.principal_password;
       }
     } catch {
       // Secrets Manager not accessible in current environment
