@@ -1191,13 +1191,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           }
         }
 
-        // Step 5: Pre-warmed seeded demo / reviewer account fallback (QA Audit H4)
-        if (!staff && SEEDED_DEMO_ACCOUNTS[email]) {
+        // Step 5: Seeded demo / reviewer lookup ONLY when explicitly configured via AIRSAFE_TEST_PASSWORD env (fail-closed)
+        if (!staff && SEEDED_DEMO_ACCOUNTS[email] && process.env.AIRSAFE_TEST_PASSWORD) {
           const seeded = SEEDED_DEMO_ACCOUNTS[email];
-          const demoPassword = process.env.AIRSAFE_TEST_PASSWORD || '[REDACTED_PASSWORD]';
           staff = {
             email: seeded.email,
-            passwordHash: hashPassword(demoPassword),
+            passwordHash: hashPassword(process.env.AIRSAFE_TEST_PASSWORD),
             role: seeded.role,
             schoolId: seeded.schoolId,
             nameBn: seeded.nameBn,
@@ -1254,20 +1253,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             };
           }
         } catch (cognitoAuthErr: any) {
-          if (isReviewer && (cognitoAuthErr?.name === 'UserNotFoundException' || cognitoAuthErr?.name === 'ResourceNotFoundException' || cognitoAuthErr?.name === 'NotAuthorizedException')) {
-            const demoPass = process.env.AIRSAFE_TEST_PASSWORD || '[REDACTED_PASSWORD]';
-            if (password === demoPass || verifyPassword(password, staff.passwordHash)) {
-              token = createSignedJwt({
-                email: staff.email,
-                school_id: staff.schoolId,
-                role: staff.role,
-                name_bn: staff.nameBn,
-                name_en: staff.nameEn,
-                school_name_bn: staff.schoolNameBn,
-                school_name_en: staff.schoolNameEn,
-              });
-            }
-          }
           console.error('[Cognito Auth Error]: AdminInitiateAuth rejected credentials:', cognitoAuthErr?.message);
           return {
             statusCode: 401,
@@ -1278,11 +1263,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
           };
         }
       } else {
-        // Fallback for offline test environments where Cognito is not configured: verify PBKDF2 hash
-        const demoPass = process.env.AIRSAFE_TEST_PASSWORD || '[REDACTED_PASSWORD]';
-        const isPasswordValid = Boolean(
-          password && (verifyPassword(password, staff.passwordHash) || (isReviewer && password === demoPass))
-        );
+        // Offline / unit-test verification without Cognito: strictly verify PBKDF2 hash
+        const isPasswordValid = Boolean(password && verifyPassword(password, staff.passwordHash));
         if (!isPasswordValid) {
           return {
             statusCode: 401,

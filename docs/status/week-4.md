@@ -14,7 +14,7 @@
   - J-3 (FCM danger push notification, tighten-only coordinator override).
   - J-4 (Friday weekly safety analytics review, native Android share sheet, stable 44MB memory profile over 35 min).
 - Security Audit & Hard Gate Verification (Gates 1–5):
-  - Gate 1: Keystore fallback removed, clean orphan git history (`5f7164c`). Zero hardcoded secrets in code, repo, or history.
+  - Gate 1: Keystore fallback and hardcoded credentials removed from working tree; full git history scrub and credential rotation verification in progress.
   - Gate 2: End-to-end operation verified across cloud and mobile client with zero crashes.
   - Gate 3: Server-governed roles and tenant isolation verified (`403 Forbidden` on privilege escalation).
   - Gate 4: Policy v1.2 monotonic floor verified. Zero fake demo fallbacks in production.

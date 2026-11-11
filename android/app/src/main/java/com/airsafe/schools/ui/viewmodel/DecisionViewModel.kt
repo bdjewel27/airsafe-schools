@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 enum class AppTab {
     HOME,
@@ -234,22 +235,20 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun getCachedUserSession(email: String): UserSession? {
-        val fromDb = try {
-            dbHelper.getUserSession(email)
+    private fun clearSessionCache() {
+        try {
+            dbHelper.clearUserSessions()
         } catch (e: Exception) {
-            AppLog.e(TAG, "Error reading session from SQLite: ${e.message}", e)
-            null
+            AppLog.e(TAG, "Failed to clear user sessions from SQLite: ", e)
         }
-        if (fromDb != null) return fromDb
-
-        return try {
-            val json = prefs.getString("cached_user_session_$email", null)
-            if (!json.isNullOrBlank()) {
-                gson.fromJson(json, UserSession::class.java)
-            } else null
-        } catch (_: Exception) {
-            null
+        try {
+            val editor = prefs.edit()
+            prefs.all.keys
+                .filter { it.startsWith("cached_user_session_") }
+                .forEach { editor.remove(it) }
+            editor.apply()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to clear user sessions from SharedPreferences: ", e)
         }
     }
 
@@ -314,9 +313,15 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
         _loginError.value = null
         AppLog.d(TAG, "Attempting authentication...")
 
+        // Fail-closed: clear any existing session tokens and cache before attempting login
+        stopForegroundSync()
+        AirSafeApiClient.authToken = null
+        _userSession.value = null
+        _activeOverride.value = null
+        clearSessionCache()
+
         viewModelScope.launch {
             try {
-                // Attempt backend /auth/login first
                 val loginResp = AirSafeApiClient.service.login(LoginRequest(normalizedEmail, passwordInput))
                 AppLog.d(TAG, "Login successful: role=${loginResp.user.role}, school=${loginResp.user.schoolId}")
                 val resolvedRole = when (loginResp.user.role.uppercase()) {
@@ -344,21 +349,31 @@ class DecisionViewModel(application: Application) : AndroidViewModel(application
             } catch (apiEx: Exception) {
                 AppLog.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
 
-                // Hard Gate 3 & Gate 1: Only restore previously authenticated server sessions during offline mode
-                val cachedSession = getCachedUserSession(normalizedEmail)
-                if (cachedSession != null) {
-                    AppLog.d(TAG, "Restoring verified cached server session")
-                    AirSafeApiClient.authToken = cachedSession.token
-                    _userSession.value = cachedSession
-                    _selectedSchoolId.value = cachedSession.schoolId
-                    loadSchoolData(cachedSession.schoolId)
-                    return@launch
-                }
+                // Fail-closed on ANY failed login (400/401/403/429 or network error):
+                // Never restore a previous session or token on wrong credentials.
+                stopForegroundSync()
+                AirSafeApiClient.authToken = null
+                _userSession.value = null
+                _activeOverride.value = null
+                clearSessionCache()
 
-                val msg = if (_isBengali.value) {
-                    "লগইন ব্যর্থ হয়েছে (${apiEx.javaClass.simpleName}): সঠিক ইমেইল ও পাসওয়ার্ড দিন বা সার্ভার সংযোগ (${AirSafeApiClient.getBaseUrl()}) পরীক্ষা করুন।"
-                } else {
-                    "Authentication failed (${apiEx.javaClass.simpleName}): Check credentials or server connection at ${AirSafeApiClient.getBaseUrl()}."
+                val httpCode = (apiEx as? HttpException)?.code()
+                val msg = when {
+                    httpCode == 401 || httpCode == 403 -> if (_isBengali.value) {
+                        "লগইন ব্যর্থ হয়েছে (HTTP $httpCode): ভুল ইমেইল বা পাসওয়ার্ড।"
+                    } else {
+                        "Invalid credentials (HTTP $httpCode). Previous session cleared."
+                    }
+                    httpCode == 429 -> if (_isBengali.value) {
+                        "অতিরিক্ত লগইন প্রচেষ্টার কারণে সাময়িকভাবে বন্ধ আছে (HTTP 429)। কিছুক্ষণ পর চেষ্টা করুন।"
+                    } else {
+                        "Too many login attempts (HTTP 429). Please try again later."
+                    }
+                    else -> if (_isBengali.value) {
+                        "লগইন ব্যর্থ হয়েছে (${apiEx.javaClass.simpleName}): সঠিক ইমেইল ও পাসওয়ার্ড দিন বা সার্ভার সংযোগ (${AirSafeApiClient.getBaseUrl()}) পরীক্ষা করুন।"
+                    } else {
+                        "Authentication failed (${apiEx.javaClass.simpleName}): Check credentials or server connection at ${AirSafeApiClient.getBaseUrl()}."
+                    }
                 }
                 _loginError.value = msg
             }

@@ -119,7 +119,7 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 
 | Gate | Criterion | Status | Verification & Evidence |
 | :---: | :--- | :---: | :--- |
-| **Gate 1** | Zero Secrets in Repository or Git History | **PASSED** | Gitleaks CI blocking gate. Passwords rotated; reviewer credentials in AWS Secrets Manager (`airsafe/demo-credentials`). |
+| **Gate 1** | Secret Hygiene & History Scrubbing | **IN PROGRESS (Remediation)** | Hardcoded credentials & unintended screenshots removed from working tree; full git history scrub (`git-filter-repo`), JWT/credential rotation, and `gitleaks` re-verification pending before marking clean. |
 | **Gate 2** | Crash-Free & Operational Flow | **PASSED** | Hardware-verified on physical ITEL itel A667LP (Android 14). Telemetry simulated via `simulator/src/index.ts` and seeded via `scripts/seed-data.ts`. |
 | **Gate 3** | Tenant & Role Isolation | **PASSED** | 46/46 passed in `node scripts/smoke-test-tenant-isolation.js`. Cross-tenant queries return 403; unauthenticated queries return 401. |
 | **Gate 4** | Policy Safety Floor & Monotonic Strictness | **PASSED** | Authoritative EPA PM2.5 to AQI formula enforced (49.7 µg/m³ -> 136); provenance metadata attached. Strictness rule `rank(governed) >= rank(floor)`. `node scripts/run-evals.js --intentional-failure` flags violations with exit code 1. |
