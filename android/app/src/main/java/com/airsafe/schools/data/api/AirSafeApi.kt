@@ -200,6 +200,9 @@ object AirSafeApiClient {
                 AppLog.d(TAG, "--> ${original.method} ${original.url}")
                 val response = chain.proceed(reqBuilder.build())
                 AppLog.d(TAG, "<-- ${response.code} ${original.url} (${response.message})")
+                if (response.code == 401 || response.code == 403) {
+                    authToken = null
+                }
 
                 val body = response.body
                 if (body != null) {

@@ -1,9 +1,11 @@
 package com.airsafe.schools.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.airsafe.schools.data.api.AirSafeApiClient
+import com.airsafe.schools.data.local.AirSafeDatabaseHelper
 import com.airsafe.schools.data.model.LoginRequest
 import com.airsafe.schools.data.model.UserRole
 import com.airsafe.schools.data.model.UserSession
@@ -32,6 +34,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private fun purgePersistedSessions() {
+        AirSafeApiClient.authToken = null
+        _userSession.value = null
+        try {
+            AirSafeDatabaseHelper(getApplication()).clearUserSessions()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to clear SQLite sessions: ${e.message}", e)
+        }
+        try {
+            val prefs = getApplication<Application>().getSharedPreferences("airsafe_offline_cache", Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+            prefs.all.keys.filter { it.startsWith("cached_user_session_") }.forEach { editor.remove(it) }
+            editor.apply()
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to clear SharedPreferences sessions: ${e.message}", e)
+        }
+    }
+
     fun authenticateStaff(
         emailInput: String,
         passwordInput: String,
@@ -41,6 +61,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         val normalizedEmail = emailInput.trim().lowercase()
         _loginError.value = null
         _isLoading.value = true
+        // Fail-closed: clear any previous token or cached session before login attempt
+        purgePersistedSessions()
         AppLog.d(TAG, "Attempting authentication for: $normalizedEmail")
 
         viewModelScope.launch {
@@ -70,6 +92,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 onSuccess(session)
             } catch (apiEx: Exception) {
                 AppLog.e(TAG, "Backend authentication error: ${apiEx.message}", apiEx)
+                // Fail-closed on ANY failed login: wipe active token and persisted session
+                purgePersistedSessions()
                 val msg = if (isBengali) {
                     "লগইন ব্যর্থ হয়েছে (${apiEx.javaClass.simpleName}): সঠিক ইমেইল ও পাসওয়ার্ড দিন বা সার্ভার সংযোগ (${AirSafeApiClient.getBaseUrl()}) পরীক্ষা করুন।"
                 } else {
@@ -82,8 +106,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout(onLoggedOut: () -> Unit = {}) {
-        AirSafeApiClient.authToken = null
-        _userSession.value = null
+        purgePersistedSessions()
         _loginError.value = null
         _isLoading.value = false
         onLoggedOut()
