@@ -1,4 +1,4 @@
-# AirSafe Schools: Weekly Status Report — Week 1
+﻿# AirSafe Schools: Weekly Status Report â€” Week 1
 
 **Period:** Week 1 (Foundation, Baseline Checks & Data Modeling)  
 **Status Date:** Friday, Week 1  

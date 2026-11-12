@@ -1,4 +1,4 @@
-# AirSafe Schools: Weekly Status Report — Week 2
+﻿# AirSafe Schools: Weekly Status Report â€” Week 2
 
 **Period:** Week 2 (Backend Services, MCP Server & Android Client MVP)  
 **Status Date:** Friday, Week 2  

@@ -1,4 +1,4 @@
-# AirSafe Schools: Weekly Status Report — Week 3
+﻿# AirSafe Schools: Weekly Status Report â€” Week 3
 
 **Period:** Week 3 (Ingestion Pipeline, Load Testing & AI Evaluations)  
 **Status Date:** Friday, Week 3  
@@ -21,4 +21,4 @@
 - Monitored SQS batch partial failures to ensure DLQ isolation for poisoned payloads.
 
 ## 3. Next Week Priorities
-- Final hardening, physical Android hardware validation (Section 12), security audit (Gates 1–5), and release deliverables packaging.
+- Final hardening, physical Android hardware validation (Section 12), security audit (Gates 1â€“5), and release deliverables packaging.

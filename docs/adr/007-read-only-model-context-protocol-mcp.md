@@ -1,4 +1,4 @@
-# ADR 007: Read-Only Model Context Protocol (MCP) Server Architecture
+﻿# ADR 007: Read-Only Model Context Protocol (MCP) Server Architecture
 
 ## Status
 Accepted

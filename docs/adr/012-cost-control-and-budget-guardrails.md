@@ -1,4 +1,4 @@
-# ADR 012: Cost Control, Budget Guardrails & Denial-of-Wallet Defense
+﻿# ADR 012: Cost Control, Budget Guardrails & Denial-of-Wallet Defense
 
 ## Status
 Accepted

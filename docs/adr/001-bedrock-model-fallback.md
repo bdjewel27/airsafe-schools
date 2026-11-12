@@ -1,4 +1,4 @@
-# ADR 001: Amazon Bedrock Regional Quota Limitation, Fallback Strategy & Scope Accounting
+﻿# ADR 001: Amazon Bedrock Regional Quota Limitation, Fallback Strategy & Scope Accounting
 
 ## Status
 Accepted
@@ -26,7 +26,6 @@ To attempt unblocking model access in Sydney, a formal quota increase request wa
 - **Raw Execution Log:** Verbatim terminal execution preserved in [`docs/day1-check.log`](../day1-check.log) and [`docs/day1-checks.md`](../day1-checks.md).
 
 #### AWS Support Case Screenshot Evidence
-![AWS Service Quota Increase Case Proof](../aws-service-quota-case-17283940191.png)
 
 ---
 
@@ -42,11 +41,11 @@ Rather than abandoning the Nova integration or relying purely on static mocks, t
 
 ### B. Project Brief & Hard Gate 5 Compliance (Honest Scope Accounting)
 Per the Project Brief evaluation guidelines (Gate 5 - Cost Discipline & Evaluation Honesty):
-> *কোনো Must বাদ দিলে তা "done" নয়, "বাদ, কারণসহ" হিসেবে দেখাতে হয়।*
+> *à¦•à§‹à¦¨à§‹ Must à¦¬à¦¾à¦¦ à¦¦à¦¿à¦²à§‡ à¦¤à¦¾ "done" à¦¨à¦¯à¦¼, "à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹" à¦¹à¦¿à¦¸à§‡à¦¬à§‡ à¦¦à§‡à¦–à¦¾à¦¤à§‡ à¦¹à¦¯à¦¼à¥¤*
 
 Therefore, to maintain 100% audit integrity across all documents:
-- In `STATUS.md` and `docs/STATUS.md`, requirement **F-05** is uniformly marked as **"বাদ, কারণসহ"** rather than claiming an unverified "done" or ambiguous "partial".
-- In `docs/device-test.md`, Journey J-2 is explicitly designated as **"বাদ, কারণসহ (ADR-001 ডিটারমিনিস্টিক পলিসি ফলব্যাক)"**, confirming that while live cloud model tokens are omitted due to quota 0.0, the grounded deterministic safety fallback runs crash-free on physical hardware.
+- In `STATUS.md` and `docs/STATUS.md`, requirement **F-05** is uniformly marked as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"** rather than claiming an unverified "done" or ambiguous "partial".
+- In `docs/device-test.md`, Journey J-2 is explicitly designated as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (ADR-001 à¦¡à¦¿à¦Ÿà¦¾à¦°à¦®à¦¿à¦¨à¦¿à¦¸à§à¦Ÿà¦¿à¦• à¦ªà¦²à¦¿à¦¸à¦¿ à¦«à¦²à¦¬à§à¦¯à¦¾à¦•)"**, confirming that while live cloud model tokens are omitted due to quota 0.0, the grounded deterministic safety fallback runs crash-free on physical hardware.
 - The raw terminal execution log is permanently recorded in `docs/day1-check.log`.
 
 ---

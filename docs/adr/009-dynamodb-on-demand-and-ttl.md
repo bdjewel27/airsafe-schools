@@ -1,10 +1,10 @@
-# ADR 009: DynamoDB On-Demand Capacity & Automated 30-Day TTL
+﻿# ADR 009: DynamoDB On-Demand Capacity & Automated 30-Day TTL
 
 ## Status
 Accepted
 
 ## Context
-AirSafe Schools collects continuous environmental telemetry (PM2.5, PM10, temperature, relative humidity, calculated AQI, and Heat Index) across 100+ schools. Traffic is highly diurnal—peaking heavily during active school hours (07:00 to 17:00 BST) and dropping to near zero during nighttime hours and weekends.
+AirSafe Schools collects continuous environmental telemetry (PM2.5, PM10, temperature, relative humidity, calculated AQI, and Heat Index) across 100+ schools. Traffic is highly diurnalâ€”peaking heavily during active school hours (07:00 to 17:00 BST) and dropping to near zero during nighttime hours and weekends.
 Provisioned Read/Write Capacity Units (RCUs/WCUs) would either incur idle costs during school closures or risk throttling during simultaneous morning sensor bursts. Furthermore, historical sensor logs can accumulate indefinitely, leading to unconstrained storage costs that threaten the $100 budget cap.
 
 ## Decision

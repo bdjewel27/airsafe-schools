@@ -1,4 +1,4 @@
-# ADR 004: Offline Resilience, Graceful Degradation & Network Listener
+﻿# ADR 004: Offline Resilience, Graceful Degradation & Network Listener
 
 ## Status
 Accepted
@@ -9,7 +9,7 @@ Schools in semi-urban or rural Bangladesh frequently suffer from intermittent 3G
 ## Decision
 1. Implement a persistent local cache in the Android client that preserves the latest confirmed sensor snapshot and decision payload.
 2. Integrate Android's native `ConnectivityManager.NetworkCallback` to listen directly for connectivity loss (`onLost`) and restoration (`onAvailable`), eliminating manual toggles.
-3. Automatically render a high-contrast amber Warning Banner upon network disconnection: *"অফলাইন মোড — ক্যাশ করা ডেটা দেখানো হচ্ছে"* (*"Offline Mode: Showing cached snapshot"*).
+3. Automatically render a high-contrast amber Warning Banner upon network disconnection: *"à¦…à¦«à¦²à¦¾à¦‡à¦¨ à¦®à§‹à¦¡ â€” à¦•à§à¦¯à¦¾à¦¶ à¦•à¦°à¦¾ à¦¡à§‡à¦Ÿà¦¾ à¦¦à§‡à¦–à¦¾à¦¨à§‹ à¦¹à¦šà§à¦›à§‡"* (*"Offline Mode: Showing cached snapshot"*).
 4. Enforce Policy Rule 4 (Stale Data Guardrail): If offline cached data is older than 90 minutes, the app automatically caps the decision at `PROCEED_WITH_PRECAUTIONS`, preventing outdated "Safe" decisions.
 5. Invalidate or gray out actions that require server connectivity (e.g., live invitations) while keeping read-only safety metrics immediately available.
 

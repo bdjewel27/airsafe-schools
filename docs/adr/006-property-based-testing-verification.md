@@ -1,4 +1,4 @@
-# ADR 006: Property-Based Verification of Policy Engine Invariants
+﻿# ADR 006: Property-Based Verification of Policy Engine Invariants
 
 ## Status
 Accepted

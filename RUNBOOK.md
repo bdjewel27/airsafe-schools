@@ -1,4 +1,4 @@
-# AirSafe Schools — Evaluator & Reviewer Runbook
+﻿# AirSafe Schools â€” Evaluator & Reviewer Runbook
 
 This runbook provides complete, step-by-step instructions to replicate, build, test, and verify the entire **AirSafe Schools** ecosystem across cloud backend, automated test suites, physical mobile hardware, and security compliance gates.
 
@@ -82,14 +82,14 @@ Three dedicated evaluation accounts representing isolated tenants and roles have
 
 ### Pre-requisites:
 - Java JDK 17+ (or Android Studio JBR: `E:\AndroidStudio\jbr`).
-- Android 8.0+ physical device (USB debugging enabled) or Android Virtual Device (API 26–35).
+- Android 8.0+ physical device (USB debugging enabled) or Android Virtual Device (API 26â€“35).
 
 > [!NOTE]
 > **APK Distribution Notice:** In accordance with Git repository hygiene and **Hard Gate 1**, binary artifacts (`*.apk`) are excluded from Git version control via `.gitignore`. Evaluators can obtain the release APK through either of the following methods:
 
 ### Option A: Download Pre-Built Signed Release APK (GitHub Releases)
 Download the pre-compiled, production-signed release APK directly from the official release page:  
-🔗 **[Download AirSafe Schools v1.0.0 Release APK](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)**
+ðŸ”— **[Download AirSafe Schools v1.0.0 Release APK](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)**
 
 Once downloaded, install directly to an adb-connected device:
 ```powershell
@@ -111,32 +111,32 @@ cd android
 
 ## 4. Replicating the 4 Mandatory Physical Journeys (Section 02 & Section 12)
 
-### J-1: সকালের চেক (১০ সেকেন্ডের কম, সর্বোচ্চ ৩ ট্যাপ) / Morning Safety Check ($\le 10\text{ s}$, $\le 3\text{ taps}$)
+### J-1: à¦¸à¦•à¦¾à¦²à§‡à¦° à¦šà§‡à¦• (à§§à§¦ à¦¸à§‡à¦•à§‡à¦¨à§à¦¡à§‡à¦° à¦•à¦®, à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§© à¦Ÿà§à¦¯à¦¾à¦ª) / Morning Safety Check ($\le 10\text{ s}$, $\le 3\text{ taps}$)
 1. Launch from cold state or home screen: `adb shell am start -W -n com.airsafe.schools/.MainActivity`.
 2. **Verification:**
    - The traffic-light decision card paints from cache in **< 0.8 seconds** (measured: 684ms display, 790ms paint).
    - In 3 taps (open app $\to$ view reasoning $\to$ check PE routine), full safety guidance is verified in **2.8 seconds** (well within the $\le 10\text{ s}$ limit).
 
-### J-2: বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন) / Bengali Inquiry & AI Response (Streaming + Citation)
-1. Open the AI Assistant tab and submit a Bengali question: *"আজকে কি মাঠে খেলাধুলা করা যাবে?"*
+### J-2: à¦¬à¦¾à¦‚à¦²à¦¾à§Ÿ à¦ªà§à¦°à¦¶à§à¦¨ à¦“ AI à¦‰à¦¤à§à¦¤à¦° (à¦¸à§à¦Ÿà§à¦°à¦¿à¦®à¦¿à¦‚ + à¦¸à¦¾à¦‡à¦Ÿà§‡à¦¶à¦¨) / Bengali Inquiry & AI Response (Streaming + Citation)
+1. Open the AI Assistant tab and submit a Bengali question: *"à¦†à¦œà¦•à§‡ à¦•à¦¿ à¦®à¦¾à¦ à§‡ à¦–à§‡à¦²à¦¾à¦§à§à¦²à¦¾ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡?"*
 2. **Verification:**
    - Assistant returns step-by-step bilingual reasoning grounded in current campus telemetry (Heat Index & AQI).
    - Clickable, verified citation badge is rendered (*Policy v1.2, Appendix A*).
    - Prompt injection tests attempting to relax `MOVE_INDOORS` to `PROCEED` are strictly blocked by the deterministic policy floor.
 
-### J-3: সিদ্ধান্ত খারাপ হওয়ার পুশ সতর্কবার্তা ও কোঅর্ডিনেটর ওভাররাইড / Deterioration Push Alert & Coordinator Override
+### J-3: à¦¸à¦¿à¦¦à§à¦§à¦¾à¦¨à§à¦¤ à¦–à¦¾à¦°à¦¾à¦ª à¦¹à¦“à§Ÿà¦¾à¦° à¦ªà§à¦¶ à¦¸à¦¤à¦°à§à¦•à¦¬à¦¾à¦°à§à¦¤à¦¾ à¦“ à¦•à§‹à¦…à¦°à§à¦¡à¦¿à¦¨à§‡à¦Ÿà¦° à¦“à¦­à¦¾à¦°à¦°à¦¾à¦‡à¦¡ / Deterioration Push Alert & Coordinator Override
 1. Environmental simulation triggers critical threshold ($AQI \ge 175$, $HeatIndex \ge 44^\circ\text{C}$).
 2. **Verification:**
-   - Heads-up push notification appears immediately (`IMPORTANCE_HIGH`) with title: *"🚨 AirSafe জরুরি সতর্কতা: MOVE INDOORS"*.
+   - Heads-up push notification appears immediately (`IMPORTANCE_HIGH`) with title: *"ðŸš¨ AirSafe à¦œà¦°à§à¦°à¦¿ à¦¸à¦¤à¦°à§à¦•à¦¤à¦¾: MOVE INDOORS"*.
    - Coordinator logs in and submits a tighten-only override with mandatory justification note ($\ge 5$ characters).
    - Attempting to relax a safety floor is rejected by both client and backend with HTTP 400.
    - TalkBack screen reader reads out all labels and status badges seamlessly ($48\times 48\text{ dp}$ touch targets, WCAG AAA contrast).
 
-### J-4: শুক্রবারের সাপ্তাহিক পর্যালোচনা ও রিপোর্ট এক্সপোর্ট / Friday Weekly Safety Review & Report Export
+### J-4: à¦¶à§à¦•à§à¦°à¦¬à¦¾à¦°à§‡à¦° à¦¸à¦¾à¦ªà§à¦¤à¦¾à¦¹à¦¿à¦• à¦ªà¦°à§à¦¯à¦¾à¦²à§‹à¦šà¦¨à¦¾ à¦“ à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ à¦à¦•à§à¦¸à¦ªà§‹à¦°à§à¦Ÿ / Friday Weekly Safety Review & Report Export
 1. Navigate to the School Analytics tab at the end of the school week.
 2. **Verification:**
    - Aggregated metrics display: weekly lost outdoor minutes, hours above threshold, and decision breakdowns fetched from `/schools/{schoolId}/analytics`.
-   - Tap *"রিপোর্ট শেয়ার করুন (Share Report)"*: Native Android Intent Share Sheet opens with a formatted safety summary.
+   - Tap *"à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ à¦¶à§‡à¦¯à¦¼à¦¾à¦° à¦•à¦°à§à¦¨ (Share Report)"*: Native Android Intent Share Sheet opens with a formatted safety summary.
    - Memory profile: 35-minute continuous diurnal run maintains a stable heap at **~44 MB** with zero runaway growth or ANR events.
 
 ---
@@ -174,6 +174,6 @@ Per Sections 11, 14, and 16 of Project Brief v2.0, all AI assistance leveraged d
 - **Human Oversight & Audited Fixes:**
   1. *Role Escalation in Staff Invite:* Ignored client role body, forced immutable `TEACHER` role scoped to caller tenant claims.
   2. *Inline Policy Drift:* Eliminated divergent inline threshold comparisons in API routes; forced all decisions through authoritative `policy.ts` / `evaluatePolicyFloor()`.
-  3. *Sensor Null Value 0.0°C Bug:* Converted primitive `0.0` values to nullable `Double?` with offline banner/placeholders.
+  3. *Sensor Null Value 0.0Â°C Bug:* Converted primitive `0.0` values to nullable `Double?` with offline banner/placeholders.
   4. *PBKDF2 Iterations:* Upgraded weak 1,000 iteration count to OWASP-compliant 600,000 iterations with timing-safe comparison.
   5. *Android Keystore Fallback:* Purged hardcoded password fallbacks; enforced fail-closed environment variables.

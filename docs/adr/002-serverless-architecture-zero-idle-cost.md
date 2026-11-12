@@ -1,4 +1,4 @@
-# ADR 002: Serverless Architecture & Zero Idle Spend Guarantee
+﻿# ADR 002: Serverless Architecture & Zero Idle Spend Guarantee
 
 ## Status
 Accepted

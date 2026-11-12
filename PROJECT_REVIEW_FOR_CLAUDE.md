@@ -1,6 +1,6 @@
-# AirSafe Schools: Evaluator & Reviewer Specification Guide (PROJECT_REVIEW_FOR_CLAUDE.md)
+﻿# AirSafe Schools: Evaluator & Reviewer Specification Guide (PROJECT_REVIEW_FOR_CLAUDE.md)
 **Document Version:** 1.2.0  
-**Target Environment:** AWS Sydney (`ap-southeast-2`) & Native Android (API 26–35)  
+**Target Environment:** AWS Sydney (`ap-southeast-2`) & Native Android (API 26â€“35)  
 **Evaluation Standard:** Model School Outdoor Activity Policy v1.2 & Project Specification  
 **Canonical Primary School ID:** `school-dhaka-001` (Dhaka Model School)  
 **Live API Gateway Base URL:** `https://263c1j9hxk.execute-api.ap-southeast-2.amazonaws.com/dev/`
@@ -91,7 +91,7 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 #### EPA Standard PM2.5 to AQI Calculation & Provenance Metadata (QA Audit H5):
 - **Authoritative Linear Interpolation Formula:**
   $$\mathrm{AQI} = \frac{I_{\text{high}} - I_{\text{low}}}{C_{\text{high}} - C_{\text{low}}} \times (C - C_{\text{low}}) + I_{\text{low}}$$
-  - **Breakpoints:** 0.0–12.0 (0–50), 12.1–35.4 (51–100), 35.5–55.4 (101–150), 55.5–150.4 (151–200), 150.5–250.4 (201–300), 250.5–500.4 (301–500).
+  - **Breakpoints:** 0.0â€“12.0 (0â€“50), 12.1â€“35.4 (51â€“100), 35.5â€“55.4 (101â€“150), 55.5â€“150.4 (151â€“200), 150.5â€“250.4 (201â€“300), 250.5â€“500.4 (301â€“500).
   - **Rounding:** $C$ (PM2.5) rounded to 1 decimal place; AQI rounded to nearest integer.
   - **Empirical Reference:** For $PM_{2.5} = 49.7\,\mu\text{g/m}^3$:
     $$\mathrm{AQI} = \frac{150 - 101}{55.4 - 35.5} \times (49.7 - 35.5) + 101 = \frac{49}{19.9} \times 14.2 + 101 = 34.96 + 101 = 135.96 \approx 136$$
@@ -108,7 +108,7 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 
 
 #### UI/UX Fallback Cleanup, Typography Unification & Dependency Audits (QA Audit M1 - M4):
-- **M1 (Decision Card Fallback Cleanup):** All hardcoded placeholder strings (`"০৯:৫০"`, `"স্কুল সমাবেশ (School Assembly)"`) removed. When live or cached data is absent, the card displays an authentic empty/unknown state ("তথ্য নেই" / "DATA UNAVAILABLE").
+- **M1 (Decision Card Fallback Cleanup):** All hardcoded placeholder strings (`"à§¦à§¯:à§«à§¦"`, `"à¦¸à§à¦•à§à¦² à¦¸à¦®à¦¾à¦¬à§‡à¦¶ (School Assembly)"`) removed. When live or cached data is absent, the card displays an authentic empty/unknown state ("à¦¤à¦¥à§à¦¯ à¦¨à§‡à¦‡" / "DATA UNAVAILABLE").
 - **M2 (Typography Unification):** Replaced fragmented font sizes across the Decision Card with standard `MaterialTheme.typography` styles: Title (`headlineSmall` / 22-24sp), Body (`bodyMedium` / `bodyLarge`), Label (`labelLarge` / `labelMedium`), and Caption (`bodySmall` / `labelSmall`).
 - **M3 (Visual Validation & Accessibility):** Added `DecisionCardTest.kt` asserting that the primary decision text is rendered as the most prominent text node with the largest typography style. Documented authentic device screenshot capture guidelines (`720x1612`, `200%` font scale, Bangla locale, TalkBack) in [`docs/device-test.md`](docs/device-test.md).
 - **M4 (Dependency Vulnerability Resolution):** Resolved moderate transitive `uuid` security advisories in `services/poller` by upgrading `firebase-admin` to `^14.5.0` and configuring package overrides (`uuid: ^11.1.1`, `glob: ^14.0.3`, `minimatch: ^11.0.3`). Verified `0 vulnerabilities` via `npm audit --omit=dev`.
@@ -122,8 +122,8 @@ curl -i -H "Authorization: Bearer $TOKEN" \
 | **Gate 1** | Secret Hygiene & History Scrubbing | **IN PROGRESS (Remediation)** | Hardcoded credentials & unintended screenshots removed from working tree; full git history scrub (`git-filter-repo`), JWT/credential rotation, and `gitleaks` re-verification pending before marking clean. |
 | **Gate 2** | Crash-Free & Operational Flow | **PASSED** | Hardware-verified on physical ITEL itel A667LP (Android 14). Telemetry simulated via `simulator/src/index.ts` and seeded via `scripts/seed-data.ts`. |
 | **Gate 3** | Tenant & Role Isolation | **PASSED** | 46/46 passed in `node scripts/smoke-test-tenant-isolation.js`. Cross-tenant queries return 403; unauthenticated queries return 401. |
-| **Gate 4** | Policy Safety Floor & Monotonic Strictness | **PASSED** | Authoritative EPA PM2.5 to AQI formula enforced (49.7 µg/m³ -> 136); provenance metadata attached. Strictness rule `rank(governed) >= rank(floor)`. `node scripts/run-evals.js --intentional-failure` flags violations with exit code 1. |
-| **Gate 5** | Honest Scope & Cost Discipline | **HOLD / Pending billing evidence** | Requirement F-05 honestly documented as **"বাদ, কারণসহ"** (AWS Sydney Nova quota 0.0, AWS Case #17283940191). Development burn tracked as **Estimated $3.42 (billing export pending)**. |
+| **Gate 4** | Policy Safety Floor & Monotonic Strictness | **PASSED** | Authoritative EPA PM2.5 to AQI formula enforced (49.7 Âµg/mÂ³ -> 136); provenance metadata attached. Strictness rule `rank(governed) >= rank(floor)`. `node scripts/run-evals.js --intentional-failure` flags violations with exit code 1. |
+| **Gate 5** | Honest Scope & Cost Discipline | **HOLD / Pending billing evidence** | Requirement F-05 honestly documented as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"** (AWS Sydney Nova quota 0.0, AWS Case #17283940191). Development burn tracked as **Estimated $3.42 (billing export pending)**. |
 
 ---
 

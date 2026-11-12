@@ -1,4 +1,4 @@
-# AirSafe Schools (এয়ারসেফ স্কুলস) 🏫💨
+﻿# AirSafe Schools (à¦à¦¯à¦¼à¦¾à¦°à¦¸à§‡à¦« à¦¸à§à¦•à§à¦²à¦¸) ðŸ«ðŸ’¨
 **Smart, Policy-Bounded Environmental Decision Support & AI Assistant for Schools in Bangladesh**
 
 [![Android Build](https://img.shields.io/badge/Android-Kotlin%20%7C%20Signed%20Release-green)](android/)
@@ -15,12 +15,12 @@
 During Bangladesh's scorching heatwaves and Dhaka's hazardous air pollution crises, teachers and school coordinators face a critical daily question: **"Is it safe for our children to hold assembly, PE, or play outdoors right now?"**
 
 **AirSafe Schools** provides an ultra-responsive, policy-grounded mobile decision engine backed by a resilient AWS serverless cloud infrastructure:
-- ⏱️ **Sub-2-Second Decisions:** Instant traffic-light guidance (**SAFE / CAUTION / MOVE INDOORS**) tailored to Bangladesh environmental thresholds.
-- 🛡️ **Monotonic Safety Floor:** AI discretion and coordinator overrides can only tighten outdoor safety restrictions—never soften them below official *Model School Outdoor Activity Policy v1.2*.
-- 📡 **Automated Danger Alerts:** High-priority heads-up notifications trigger automatically when campus conditions breach safety limits ($AQI \ge 175$ or $HeatIndex \ge 44^\circ\text{C}$).
-- 📴 **Zero-Lag Offline Resilience:** Automatic network transition detection via Android `ConnectivityManager` with cached snapshots and high-contrast warning banners.
-- 🤖 **Bilingual Grounded AI Assistant:** Grounded reasoning engine with campus sensor grounding, guardrails, and interactive citations to *Model School Outdoor Activity Policy v1.2* (F-05).
-- 💰 **Grounded Serverless Cost Architecture:** 100% serverless AWS backend strictly capped under the $100 credit limit with metric-based projected cost of **$5.28/month for 100 schools** ($3.42 actual burn to date per `docs/COST.md`).
+- â±ï¸ **Sub-2-Second Decisions:** Instant traffic-light guidance (**SAFE / CAUTION / MOVE INDOORS**) tailored to Bangladesh environmental thresholds.
+- ðŸ›¡ï¸ **Monotonic Safety Floor:** AI discretion and coordinator overrides can only tighten outdoor safety restrictionsâ€”never soften them below official *Model School Outdoor Activity Policy v1.2*.
+- ðŸ“¡ **Automated Danger Alerts:** High-priority heads-up notifications trigger automatically when campus conditions breach safety limits ($AQI \ge 175$ or $HeatIndex \ge 44^\circ\text{C}$).
+- ðŸ“´ **Zero-Lag Offline Resilience:** Automatic network transition detection via Android `ConnectivityManager` with cached snapshots and high-contrast warning banners.
+- ðŸ¤– **Bilingual Grounded AI Assistant:** Grounded reasoning engine with campus sensor grounding, guardrails, and interactive citations to *Model School Outdoor Activity Policy v1.2* (F-05).
+- ðŸ’° **Grounded Serverless Cost Architecture:** 100% serverless AWS backend strictly capped under the $100 credit limit with metric-based projected cost of **$5.28/month for 100 schools** ($3.42 actual burn to date per `docs/COST.md`).
 
 ---
 
@@ -180,9 +180,9 @@ npx cdk diff
 
 Per Git repository best practices and **Hard Gate 1**, compiled binary artifacts (`*.apk`) are git-ignored to prevent repository bloat and binary tampering. Evaluators can obtain and verify the signed release APK via two verified channels:
 
-- **Option A (Official GitHub Release — Recommended):**  
+- **Option A (Official GitHub Release â€” Recommended):**  
   Download the pre-compiled, cryptographically signed APK attached to the official GitHub Release `v1.0.0`:  
-  🔗 [GitHub Releases: AirSafe Schools v1.0.0 (app-release.apk)](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)
+  ðŸ”— [GitHub Releases: AirSafe Schools v1.0.0 (app-release.apk)](https://github.com/bdjewel27/airsafe-schools/releases/tag/v1.0.0)
 
 - **Option B (Compile from Source with Fail-Closed Keystore):**  
   To compile and sign the release artifact locally:
@@ -203,10 +203,10 @@ Detailed test data and device instrumentation logs are available in [`docs/devic
 
 | Journey ID | Focus Area (Section 02) | Benchmark Requirement | Empirical Physical Result | Status |
 | :---: | :--- | :--- | :---: | :---: |
-| **J-1** | **সকালের চেক (১০ সেকেন্ডের কম, সর্বোচ্চ ৩ ট্যাপ)**<br>(Morning Check: $\le 10\text{s}$, $\le 3\text{ taps}$) | Decision glance $< 10\text{ s}$, $\le 3\text{ taps}$, card paint $< 2.0\text{ s}$ | **2.8 s glance** (Card paint: 790ms) | ✅ PASS |
-| **J-2** | **বাংলায় প্রশ্ন ও AI উত্তর (স্ট্রিমিং + সাইটেশন)**<br>(Bengali Inquiry & AI Response: Streaming + Citation) | Bilingual response, grounded in telemetry, Policy v1.2 citation | **100% Grounded** (Zero safety floor breaches) | ✅ PASS |
-| **J-3** | **সিদ্ধান্ত খারাপ হওয়ার পুশ সতর্কবার্তা ও কোঅর্ডিনেটর ওভাররাইড**<br>(Deterioration Push Alert & Coordinator Override) | Heads-up push upon Danger entry; tighten-only coordinator override | **Verified on Hardware** (Audited immutable log) | ✅ PASS |
-| **J-4** | **শুক্রবারের সাপ্তাহিক পর্যালোচনা ও রিপোর্ট এক্সপোর্ট**<br>(Friday Weekly Safety Review & Report Export) | Weekly lost minutes, metrics breakdown, native Android Share Sheet | **Verified on Hardware** (Stable 44MB heap) | ✅ PASS |
+| **J-1** | **à¦¸à¦•à¦¾à¦²à§‡à¦° à¦šà§‡à¦• (à§§à§¦ à¦¸à§‡à¦•à§‡à¦¨à§à¦¡à§‡à¦° à¦•à¦®, à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§© à¦Ÿà§à¦¯à¦¾à¦ª)**<br>(Morning Check: $\le 10\text{s}$, $\le 3\text{ taps}$) | Decision glance $< 10\text{ s}$, $\le 3\text{ taps}$, card paint $< 2.0\text{ s}$ | **2.8 s glance** (Card paint: 790ms) | âœ… PASS |
+| **J-2** | **à¦¬à¦¾à¦‚à¦²à¦¾à¦¯à¦¼ à¦ªà§à¦°à¦¶à§à¦¨ à¦“ AI à¦‰à¦¤à§à¦¤à¦° (à¦¸à§à¦Ÿà§à¦°à¦¿à¦®à¦¿à¦‚ + à¦¸à¦¾à¦‡à¦Ÿà§‡à¦¶à¦¨)**<br>(Bengali Inquiry & AI Response: Streaming + Citation) | Bilingual response, grounded in telemetry, Policy v1.2 citation | **100% Grounded** (Zero safety floor breaches) | âœ… PASS |
+| **J-3** | **à¦¸à¦¿à¦¦à§à¦§à¦¾à¦¨à§à¦¤ à¦–à¦¾à¦°à¦¾à¦ª à¦¹à¦“à§Ÿà¦¾à¦° à¦ªà§à¦¶ à¦¸à¦¤à¦°à§à¦•à¦¬à¦¾à¦°à§à¦¤à¦¾ à¦“ à¦•à§‹à¦…à¦°à§à¦¡à¦¿à¦¨à§‡à¦Ÿà¦° à¦“à¦­à¦¾à¦°à¦°à¦¾à¦‡à¦¡**<br>(Deterioration Push Alert & Coordinator Override) | Heads-up push upon Danger entry; tighten-only coordinator override | **Verified on Hardware** (Audited immutable log) | âœ… PASS |
+| **J-4** | **à¦¶à§à¦•à§à¦°à¦¬à¦¾à¦°à§‡à¦° à¦¸à¦¾à¦ªà§à¦¤à¦¾à¦¹à¦¿à¦• à¦ªà¦°à§à¦¯à¦¾à¦²à§‹à¦šà¦¨à¦¾ à¦“ à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ à¦à¦•à§à¦¸à¦ªà§‹à¦°à§à¦Ÿ**<br>(Friday Weekly Safety Review & Report Export) | Weekly lost minutes, metrics breakdown, native Android Share Sheet | **Verified on Hardware** (Stable 44MB heap) | âœ… PASS |
 
 ---
 
@@ -214,49 +214,49 @@ Detailed test data and device instrumentation logs are available in [`docs/devic
 
 ```text
 airsafe-schools/
-├── android/                           # Native Android Jetpack Compose Application
-│   └── app/src/main/java/com/airsafe/schools/
-│       ├── MainActivity.kt            # Entry activity & navigation scaffold
-│       ├── data/                      # Retrofit client, models, notification helper
-│       └── ui/
-│           ├── screens/               # DecisionCard, Assistant, Trends, Analytics, Staff
-│           ├── theme/                 # High-contrast color palette (WCAG AAA)
-│           └── viewmodel/             # DecisionViewModel (diurnal engine & network listener)
-├── docs/                              # Architecture, Cost, and Verification Reports
-│   ├── adr/                           # Architecture Decision Records (ADR 001 to 012)
-│   ├── ai-usage-log.md                # Human-audited AI usage & error log (Section 11, 14, 16)
-│   ├── COST.md                        # Metric-grounded AWS cost model (Sydney rates)
-│   ├── day1-checks.md                 # Day 1 baseline capability & API response checks
-│   ├── device-test.md                 # Physical device verification report (J-1 to J-4)
-│   ├── eval-report.md                 # AI assistant golden set evaluation report
-│   ├── ingestion-load-test-report.md  # 200 ev/s SQS/DLQ burst load test report
-│   ├── status/                        # Weekly Friday status reports (week-1.md to week-4.md)
-│   ├── threat-model.md                # Comprehensive STRIDE threat model & Dependabot
-│   └── ux-decisions.md                # Top 5 UX Decisions, wireframes & high-fi screens
-├── evals/                             # Golden Dataset & Evaluation Runner (A-9)
-│   ├── eval-dataset.json              # 40 golden questions (Appendix C coverage)
-│   └── run-evals.js                   # Automated evaluation test runner
-├── infra/                             # AWS CDK Infrastructure as Code (Sydney ap-southeast-2)
-│   ├── bin/infra.ts                   # CDK App entry point
-│   └── lib/                           # AuthStack, StorageStack, ApiStack, IngestionStack
-├── loadtest/                          # Automated Ingestion Pipeline Load & Burst Tests
-│   ├── k6-loadtest.js                 # k6 load testing script (200 ev/s sustained + 500 burst)
-│   ├── artillery-loadtest.yml         # Artillery load testing configuration
-│   └── results/                       # Empirical raw test benchmarks (JSON/CSV)
-├── mcp/                               # Root Model Context Protocol (MCP) Server & Tool Library
-│   ├── src/tools.ts                   # Shared tool schemas (get_school_decision, sensor readings, policy)
-│   ├── src/index.ts                   # Hardened JSON-RPC 2.0 server & HMAC tenant scoping
-│   └── src/policy/v1.2.json           # Policy v1.2 threshold config
-├── services/
-│   ├── api/                           # Lambda REST API Handler (Node.js/TS, Bedrock, Auth)
-│   ├── mcp/                           # Lambda MCP Server adapter
-│   └── poller/                        # Scheduled Multi-Sensor Ingestion & Policy Engine
-│       └── src/__tests__/             # Policy unit tests & A-2 property tests
-├── simulator/                         # Virtual school diurnal load generator & load test
-├── scripts/                           # Day-1 checks, JWT rotation & release build helpers
-├── README.md                          # Master documentation & replication runbook
-├── RUNBOOK.md                         # Dedicated evaluator runbook & emergency procedures
-└── STATUS.md                          # Comprehensive feature status matrix
+â”œâ”€â”€ android/                           # Native Android Jetpack Compose Application
+â”‚   â””â”€â”€ app/src/main/java/com/airsafe/schools/
+â”‚       â”œâ”€â”€ MainActivity.kt            # Entry activity & navigation scaffold
+â”‚       â”œâ”€â”€ data/                      # Retrofit client, models, notification helper
+â”‚       â””â”€â”€ ui/
+â”‚           â”œâ”€â”€ screens/               # DecisionCard, Assistant, Trends, Analytics, Staff
+â”‚           â”œâ”€â”€ theme/                 # High-contrast color palette (WCAG AAA)
+â”‚           â””â”€â”€ viewmodel/             # DecisionViewModel (diurnal engine & network listener)
+â”œâ”€â”€ docs/                              # Architecture, Cost, and Verification Reports
+â”‚   â”œâ”€â”€ adr/                           # Architecture Decision Records (ADR 001 to 012)
+â”‚   â”œâ”€â”€ ai-usage-log.md                # Human-audited AI usage & error log (Section 11, 14, 16)
+â”‚   â”œâ”€â”€ COST.md                        # Metric-grounded AWS cost model (Sydney rates)
+â”‚   â”œâ”€â”€ day1-checks.md                 # Day 1 baseline capability & API response checks
+â”‚   â”œâ”€â”€ device-test.md                 # Physical device verification report (J-1 to J-4)
+â”‚   â”œâ”€â”€ eval-report.md                 # AI assistant golden set evaluation report
+â”‚   â”œâ”€â”€ ingestion-load-test-report.md  # 200 ev/s SQS/DLQ burst load test report
+â”‚   â”œâ”€â”€ status/                        # Weekly Friday status reports (week-1.md to week-4.md)
+â”‚   â”œâ”€â”€ threat-model.md                # Comprehensive STRIDE threat model & Dependabot
+â”‚   â””â”€â”€ ux-decisions.md                # Top 5 UX Decisions, wireframes & high-fi screens
+â”œâ”€â”€ evals/                             # Golden Dataset & Evaluation Runner (A-9)
+â”‚   â”œâ”€â”€ eval-dataset.json              # 40 golden questions (Appendix C coverage)
+â”‚   â””â”€â”€ run-evals.js                   # Automated evaluation test runner
+â”œâ”€â”€ infra/                             # AWS CDK Infrastructure as Code (Sydney ap-southeast-2)
+â”‚   â”œâ”€â”€ bin/infra.ts                   # CDK App entry point
+â”‚   â””â”€â”€ lib/                           # AuthStack, StorageStack, ApiStack, IngestionStack
+â”œâ”€â”€ loadtest/                          # Automated Ingestion Pipeline Load & Burst Tests
+â”‚   â”œâ”€â”€ k6-loadtest.js                 # k6 load testing script (200 ev/s sustained + 500 burst)
+â”‚   â”œâ”€â”€ artillery-loadtest.yml         # Artillery load testing configuration
+â”‚   â””â”€â”€ results/                       # Empirical raw test benchmarks (JSON/CSV)
+â”œâ”€â”€ mcp/                               # Root Model Context Protocol (MCP) Server & Tool Library
+â”‚   â”œâ”€â”€ src/tools.ts                   # Shared tool schemas (get_school_decision, sensor readings, policy)
+â”‚   â”œâ”€â”€ src/index.ts                   # Hardened JSON-RPC 2.0 server & HMAC tenant scoping
+â”‚   â””â”€â”€ src/policy/v1.2.json           # Policy v1.2 threshold config
+â”œâ”€â”€ services/
+â”‚   â”œâ”€â”€ api/                           # Lambda REST API Handler (Node.js/TS, Bedrock, Auth)
+â”‚   â”œâ”€â”€ mcp/                           # Lambda MCP Server adapter
+â”‚   â””â”€â”€ poller/                        # Scheduled Multi-Sensor Ingestion & Policy Engine
+â”‚       â””â”€â”€ src/__tests__/             # Policy unit tests & A-2 property tests
+â”œâ”€â”€ simulator/                         # Virtual school diurnal load generator & load test
+â”œâ”€â”€ scripts/                           # Day-1 checks, JWT rotation & release build helpers
+â”œâ”€â”€ README.md                          # Master documentation & replication runbook
+â”œâ”€â”€ RUNBOOK.md                         # Dedicated evaluator runbook & emergency procedures
+â””â”€â”€ STATUS.md                          # Comprehensive feature status matrix
 ```
 
 ---
@@ -276,16 +276,16 @@ Per Section 9 of Project Brief v2.0 and **ADR 012**, the architecture operates w
 
 | Deliverable (Section 14) | Required Format | Repository Location & Evidence | Status |
 | :--- | :--- | :--- | :---: |
-| **Wireframes, Storyboards, High-Fi Screens, UX Notes** | Figma or `docs/` images | [`docs/ux-decisions.md`](docs/ux-decisions.md) + 5 high-fidelity physical device screenshots | ✅ **Ready** |
-| **ADR ($\ge 7$), Threat Model, Runbook** | Markdown in `docs/` | [`docs/adr/`](docs/adr/) (12 ADRs), [`docs/threat-model.md`](docs/threat-model.md), [`RUNBOOK.md`](RUNBOOK.md) | ✅ **Ready** |
-| **Weekly Status & COST.md** | `docs/status/`, `docs/COST.md` | [`docs/status/`](docs/status/) (`week-1.md` to `week-4.md`), [`docs/COST.md`](docs/COST.md) | ✅ **Ready** |
-| **Reviewer Installable App** | Signed Release APK | [GitHub Releases v1.0.0](https://github.com/bdjewel27/airsafe-schools/releases) & [`scripts/build-release.ps1`](scripts/build-release.ps1) | ✅ **Ready** |
-| **Phone Test Report & Video Recording** | `docs/device-test.md` + Video | [`docs/device-test.md`](docs/device-test.md) (ITEL itel A667LP test report) | ✅ **Ready** |
-| **AI Evaluation Report** | Markdown with raw scores & citations | [`docs/eval-report.md`](docs/eval-report.md) (40/40 Golden Set, 100% Pass Rate) | ✅ **Ready** |
-| **Load Test Report** | Scripts, raw outputs & summary | [`loadtest/`](loadtest/) (k6, Artillery, raw JSON/CSV, [`docs/ingestion-load-test-report.md`](docs/ingestion-load-test-report.md)) | ✅ **Ready** |
-| **Accessibility Evidence** | TalkBack audit, contrast ratios, Bengali UI | [`docs/device-test.md`](docs/device-test.md#b-talkback-u-6-accessibility--contrast-audit) & [`docs/ux-decisions.md`](docs/ux-decisions.md#7-accessibility-contrast--200-font-zoom-verification-u-6) | ✅ **Ready** |
-| **AI Usage Log** | AI use cases, human audit & verification | [`docs/ai-usage-log.md`](docs/ai-usage-log.md) (Claude, Gemini, Bedrock oversight log) | ✅ **Ready** |
-| **Evaluator Review Guide** | Complete endpoint spec, health route & auth matrix | [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) | ✅ **Ready** |
-| **Demo Walkthrough Video (8-10 min)** | External Video (J-1 to J-4 on phone) | Provided via YouTube / Drive link in submission form & [`docs/device-test.md`](docs/device-test.md#8-video-recordings--demonstration-artifacts-ভিডিও-ও-ডেমো-লিঙ্ক) | 🎬 **User Upload** |
-| **Reviewer Login Credentials** | 3 Isolated Tenants / Roles (Never in git) | Stored in AWS Secrets Manager (`airsafe/demo-credentials`); see [`RUNBOOK.md`](RUNBOOK.md#2-reviewer-account-provisioning-out-of-band-delivery) | ✅ **Ready** |
+| **Wireframes, Storyboards, High-Fi Screens, UX Notes** | Figma or `docs/` images | [`docs/ux-decisions.md`](docs/ux-decisions.md) + 5 high-fidelity physical device screenshots | âœ… **Ready** |
+| **ADR ($\ge 7$), Threat Model, Runbook** | Markdown in `docs/` | [`docs/adr/`](docs/adr/) (12 ADRs), [`docs/threat-model.md`](docs/threat-model.md), [`RUNBOOK.md`](RUNBOOK.md) | âœ… **Ready** |
+| **Weekly Status & COST.md** | `docs/status/`, `docs/COST.md` | [`docs/status/`](docs/status/) (`week-1.md` to `week-4.md`), [`docs/COST.md`](docs/COST.md) | âœ… **Ready** |
+| **Reviewer Installable App** | Signed Release APK | [GitHub Releases v1.0.0](https://github.com/bdjewel27/airsafe-schools/releases) & [`scripts/build-release.ps1`](scripts/build-release.ps1) | âœ… **Ready** |
+| **Phone Test Report & Video Recording** | `docs/device-test.md` + Video | [`docs/device-test.md`](docs/device-test.md) (ITEL itel A667LP test report) | âœ… **Ready** |
+| **AI Evaluation Report** | Markdown with raw scores & citations | [`docs/eval-report.md`](docs/eval-report.md) (40/40 Golden Set, 100% Pass Rate) | âœ… **Ready** |
+| **Load Test Report** | Scripts, raw outputs & summary | [`loadtest/`](loadtest/) (k6, Artillery, raw JSON/CSV, [`docs/ingestion-load-test-report.md`](docs/ingestion-load-test-report.md)) | âœ… **Ready** |
+| **Accessibility Evidence** | TalkBack audit, contrast ratios, Bengali UI | [`docs/device-test.md`](docs/device-test.md#b-talkback-u-6-accessibility--contrast-audit) & [`docs/ux-decisions.md`](docs/ux-decisions.md#7-accessibility-contrast--200-font-zoom-verification-u-6) | âœ… **Ready** |
+| **AI Usage Log** | AI use cases, human audit & verification | [`docs/ai-usage-log.md`](docs/ai-usage-log.md) (Claude, Gemini, Bedrock oversight log) | âœ… **Ready** |
+| **Evaluator Review Guide** | Complete endpoint spec, health route & auth matrix | [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) | âœ… **Ready** |
+| **Demo Walkthrough Video (8-10 min)** | External Video (J-1 to J-4 on phone) | Provided via YouTube / Drive link in submission form & [`docs/device-test.md`](docs/device-test.md#8-video-recordings--demonstration-artifacts-à¦­à¦¿à¦¡à¦¿à¦“-à¦“-à¦¡à§‡à¦®à§‹-à¦²à¦¿à¦™à§à¦•) | ðŸŽ¬ **User Upload** |
+| **Reviewer Login Credentials** | 3 Isolated Tenants / Roles (Never in git) | Stored in AWS Secrets Manager (`airsafe/demo-credentials`); see [`RUNBOOK.md`](RUNBOOK.md#2-reviewer-account-provisioning-out-of-band-delivery) | âœ… **Ready** |
 

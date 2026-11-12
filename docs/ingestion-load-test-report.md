@@ -1,7 +1,7 @@
-# AirSafe Schools: Ingestion Pipeline Load & Burst Test Report
+﻿# AirSafe Schools: Ingestion Pipeline Load & Burst Test Report
 **Date:** 2026-10-18  
 **Target:** SQS Ingestion Queue + Dead Letter Queue (DLQ) + SQS Processor Lambda  
-**Benchmark Target:** 200 events/second sustained + 2.5× burst surges (500 events/second)  
+**Benchmark Target:** 200 events/second sustained + 2.5Ã— burst surges (500 events/second)  
 
 ---
 
@@ -50,7 +50,7 @@ graph LR
 | **Unhandled Crashes** | 0 | **0** | **PASSED** |
 
 > [!NOTE]
-> **Measurement Context:** The latency figures above (0.05 ms – 1.38 ms) measure the in-process synthetic batch generation, payload validation, and memory-serialization engine (`simulator/src/loadTest.ts`) executing on the local Node.js runtime. This confirms high compute efficiency and zero bottlenecking during burst spikes. Live end-to-end cloud latency (incorporating WAN network transit to AWS Sydney SQS/API Gateway endpoints) operates under typical network bounds (30–80 ms).
+> **Measurement Context:** The latency figures above (0.05 ms â€“ 1.38 ms) measure the in-process synthetic batch generation, payload validation, and memory-serialization engine (`simulator/src/loadTest.ts`) executing on the local Node.js runtime. This confirms high compute efficiency and zero bottlenecking during burst spikes. Live end-to-end cloud latency (incorporating WAN network transit to AWS Sydney SQS/API Gateway endpoints) operates under typical network bounds (30â€“80 ms).
 
 ---
 

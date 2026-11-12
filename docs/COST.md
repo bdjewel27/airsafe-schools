@@ -1,4 +1,4 @@
-# AirSafe Schools: AWS Metric-Based Cost Modeling & Budget Audit
+﻿# AirSafe Schools: AWS Metric-Based Cost Modeling & Budget Audit
 **Target Region:** Sydney (`ap-southeast-2`)  
 **Project Budget:** $100.00 AWS Credit  
 **Target Ceiling:** $\le \$40.00$ Total Project Burn | $\le \$15.00$ / Week Burn Limit  
@@ -6,15 +6,15 @@
 
 ---
 
-## 1. Estimated Project Development & Evaluation Burn (Weeks 1 to 3 — Billing Export Pending)
+## 1. Estimated Project Development & Evaluation Burn (Weeks 1 to 3 â€” Billing Export Pending)
 
 Per Section 9 of the Project Brief, the table below documents the project's estimated resource burn across development, infrastructure testing, load testing, and AI evaluations against published Sydney (`ap-southeast-2`) rates (Estimated $3.42 (billing export pending)):
 
 | Week / Period | Primary Activities & Workloads | Invocations & Operations | Estimated AWS Spend (Export Pending) |
 | :--- | :--- | :--- | :---: |
-| **Week 1** | CDK Stack bootstrapping, EventBridge scheduled external poller (OpenAQ & Open-Meteo for 5 pilot schools), DynamoDB single-table schema creation. | • 168 Poller Lambda executions (1 batch execution/hour via EventBridge cron across 7 days)<br>• 2,520 DynamoDB writes (5 schools × 3 sites × 168 hours)<br>• Initial CDK deployments, S3 staging assets & CloudWatch log groups | **$0.85** |
-| **Week 2** | API Gateway deployment, JWT auth authorizer, MCP server (JSON-RPC 2.0), Android client integration tests. | • 6,500 API Gateway calls<br>• 15,000 DynamoDB reads/writes<br>• 250 AI assistant test queries (attempted Bedrock Nova; intercepted via ADR-001 deterministic fallback due to Sydney quota 0.0)<br>• Secrets Manager & KMS baseline configuration | **$1.42** |
-| **Week 3** | Ingestion pipeline (SQS + DLQ), 200 ev/s burst load tests (8 test runs, 12,800 events total), Golden Dataset evaluations (40 golden queries), regression test suites. | • 12,800 SQS batch messages<br>• 8 load test executions<br>• 160 AI evaluation queries (ADR-001 policy engine fallback)<br>• 15,000 Lambda invocations | **$1.15** |
+| **Week 1** | CDK Stack bootstrapping, EventBridge scheduled external poller (OpenAQ & Open-Meteo for 5 pilot schools), DynamoDB single-table schema creation. | â€¢ 168 Poller Lambda executions (1 batch execution/hour via EventBridge cron across 7 days)<br>â€¢ 2,520 DynamoDB writes (5 schools Ã— 3 sites Ã— 168 hours)<br>â€¢ Initial CDK deployments, S3 staging assets & CloudWatch log groups | **$0.85** |
+| **Week 2** | API Gateway deployment, JWT auth authorizer, MCP server (JSON-RPC 2.0), Android client integration tests. | â€¢ 6,500 API Gateway calls<br>â€¢ 15,000 DynamoDB reads/writes<br>â€¢ 250 AI assistant test queries (attempted Bedrock Nova; intercepted via ADR-001 deterministic fallback due to Sydney quota 0.0)<br>â€¢ Secrets Manager & KMS baseline configuration | **$1.42** |
+| **Week 3** | Ingestion pipeline (SQS + DLQ), 200 ev/s burst load tests (8 test runs, 12,800 events total), Golden Dataset evaluations (40 golden queries), regression test suites. | â€¢ 12,800 SQS batch messages<br>â€¢ 8 load test executions<br>â€¢ 160 AI evaluation queries (ADR-001 policy engine fallback)<br>â€¢ 15,000 Lambda invocations | **$1.15** |
 | **Total Cumulative Spend** | **Weeks 1 to 3 Total Burn** | **Cumulative development & test cycle** | **Estimated $3.42 (billing export pending)** |
 | **Remaining Budget** | **AWS Credit Balance Remaining** | **$100.00 credit - estimated $3.42 spend** | **$96.58 (96.6% intact)** |
 
@@ -174,7 +174,7 @@ $$\text{Total Cost per 10,000 AI Queries} = \$0.035 + \$0.042 + \$0.360 + \$0.60
 
 ## 4. Projected 100-School Monthly Production Budget
 
-Modeling 100 schools over a full 30-day operational month (weekdays 07:00–17:00 BST):
+Modeling 100 schools over a full 30-day operational month (weekdays 07:00â€“17:00 BST):
 - **Sensor Telemetry:** 100 schools $\times$ 1 reading / 5 min $\times$ 10 hours $\times$ 22 days $\approx 264,000$ events $\implies \mathbf{\$0.45}$
 - **Teacher Glances:** 10 teachers $\times$ 100 schools $\times$ 5 checks / day $\times$ 22 days $\approx 110,000$ calls $\implies \mathbf{\$0.45}$
 - **AI Inquiries:** 10 queries / school / day $\times$ 100 schools $\times$ 22 days $\approx 22,000$ queries $\implies \mathbf{\$2.29}$
@@ -187,15 +187,15 @@ This demonstrates that even in a full 100-school production deployment, monthly 
 
 ---
 
-## 5. Mandatory Submission Summary (জমা দেওয়ার সারসংক্ষেপ ও বাজেট অডিট)
+## 5. Mandatory Submission Summary (à¦œà¦®à¦¾ à¦¦à§‡à¦“à§Ÿà¦¾à¦° à¦¸à¦¾à¦°à¦¸à¦‚à¦•à§à¦·à§‡à¦ª à¦“ à¦¬à¦¾à¦œà§‡à¦Ÿ à¦…à¦¡à¦¿à¦Ÿ)
 
 As required by Section 09 of the Project Specification, the official submission metrics are summarized below:
 
 | Submission Metric | Calculated Benchmark (Sydney `ap-southeast-2`) | Specification Ceiling | Compliance Status |
 | :--- | :--- | :--- | :---: |
-| **মোট প্রজেক্ট খরচ (Total Cumulative Spend)** | **$3.42** (Week 1: $0.85, Week 2: $1.42, Week 3: $1.15) | $\le \$40.00$ ($100 budget) | ✅ **PASSED** ($96.58 credit intact) |
-| **প্রতি ১০ লাখ সেন্সর ইভেন্ট খরচ (Cost per 1M Sensor Events)** | **$1.692** ($0.120 SQS + $0.035 Lambda + $1.525 DDB + $0.012 CW) | Metric-modeled | ✅ **PASSED** |
-| **প্রতি ১,০০০ এআই উত্তর খরচ (Cost per 1,000 AI Answers)** | **$0.104** ($1.040 per 10k Nova Lite queries $\div$ 10) | Metric-modeled | ✅ **PASSED** |
-| **প্রতি ১ লাখ শিক্ষক গ্ল্যান্স খরচ (Cost per 100k Teacher Glances)** | **$0.412** ($0.350 API + $0.028 Lambda + $0.031 DDB) | Metric-modeled | ✅ **PASSED** |
-| **দৈনিক অলস খরচ (Idle Spend per Day)** | **$0.00 / day** (100% On-Demand Serverless) | $\le \$0.50$ / day | ✅ **PASSED** |
-| **১০০টি স্কুলে মাসিক প্রজেকশন (100 Schools / Month)** | **$5.28 / month** | $\le \$40.00$ / month | ✅ **PASSED** |
+| **à¦®à§‹à¦Ÿ à¦ªà§à¦°à¦œà§‡à¦•à§à¦Ÿ à¦–à¦°à¦š (Total Cumulative Spend)** | **$3.42** (Week 1: $0.85, Week 2: $1.42, Week 3: $1.15) | $\le \$40.00$ ($100 budget) | âœ… **PASSED** ($96.58 credit intact) |
+| **à¦ªà§à¦°à¦¤à¦¿ à§§à§¦ à¦²à¦¾à¦– à¦¸à§‡à¦¨à§à¦¸à¦° à¦‡à¦­à§‡à¦¨à§à¦Ÿ à¦–à¦°à¦š (Cost per 1M Sensor Events)** | **$1.692** ($0.120 SQS + $0.035 Lambda + $1.525 DDB + $0.012 CW) | Metric-modeled | âœ… **PASSED** |
+| **à¦ªà§à¦°à¦¤à¦¿ à§§,à§¦à§¦à§¦ à¦à¦†à¦‡ à¦‰à¦¤à§à¦¤à¦° à¦–à¦°à¦š (Cost per 1,000 AI Answers)** | **$0.104** ($1.040 per 10k Nova Lite queries $\div$ 10) | Metric-modeled | âœ… **PASSED** |
+| **à¦ªà§à¦°à¦¤à¦¿ à§§ à¦²à¦¾à¦– à¦¶à¦¿à¦•à§à¦·à¦• à¦—à§à¦²à§à¦¯à¦¾à¦¨à§à¦¸ à¦–à¦°à¦š (Cost per 100k Teacher Glances)** | **$0.412** ($0.350 API + $0.028 Lambda + $0.031 DDB) | Metric-modeled | âœ… **PASSED** |
+| **à¦¦à§ˆà¦¨à¦¿à¦• à¦…à¦²à¦¸ à¦–à¦°à¦š (Idle Spend per Day)** | **$0.00 / day** (100% On-Demand Serverless) | $\le \$0.50$ / day | âœ… **PASSED** |
+| **à§§à§¦à§¦à¦Ÿà¦¿ à¦¸à§à¦•à§à¦²à§‡ à¦®à¦¾à¦¸à¦¿à¦• à¦ªà§à¦°à¦œà§‡à¦•à¦¶à¦¨ (100 Schools / Month)** | **$5.28 / month** | $\le \$40.00$ / month | âœ… **PASSED** |

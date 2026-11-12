@@ -1,4 +1,4 @@
-# ADR 005: Multi-Tenant Data Isolation & Role-Based Access Control (RBAC)
+﻿# ADR 005: Multi-Tenant Data Isolation & Role-Based Access Control (RBAC)
 
 ## Status
 Accepted

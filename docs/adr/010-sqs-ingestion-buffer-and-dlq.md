@@ -1,4 +1,4 @@
-# ADR 010: SQS Ingestion Buffer & Dead Letter Queue (DLQ) Resilience
+﻿# ADR 010: SQS Ingestion Buffer & Dead Letter Queue (DLQ) Resilience
 
 ## Status
 Accepted

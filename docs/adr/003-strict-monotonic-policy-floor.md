@@ -1,10 +1,10 @@
-# ADR 003: Strict Monotonic Policy Floor & Deterministic Rule Dominance
+﻿# ADR 003: Strict Monotonic Policy Floor & Deterministic Rule Dominance
 
 ## Status
 Accepted
 
 ## Context
-Children's health decisions are high-stakes. A standard Generative AI LLM output can suffer from probabilistic hallucination or sycophancy, potentially suggesting that children may play outdoors under dangerous heat (e.g. Heat Index > 42°C) or severe particulate smog (AQI > 160). The project mandates a "Floor" guarantee: AI may only tighten restrictions, never relax them.
+Children's health decisions are high-stakes. A standard Generative AI LLM output can suffer from probabilistic hallucination or sycophancy, potentially suggesting that children may play outdoors under dangerous heat (e.g. Heat Index > 42Â°C) or severe particulate smog (AQI > 160). The project mandates a "Floor" guarantee: AI may only tighten restrictions, never relax them.
 
 ## Decision
 1. Implement a purely deterministic, mathematical rule evaluation engine based on *Model School Outdoor Activity Policy v1.2* (Appendix A).

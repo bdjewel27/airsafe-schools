@@ -1,4 +1,4 @@
-# AirSafe Schools: Top 5 UX Architecture Decisions & UI Specification (U-10)
+﻿# AirSafe Schools: Top 5 UX Architecture Decisions & UI Specification (U-10)
 
 ## Overview
 AirSafe Schools is designed for busy primary and secondary school teachers and coordinators in Bangladesh who have less than 3 minutes between class transitions to determine if children can safely go outdoors. Every design decision optimizes for cognitive calm, rapid verification, and zero ambiguity under harsh sunlight and low-bandwidth rural cellular conditions.
@@ -7,7 +7,7 @@ AirSafe Schools is designed for busy primary and secondary school teachers and c
 
 ## 1. Decision 1: Action-First Hierarchy over Data Dashboards (U-1)
 * **Rationale**: When a teacher opens their phone at 7:55 AM on a bumpy commute, they need an immediate answer to one burning question: *"Can my students go outside right now?"*
-* **Design Implementation**: The landing screen leads with a single, unambiguous outdoor status card: **"MOVE INDOORS" (অবিলম্বে ইনডোরে যান)** or **"PROCEED" (স্বাভাবিক কার্যক্রম চলবে)**. No raw PM2.5 or temperature numbers precede the action. Numerical details appear in secondary positions only to substantiate the recommendation.
+* **Design Implementation**: The landing screen leads with a single, unambiguous outdoor status card: **"MOVE INDOORS" (à¦…à¦¬à¦¿à¦²à¦®à§à¦¬à§‡ à¦‡à¦¨à¦¡à§‹à¦°à§‡ à¦¯à¦¾à¦¨)** or **"PROCEED" (à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦•à¦¾à¦°à§à¦¯à¦•à§à¦°à¦® à¦šà¦²à¦¬à§‡)**. No raw PM2.5 or temperature numbers precede the action. Numerical details appear in secondary positions only to substantiate the recommendation.
 
 ---
 
@@ -30,12 +30,12 @@ AirSafe Schools is designed for busy primary and secondary school teachers and c
 
 ## 4. Decision 4: Accessible Table Alternative for Temporal Trends (F-04 & U-6)
 * **Rationale**: Complex graphic charts often fail accessibility guidelines, clip on 200% font zoom, and are incomprehensible to TalkBack screen readers.
-* **Design Implementation**: Alongside visual status cards, the Trends tab provides an accessible structured table view of hourly conditions (Asia/Dhaka timezone). Each row clearly reports time, Heat Index, AQI, and danger thresholds in human language with dedicated school hours shading (08:00–16:00).
+* **Design Implementation**: Alongside visual status cards, the Trends tab provides an accessible structured table view of hourly conditions (Asia/Dhaka timezone). Each row clearly reports time, Heat Index, AQI, and danger thresholds in human language with dedicated school hours shading (08:00â€“16:00).
 
 ---
 
 ## 5. Decision 5: Grounded Bilingual Localisation (U-7)
-* **Rationale**: Primary school teachers across Bangladesh operate across Bengali and English contexts, while guidelines mix international units (US AQI, °C).
+* **Rationale**: Primary school teachers across Bangladesh operate across Bengali and English contexts, while guidelines mix international units (US AQI, Â°C).
 * **Design Implementation**:
   - Native Android resource catalog: `res/values/strings.xml` (English default) and `res/values-bn/strings.xml` (Bengali) with 1:1 key parity.
   - Runtime locale switching via Jetpack Compose `CompositionLocalProvider(LocalContext provides localizedContext)` and `Locale.getDefault().language == "bn"` auto-detection.
@@ -68,7 +68,7 @@ When a teacher submits a query:
 ### B. Anti-Fabrication & Telemetry Grounding (P6)
 - The assistant **never fabricates numbers**.
 - Telemetry numbers are displayed only from verified API payloads (`apiResp.heatIndexC` and `apiResp.aqi`) or live authoritative `decisionData`.
-- Responses include an interactive **Policy Citation Chip** (`AssistChip` with `Policy v1.2 §2.3 Table 2.3`) inspectable via modal dialog.
+- Responses include an interactive **Policy Citation Chip** (`AssistChip` with `Policy v1.2 Â§2.3 Table 2.3`) inspectable via modal dialog.
 
 ---
 
@@ -91,16 +91,6 @@ Tapping the button opens an `AlertDialog` (`DecisionCardScreen.kt#L887-L975`):
 
 | Screen State | Preview Artifact | Key UX & Accessibility Highlights |
 | :--- | :---: | :--- |
-| **Home: Loading Skeleton**<br>*(Initial Load & Re-sync)* | ![Home Skeleton](state-home-loading-skeleton.png) | • Low-contrast pulse shimmer placeholders<br>• Clear status message: "পুনঃগণনা ও সেন্সর ডেটা সিঙ্ক হচ্ছে..."<br>• Zero deceptive green ticks before data arrival |
-| **Home: Normal Safe (Proceed)**<br>*(Live Sensor Success)* | ![Home Safe Proceed](state-home-proceed-safe.png) | • High-contrast Green card (`#1B5E20` on `#E8F5E9`)<br>• Bold CheckCircle icon + "PROCEED" verdict<br>• Clear 45-min duration cap & hydration notes<br>• 4 verified sensor metric tiles |
-| **Home: Stale Warning Banner**<br>*(Sensor Age > 90 Mins)* | ![Home Stale Warning](state-home-stale-warning.png) | • High-visibility Orange banner (`#FFF3E0` with `#BF360C` text, 5.11:1 AA)<br>• Reports exact data age: "৯৫ মিনিট পুরোনো"<br>• Automatic downgrade to safe fallback policy |
-| **Home: Move Indoors (Critical)**<br>*(Danger / Policy Exceeded)* | ![Home Move Indoors](state-home-move-indoors.png) | • High-contrast Danger Red card (`#B71C1C` on `#FFEBEE`)<br>• Prominent Cancel/X icon + "MOVE INDOORS" verdict<br>• In-situ **Coordinator Override Button** (U-9) |
-| **Trends: Loading Skeleton**<br>*(Temporal Load State)* | ![Trends Skeleton](state-trends-loading-skeleton.png) | • Placeholder cards for range chips & hourly tabular rows<br>• Zero layout shift on data load |
-| **Trends: Accessible Table**<br>*(WCAG Non-Graphic Alternative)* | ![Trends Accessible Table](state-trends-table-view.png) | • High-contrast tabular breakdown for TalkBack<br>• School hours shading (08:00–16:00 Asia/Dhaka)<br>• Semantic color chips with redundant text |
-| **Assistant: Clean Empty State**<br>*(One-Tap Quick Prompts)* | ![Assistant Empty State](state-assistant-empty-prompt.png) | • Welcoming teacher-oriented AI introduction<br>• 4 one-tap chips for common PE & heat policy queries |
-| **Assistant: Streaming & Citations**<br>*(Telemetry Grounded & Policy v1.2)* | ![Assistant Streaming](state-assistant-stream-citation.png) | • Step indicator: `⚡ বাস্তব টুল কল: get_school_decision`<br>• Verified campus telemetry badge (HI 30.2°C • AQI 42)<br>• Interactive Policy Citation: `§2.3 Table 2.3` |
-| **Trends: Stale & Error / Retry**<br>*(Offline & Gateway Failure)* | ![Trends Stale Error](state-trends-stale-error.png) | • CautionText warning banner (`#BF360C`)<br>• Gateway 503 error card with in-situ "পুনরায় চেষ্টা (Retry)" action<br>• Retains SQLite local backup history to prevent blank screen |
-| **Assistant: Offline Policy & Error**<br>*(Fail-Closed Telemetry)* | ![Assistant Offline Error](state-assistant-stale-error.png) | • Offline safety policy banner (`#BF360C` on `#FFF3E0`)<br>• ConnectException failure card<br>• Grounded offline Fail-Closed decision (UNKNOWN or Local Sensor Baseline) |
 
 ---
 
@@ -129,19 +119,17 @@ Calculated using the official WCAG 2.1 relative luminance formula $\left(L_1 + 0
 | Visual Encoding Layer | Safe State (PROCEED) | Caution State (PRECAUTIONS) | Danger State (MOVE INDOORS) | Unknown State (FAIL-CLOSED) |
 | :--- | :---: | :---: | :---: | :---: |
 | **1. Semantic Color** | Forest Green (`#1B5E20`) | Caution Text (`#BF360C`) | Deep Crimson (`#B71C1C`) | Slate Gray (`#455A64`) |
-| **2. Distinct Iconography** | `CheckCircle` (✔ Circle) | `Schedule` / `Warning` (ℹ / ⚠️) | `Cancel` (✖ Alert Circle) | `HelpOutline` (❓ Question) |
-| **3. Bold Textual Verdict** | "স্বাভাবিক কার্যক্রম চলবে"<br>*(PROCEED)* | "সতর্কতাসহ কার্যক্রম"<br>*(PRECAUTIONS)* | "অবিলম্বে ইনডোরে যান"<br>*(MOVE INDOORS)* | "অজানা অবস্থা"<br>*(UNKNOWN)* |
-| **4. Maximum Duration Cap** | **৪৫ মিনিট** (Full duration) | **৩০ মিনিট** (Limited) | **০ মিনিট** (Cancel immediately) | **০ মিনিট** (Keep indoors) |
+| **2. Distinct Iconography** | `CheckCircle` (âœ” Circle) | `Schedule` / `Warning` (â„¹ / âš ï¸) | `Cancel` (âœ– Alert Circle) | `HelpOutline` (â“ Question) |
+| **3. Bold Textual Verdict** | "à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• à¦•à¦¾à¦°à§à¦¯à¦•à§à¦°à¦® à¦šà¦²à¦¬à§‡"<br>*(PROCEED)* | "à¦¸à¦¤à¦°à§à¦•à¦¤à¦¾à¦¸à¦¹ à¦•à¦¾à¦°à§à¦¯à¦•à§à¦°à¦®"<br>*(PRECAUTIONS)* | "à¦…à¦¬à¦¿à¦²à¦®à§à¦¬à§‡ à¦‡à¦¨à¦¡à§‹à¦°à§‡ à¦¯à¦¾à¦¨"<br>*(MOVE INDOORS)* | "à¦…à¦œà¦¾à¦¨à¦¾ à¦…à¦¬à¦¸à§à¦¥à¦¾"<br>*(UNKNOWN)* |
+| **4. Maximum Duration Cap** | **à§ªà§« à¦®à¦¿à¦¨à¦¿à¦Ÿ** (Full duration) | **à§©à§¦ à¦®à¦¿à¦¨à¦¿à¦Ÿ** (Limited) | **à§¦ à¦®à¦¿à¦¨à¦¿à¦Ÿ** (Cancel immediately) | **à§¦ à¦®à¦¿à¦¨à¦¿à¦Ÿ** (Keep indoors) |
 
 ---
 
 ## 11. Wireframes, Storyboards & High-Fidelity Design Specifications (U-10)
 
 ### Visual Wireframe Architecture (Core 3 Screens)
-![Core UI Wireframes](wireframe-3-screens.png)
 
 ### Teacher & Coordinator Decision Journey Storyboard
-![Teacher & Coordinator Decision Flow Storyboard](storyboard-teacher-flow.png)
 
 ### A. Screen Architecture & User Navigation Flow
 ```mermaid
@@ -159,33 +147,33 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Teacher as 👩‍🏫 Teacher (Mr. Kabir)
-    participant App as 📱 AirSafe App
-    participant Cloud as ☁️ AWS AppSync / API
+    actor Teacher as ðŸ‘©â€ðŸ« Teacher (Mr. Kabir)
+    participant App as ðŸ“± AirSafe App
+    participant Cloud as â˜ï¸ AWS AppSync / API
     
     Teacher->>App: Opens app on commute (07:55 AM)
     App->>App: Checks cached SQLite decision
     App-->>Teacher: Displays cached decision with "Updating..." indicator
     App->>Cloud: Fetches /schools/{id}/decision (45s ticker)
-    Cloud-->>App: 200 OK: HI 30.2°C, AQI 42, Decision PROCEED
+    Cloud-->>App: 200 OK: HI 30.2Â°C, AQI 42, Decision PROCEED
     App-->>Teacher: Reconciles in-place without jitter (Safe Green Card)
-    Teacher->>App: Taps "আজকের কার্যক্রম রুটিন"
-    Teacher->>App: Adds note: "৩য় শ্রেণির শিক্ষার্থীদের পর্যাপ্ত পানি পান করানো হয়েছে"
+    Teacher->>App: Taps "à¦†à¦œà¦•à§‡à¦° à¦•à¦¾à¦°à§à¦¯à¦•à§à¦°à¦® à¦°à§à¦Ÿà¦¿à¦¨"
+    Teacher->>App: Adds note: "à§©à¦¯à¦¼ à¦¶à§à¦°à§‡à¦£à¦¿à¦° à¦¶à¦¿à¦•à§à¦·à¦¾à¦°à§à¦¥à§€à¦¦à§‡à¦° à¦ªà¦°à§à¦¯à¦¾à¦ªà§à¦¤ à¦ªà¦¾à¦¨à¦¿ à¦ªà¦¾à¦¨ à¦•à¦°à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à§‡à¦›à§‡"
 ```
 
 #### Coordinator Journey: Emergency Heat Wave Override (J-3)
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Coord as 👨‍💼 Coordinator (Principal)
-    participant App as 📱 AirSafe App
-    participant Backend as ⚡ API & AppSync Events
-    actor Teachers as 👥 School Teachers
+    actor Coord as ðŸ‘¨â€ðŸ’¼ Coordinator (Principal)
+    participant App as ðŸ“± AirSafe App
+    participant Backend as âš¡ API & AppSync Events
+    actor Teachers as ðŸ‘¥ School Teachers
     
     Coord->>App: Observes extreme glare & localized dust storm
-    Coord->>App: Taps "কোঅর্ডিনেটর ওভাররাইড" button on Decision Card
+    Coord->>App: Taps "à¦•à§‹à¦…à¦°à§à¦¡à¦¿à¦¨à§‡à¦Ÿà¦° à¦“à¦­à¦¾à¦°à¦°à¦¾à¦‡à¦¡" button on Decision Card
     App-->>Coord: Opens Override Dialog with mandatory reason field
-    Coord->>App: Selects "MOVE_INDOORS" & enters "মাঠে ধূলিঝড় ও তীব্র রোদ"
+    Coord->>App: Selects "MOVE_INDOORS" & enters "à¦®à¦¾à¦ à§‡ à¦§à§‚à¦²à¦¿à¦à§œ à¦“ à¦¤à§€à¦¬à§à¦° à¦°à§‹à¦¦"
     Coord->>Backend: POST /schools/{id}/override
     Backend->>Backend: Validates RBAC + logs to immutable DynamoDB audit table
     Backend-->>App: 200 OK (Override Active)

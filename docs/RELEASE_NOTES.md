@@ -1,4 +1,4 @@
-# AirSafe Schools v1.0.0 Release Notes
+﻿# AirSafe Schools v1.0.0 Release Notes
 
 **Release Tag:** `v1.0.0`  
 **Target:** Production Review & Physical Evaluation Submission  
@@ -7,7 +7,7 @@
 
 ---
 
-## 🚀 Key Highlights & Deliverables (Section 14 Compliance)
+## ðŸš€ Key Highlights & Deliverables (Section 14 Compliance)
 
 ### 1. Mobile Experience (Android 8.0 - 15)
 - **Sub-1-Second Morning Glance (J-1):** High-contrast traffic light decision card paints in 790ms, verifying outdoor activity safety in 2.8s across at most 3 taps.
@@ -24,5 +24,5 @@
 
 ---
 
-## 📦 Attached Binaries
+## ðŸ“¦ Attached Binaries
 - `app-release.apk`: Cryptographically signed release binary (SHA-256 with RSA 2048-bit key) ready for installation via `adb install -r app-release.apk` or direct download.

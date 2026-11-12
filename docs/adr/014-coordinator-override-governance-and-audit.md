@@ -1,4 +1,4 @@
-# ADR 014: Coordinator Safety Override Governance, Fail-Closed Telemetry Verification, and Audit Trail
+﻿# ADR 014: Coordinator Safety Override Governance, Fail-Closed Telemetry Verification, and Audit Trail
 
 ## Status
 Accepted

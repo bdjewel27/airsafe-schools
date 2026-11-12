@@ -1,4 +1,4 @@
-# AirSafe Schools: MCP Server & Shared Tool Library
+﻿# AirSafe Schools: MCP Server & Shared Tool Library
 
 This directory provides the central Model Context Protocol (MCP) server implementation and shared tool schema definitions for the AirSafe Schools intelligent advisory platform (F-22).
 
@@ -9,9 +9,9 @@ This directory provides the central Model Context Protocol (MCP) server implemen
 The MCP Server grounds Amazon Bedrock Nova / Claude models strictly in real-time school environmental telemetry and the Model School Outdoor Activity Policy v1.2 without LLM hallucination.
 
 ```
-Bedrock Agent / Claude ──[JSON-RPC 2.0]──> AirSafe MCP Server ──> DynamoDB Readings Table
-                                               │
-                                               └──> Policy v1.2 Engine
+Bedrock Agent / Claude â”€â”€[JSON-RPC 2.0]â”€â”€> AirSafe MCP Server â”€â”€> DynamoDB Readings Table
+                                               â”‚
+                                               â””â”€â”€> Policy v1.2 Engine
 ```
 
 ### Shared Tools Available:

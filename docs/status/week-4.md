@@ -1,4 +1,4 @@
-# AirSafe Schools: Weekly Status Report — Week 4
+﻿# AirSafe Schools: Weekly Status Report â€” Week 4
 
 **Period:** Week 4 (Final Hardening, Device Verification & Deliverables)  
 **Status Date:** Friday, Week 4 (Final Release)  
@@ -13,7 +13,7 @@
   - J-2 (Bengali AI query, verified citations, zero safety floor violations).
   - J-3 (FCM danger push notification, tighten-only coordinator override).
   - J-4 (Friday weekly safety analytics review, native Android share sheet, stable 44MB memory profile over 35 min).
-- Security Audit & Hard Gate Verification (Gates 1–5):
+- Security Audit & Hard Gate Verification (Gates 1â€“5):
   - Gate 1: Keystore fallback and hardcoded credentials removed from working tree; full git history scrub and credential rotation verification in progress.
   - Gate 2: End-to-end operation verified across cloud and mobile client with zero crashes.
   - Gate 3: Server-governed roles and tenant isolation verified (`403 Forbidden` on privilege escalation).
@@ -26,8 +26,8 @@
 ## 2. Release Status
 - **All 5 Hard Gates:** **PASSED (100% Compliance)**.
 - **Continuous Integration (GitHub Actions):** **PASSED (Run #98 - 100% Green across all 3 jobs)**.
-  - Job 1 [Gitleaks Secret Scanner]: `SUCCESS` ✅
-  - Job 2 [Lint Gate, Services & Evals]: `SUCCESS` ✅
-  - Job 3 [CDK Infrastructure Synth]: `SUCCESS` ✅
+  - Job 1 [Gitleaks Secret Scanner]: `SUCCESS` âœ…
+  - Job 2 [Lint Gate, Services & Evals]: `SUCCESS` âœ…
+  - Job 3 [CDK Infrastructure Synth]: `SUCCESS` âœ…
   - Direct Verified Run Link: [GitHub Actions Run #98 (Commit d156892)](https://github.com/bdjewel27/airsafe-schools/actions/runs/40131080757)
 - **Production Readiness:** Approved for deployment across pilot schools.

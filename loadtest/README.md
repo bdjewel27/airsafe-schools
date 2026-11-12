@@ -1,4 +1,4 @@
-# AirSafe Schools: Telemetry Pipeline Load & Burst Testing Suite
+﻿# AirSafe Schools: Telemetry Pipeline Load & Burst Testing Suite
 
 This directory contains automated load and burst test specifications (`k6` and `Artillery`) along with empirical raw benchmark results for the AirSafe Schools telemetry ingestion pipeline.
 
@@ -12,9 +12,9 @@ This directory contains automated load and burst test specifications (`k6` and `
 - **Failure Quarantine:** Amazon SQS Dead Letter Queue (DLQ) with `maxReceiveCount: 3`
 
 ```
-IoT Sensors / Simulator ──> SQS Ingestion Queue ──> Processor Lambda ──> DynamoDB
-                                  │
-                                  ▼ (after 3 failures)
+IoT Sensors / Simulator â”€â”€> SQS Ingestion Queue â”€â”€> Processor Lambda â”€â”€> DynamoDB
+                                  â”‚
+                                  â–¼ (after 3 failures)
                              Dead Letter Queue (DLQ)
 ```
 

@@ -1,8 +1,8 @@
-# AirSafe Schools: Official Review & Evaluation Guide (REVIEW.md)
+﻿# AirSafe Schools: Official Review & Evaluation Guide (REVIEW.md)
 **Document Version:** 1.0.0  
 **Date:** October 2026  
 **Repository:** https://github.com/bdjewel27/airsafe-schools  
-**Target Environment:** AWS Sydney (`ap-southeast-2`) & Native Android (API 26–35)  
+**Target Environment:** AWS Sydney (`ap-southeast-2`) & Native Android (API 26â€“35)  
 **Evaluation Standard:** Model School Outdoor Activity Policy v1.2 & Project Specification  
 
 ---
@@ -14,16 +14,16 @@ In accordance with project evaluation transparency requirements, this document o
 | Component / Subsystem | Operational Reality | Evidence / Verification Method | Execution Command & Link |
 | :--- | :--- | :--- | :--- |
 | **AI Assistant Evals (A-9)** | **Mocked eval: 44/44 PASSED** | Executed via real endpoint handler `POST /schools/{id}/assistant/chat` with deterministic policy engine fallback. 0 safety violations. | Command: `node scripts/run-evals.js --mock-only`<br>Report: [`docs/eval-report.md`](docs/eval-report.md) |
-| **Live Bedrock Invocation** | **চালানো হয়নি (quota 0)** | Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to 0.0 tokens/min. Formally excluded under Hard Gate 5 as **"বাদ, কারণসহ"**. | AWS Support Case #17283940191<br>Rationale: [`docs/adr/001-bedrock-model-fallback.md`](docs/adr/001-bedrock-model-fallback.md) |
+| **Live Bedrock Invocation** | **à¦šà¦¾à¦²à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à¦¨à¦¿ (quota 0)** | Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to 0.0 tokens/min. Formally excluded under Hard Gate 5 as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"**. | AWS Support Case #17283940191<br>Rationale: [`docs/adr/001-bedrock-model-fallback.md`](docs/adr/001-bedrock-model-fallback.md) |
 | **Live AI Off-Topic Refusal** | **3/3 PASSED (Live/Local API)** | Deployed API Gateway strictly rejects off-topic queries in real time. | Command: `node scripts/smoke-test-ai-offtopic.js` |
-| **Campus Sensors** | **কোনো physical sensor online নেই (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
+| **Campus Sensors** | **à¦•à§‹à¦¨à§‹ physical sensor online à¦¨à§‡à¦‡ (Simulated/Seeded)** | Zero physical IoT hardware sensors are deployed on campus. All telemetry is generated via simulator and database seed. | Command: `node scripts/seed-data.ts`<br>Simulator: [`simulator/src/index.ts`](simulator/src/index.ts) |
 | **Multi-Tenant & MCP Auth** | **46/46 PASSED (Live/Local API)** | 12 tenant routes tested for 401 unauthenticated, 403 cross-tenant, 200 legitimate, SSE streams, and MCP auth. | Command: `node scripts/smoke-test-tenant-isolation.js` |
-| **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720×1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
+| **Physical Android Device** | **Hardware Verified (Zero Crashes)** | Tested on physical ITEL itel A667LP (Android 14, 720Ã—1612 px, 3GB RAM). | Report: [`docs/device-test.md`](docs/device-test.md)<br>Screenshots: [`docs/real-phone-decision-card.png`](docs/real-phone-decision-card.png) |
 | **Security & Secrets** | **Hard Gate 1 Remediation In Progress** | Hardcoded passwords removed from source; reviewer credentials loaded from AWS Secrets Manager (`airsafe/demo-credentials`). Full git history scrub & secret rotation pending verification before claiming clean history. | Gitleaks: required CI gate<br>Workflows: [`.github/workflows/security.yml`](.github/workflows/security.yml), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | **Public Health Check** | **Public 200 OK (No Auth)** | Public unauthenticated endpoint for uptime and monitoring. | Route: `GET /health`<br>Spec: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 | **Rate Limiter & Token Reuse** | **14/14 PASSED (QA Audit H4)** | Pre-warmed account allowlisted (100 burst window); Bearer token cached and reused across sequential test suites with zero 429 errors. | Command: `node scripts/verify-rate-limiting.js` |
-| **EPA AQI Standard & Provenance** | **136 AQI & Provenance (QA Audit H5)** | Authoritative EPA PM2.5 linear interpolation enforced across poller, API, and MCP (49.7 µg/m³ -> 136). Provenance metadata attached. | Unit Tests: `npm --prefix services/api test` (110/110 passed) |
-| **UI Typography & Fallback Cleanup** | **MaterialTheme Unified (QA Audit M1-M3)** | Fragmented font sizes replaced with standard M3 typography. Mock placeholders ("09:50") removed for authentic empty states ("তথ্য নেই"). | Android Tests: `./gradlew test`<br>Report: [`docs/device-test.md`](docs/device-test.md) |
+| **EPA AQI Standard & Provenance** | **136 AQI & Provenance (QA Audit H5)** | Authoritative EPA PM2.5 linear interpolation enforced across poller, API, and MCP (49.7 Âµg/mÂ³ -> 136). Provenance metadata attached. | Unit Tests: `npm --prefix services/api test` (110/110 passed) |
+| **UI Typography & Fallback Cleanup** | **MaterialTheme Unified (QA Audit M1-M3)** | Fragmented font sizes replaced with standard M3 typography. Mock placeholders ("09:50") removed for authentic empty states ("à¦¤à¦¥à§à¦¯ à¦¨à§‡à¦‡"). | Android Tests: `./gradlew test`<br>Report: [`docs/device-test.md`](docs/device-test.md) |
 | **Dependency Security (Poller)** | **0 Vulnerabilities (QA Audit M4)** | Transitive `uuid` advisory resolved via `firebase-admin` upgrade and overrides. Confirmed via `npm audit --omit=dev`. | Command: `npm --prefix services/poller audit --omit=dev` |
 | **Evaluator Review Spec** | **Authoritative AI & Human Guide** | Complete endpoint access matrix, school ID mapping, and auth guide. | Guide: [`PROJECT_REVIEW_FOR_CLAUDE.md`](PROJECT_REVIEW_FOR_CLAUDE.md) |
 
@@ -56,7 +56,7 @@ In accordance with project evaluation transparency requirements, this document o
   - Protected endpoints like `GET /schools/school-dhaka-001/sensor-sites` require valid Bearer token as verified in smoke test; unauthenticated checks correctly return HTTP 401. Public endpoints (`GET /health`, `GET /policies/current`, `GET /districts`) require zero auth.
   - Teachers cannot record coordinator overrides or modify routines (HTTP 403).
   - Scoped MCP JWTs are context-driven and cannot access cross-tenant data.
-  - Rate Limiting & Token Reuse (QA Audit H4): Standard production accounts strictly enforce 5 requests / 15 mins (৫ বার ভুল login হলে ১৫ মিনিটের জন্য 429 আসবে।). Automated test suites reuse cached Bearer tokens via `scripts/token-cache.js` (persisting to `.smoke-token.json`), and dedicated account `reviewer-test@airsafe.internal` is allowlisted with a 100-burst allowance.
+  - Rate Limiting & Token Reuse (QA Audit H4): Standard production accounts strictly enforce 5 requests / 15 mins (à§« à¦¬à¦¾à¦° à¦­à§à¦² login à¦¹à¦²à§‡ à§§à§« à¦®à¦¿à¦¨à¦¿à¦Ÿà§‡à¦° à¦œà¦¨à§à¦¯ 429 à¦†à¦¸à¦¬à§‡à¥¤). Automated test suites reuse cached Bearer tokens via `scripts/token-cache.js` (persisting to `.smoke-token.json`), and dedicated account `reviewer-test@airsafe.internal` is allowlisted with a 100-burst allowance.
   - Verification Commands: `node scripts/smoke-test-tenant-isolation.js` (**46/46 PASSED**), `node scripts/verify-rate-limiting.js` (**14/14 PASSED**).
 
 ### Gate 4: Policy Safety Floor & Monotonic Strictness
@@ -72,7 +72,7 @@ In accordance with project evaluation transparency requirements, this document o
 ### Gate 5: Honest Scope & Cost Discipline
 - **Status:** **HOLD / Pending billing evidence**
 - **Verification:**
-  - Requirement F-05 is honestly documented as **"বাদ, কারণসহ"** (Excluded with documented rationale: AWS Sydney Bedrock Nova quota 0.0, AWS Support Case #17283940191, ADR-001).
+  - Requirement F-05 is honestly documented as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"** (Excluded with documented rationale: AWS Sydney Bedrock Nova quota 0.0, AWS Support Case #17283940191, ADR-001).
   - Total estimated development cloud cost tracked in [`docs/COST.md`](docs/COST.md) is **Estimated $3.42 (export pending)**.
 
 ---
@@ -88,7 +88,6 @@ Physical testing was conducted on an **ITEL itel A667LP** (Android 14, MediaTek 
    - Bilingual Login Screen: [`docs/real-phone-app-home.png`](docs/real-phone-app-home.png)
    - Bangla Localized Decision Card: [`docs/screen_decision_bangla.png`](docs/screen_decision_bangla.png)
    - 200% Font Scale View: [`docs/screen_decision_font200.png`](docs/screen_decision_font200.png)
-   - TalkBack Accessibility Navigation: [`docs/screen_decision_talkback.png`](docs/screen_decision_talkback.png)
 
 ---
 

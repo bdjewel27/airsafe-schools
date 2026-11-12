@@ -1,4 +1,4 @@
-# ADR 011: Amazon Bedrock ConverseStream, RAG & Strict Policy Guardrails
+﻿# ADR 011: Amazon Bedrock ConverseStream, RAG & Strict Policy Guardrails
 
 ## Status
 Accepted

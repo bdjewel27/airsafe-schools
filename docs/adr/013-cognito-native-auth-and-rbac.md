@@ -1,4 +1,4 @@
-# ADR 013: Native Amazon Cognito User Pool Authorization, RBAC via Groups, and Elimination of Password Exposure
+﻿# ADR 013: Native Amazon Cognito User Pool Authorization, RBAC via Groups, and Elimination of Password Exposure
 
 ## Status
 Accepted
@@ -10,7 +10,7 @@ During initial development sprints, AirSafe Schools implemented a hybrid authent
 3. Coordinator staff invitation (`POST /schools/{schoolId}/staff/invite`) generated a random initial password and returned `temporary_password` directly in the HTTP JSON response body for out-of-band delivery.
 4. The API Lambda did not receive `USER_POOL_ID` in its environment configuration, meaning the automated Cognito `AdminCreateUser` workflow and automated email delivery of temporary passwords did not execute in production.
 
-This hybrid approach introduced several architectural and security risks (Section 16, Gates 1–3, S-2):
+This hybrid approach introduced several architectural and security risks (Section 16, Gates 1â€“3, S-2):
 - Return of temporary passwords in network responses posed risks of logging and credential leakage.
 - Discrepancy between documentation claiming "Cognito attributes client read-only" and live API paths relying on internal tokens.
 - Role management relied partially on custom attributes rather than exclusive server-governed group membership.

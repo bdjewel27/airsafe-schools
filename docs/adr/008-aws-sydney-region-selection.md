@@ -1,4 +1,4 @@
-# ADR 008: AWS Sydney (ap-southeast-2) Region Selection
+﻿# ADR 008: AWS Sydney (ap-southeast-2) Region Selection
 
 ## Status
 Accepted
