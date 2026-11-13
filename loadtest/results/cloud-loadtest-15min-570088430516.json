@@ -1,0 +1,19 @@
+{
+  "test_environment": "AWS CloudShell (ap-southeast-2 / Sydney)",
+  "aws_account_id": "570088430516",
+  "start_time_utc": "2026-11-12T19:58:03.537779+00:00",
+  "end_time_utc": "2026-11-12T20:13:05.476605+00:00",
+  "duration_seconds": 901.94,
+  "target_queue": "airsafe-ingestion-queue-dev",
+  "dlq_queue": "airsafe-ingestion-dlq-dev",
+  "total_events_ingested": 116540,
+  "average_throughput_events_per_sec": 129.21,
+  "successful_batches": 11654,
+  "failed_batches": 0,
+  "dlq_messages_after_test": 70320,
+  "latency_ms": {
+    "p50": 84.31,
+    "p95": 2041.48,
+    "p99": 2075.88
+  }
+}

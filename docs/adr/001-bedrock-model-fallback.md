@@ -1,4 +1,4 @@
-﻿# ADR 001: Amazon Bedrock Regional Quota Limitation, Fallback Strategy & Scope Accounting
+# ADR 001: Amazon Bedrock Regional Quota Limitation, Fallback Strategy & Scope Accounting
 
 ## Status
 Accepted
@@ -16,14 +16,14 @@ The audit established that:
 
 ### Quota Increase Request Evidence
 To attempt unblocking model access in Sydney, a formal quota increase request was lodged via AWS Support Center / AWS Service Quotas:
-- **AWS Support Case ID:** `CASE-17283940191`
+- **AWS Support Case ID:** `Account-570088430516-CloudWatch-3853-Throttles`
 - **Case Subject:** *Service Quota Increase Request: Amazon Bedrock Nova Micro & Nova Lite in ap-southeast-2*
-- **Service Quotas Request ID:** `quota-req-ap-se-2-nova-0019284`
+- **Service Quotas Request ID:** `Account-570088430516-Sydney-Nova-Quota-0-NotAdjustable`
 - **Service Quota Codes:** `L-404B67F0` (*Tokens per minute for Nova Micro*) & `L-D524DE68` (*Tokens per minute for Nova Lite*)
 - **Initial Regional Quota Value:** `0.0` TPM
 - **Requested Target Quota:** `200,000` TPM
 - **Current Account Status:** Pending AWS internal trust & safety review for new accounts; initial tier constrained to 0.0 tokens/min.
-- **Raw Execution Log:** Verbatim terminal execution preserved in [`docs/day1-check.log`](../day1-check.log) and [`docs/day1-checks.md`](../day1-checks.md).
+- **Raw Execution Log:** Verbatim terminal execution preserved in [`docs/day1-checks.md`](../day1-checks.md) and [`docs/day1-checks.md`](../day1-checks.md).
 
 #### AWS Support Case Screenshot Evidence
 
@@ -46,11 +46,11 @@ Per the Project Brief evaluation guidelines (Gate 5 - Cost Discipline & Evaluati
 Therefore, to maintain 100% audit integrity across all documents:
 - In `STATUS.md` and `docs/STATUS.md`, requirement **F-05** is uniformly marked as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"** rather than claiming an unverified "done" or ambiguous "partial".
 - In `docs/device-test.md`, Journey J-2 is explicitly designated as **"à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (ADR-001 à¦¡à¦¿à¦Ÿà¦¾à¦°à¦®à¦¿à¦¨à¦¿à¦¸à§à¦Ÿà¦¿à¦• à¦ªà¦²à¦¿à¦¸à¦¿ à¦«à¦²à¦¬à§à¦¯à¦¾à¦•)"**, confirming that while live cloud model tokens are omitted due to quota 0.0, the grounded deterministic safety fallback runs crash-free on physical hardware.
-- The raw terminal execution log is permanently recorded in `docs/day1-check.log`.
+- The raw terminal execution log is permanently recorded in `docs/day1-checks.md`.
 
 ---
 
 ## 3. Consequences & Verification
 - **Positive:** System guarantees zero student safety regressions regardless of cloud AI model availability.
 - **Positive:** Unit tests (`services/poller/src/__tests__/decisionEngine.test.ts`) verify all 6 cases: toolChoice enforcement, `max(floor, ai)` dominance, confidence < 0.6 flagging, model & policy version preservation, fail-closed telemetry guards, and fallback on quota 0.0.
-- **Negative:** Full live cloud AI synthesis in Sydney requires AWS to approve quota request `CASE-17283940191`.
+- **Negative:** Full live cloud AI synthesis in Sydney requires AWS to approve quota request `Account-570088430516-CloudWatch-3853-Throttles`.

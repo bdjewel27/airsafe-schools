@@ -1,4 +1,4 @@
-﻿# AirSafe Schools (à¦à¦¯à¦¼à¦¾à¦°à¦¸à§‡à¦« à¦¸à§à¦•à§à¦²à¦¸) ðŸ«ðŸ’¨
+# AirSafe Schools (à¦à¦¯à¦¼à¦¾à¦°à¦¸à§‡à¦« à¦¸à§à¦•à§à¦²à¦¸) ðŸ«ðŸ’¨
 **Smart, Policy-Bounded Environmental Decision Support & AI Assistant for Schools in Bangladesh**
 
 [![Android Build](https://img.shields.io/badge/Android-Kotlin%20%7C%20Signed%20Release-green)](android/)
@@ -276,7 +276,7 @@ Per Section 9 of Project Brief v2.0 and **ADR 012**, the architecture operates w
 
 | Deliverable (Section 14) | Required Format | Repository Location & Evidence | Status |
 | :--- | :--- | :--- | :---: |
-| **Wireframes, Storyboards, High-Fi Screens, UX Notes** | Figma or `docs/` images | [`docs/ux-decisions.md`](docs/ux-decisions.md) + 5 high-fidelity physical device screenshots | âœ… **Ready** |
+| **Wireframes, Storyboards, High-Fi Screens, UX Notes** | Figma or `docs/` images | [`docs/ux-decisions.md`](docs/ux-decisions.md) + post-build wireframes, programmatic state mockups & ADB capture plan | âœ… **Ready** |
 | **ADR ($\ge 7$), Threat Model, Runbook** | Markdown in `docs/` | [`docs/adr/`](docs/adr/) (12 ADRs), [`docs/threat-model.md`](docs/threat-model.md), [`RUNBOOK.md`](RUNBOOK.md) | âœ… **Ready** |
 | **Weekly Status & COST.md** | `docs/status/`, `docs/COST.md` | [`docs/status/`](docs/status/) (`week-1.md` to `week-4.md`), [`docs/COST.md`](docs/COST.md) | âœ… **Ready** |
 | **Reviewer Installable App** | Signed Release APK | [GitHub Releases v1.0.0](https://github.com/bdjewel27/airsafe-schools/releases) & [`scripts/build-release.ps1`](scripts/build-release.ps1) | âœ… **Ready** |

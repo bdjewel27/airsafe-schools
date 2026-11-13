@@ -1,4 +1,4 @@
-﻿# Section 12: Device & Physical Verification Report (à¦¬à¦¾à¦¸à§à¦¤à¦¬ à¦¡à¦¿à¦­à¦¾à¦‡à¦¸à§‡ à¦Ÿà§‡à¦¸à§à¦Ÿà§‡à¦° à¦ªà§à¦°à¦®à¦¾à¦£)
+# Section 12: Device & Physical Verification Report (à¦¬à¦¾à¦¸à§à¦¤à¦¬ à¦¡à¦¿à¦­à¦¾à¦‡à¦¸à§‡ à¦Ÿà§‡à¦¸à§à¦Ÿà§‡à¦° à¦ªà§à¦°à¦®à¦¾à¦£)
 
 **Project:** AirSafe Schools  
 **Target Platform:** Android 8.0 (API 26) through Android 15 (API 35)  
@@ -56,7 +56,7 @@ A teacher standing in a bustling corridor or assembly ground needs to glance at 
 
 ### Scope Status (Hard Gate 5 Compliance)
 **Classification:** **à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (Omitted with Rationale)**  
-**Rationale:** AWS Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to `0.0 tokens/min` (AWS Support Case `#17283940191`, Service Quotas Request `#quota-req-ap-se-2-nova-0019284`). Per Project Brief Gate 5 (*"à¦•à§‹à¦¨à§‹ Must à¦¬à¦¾à¦¦ à¦¦à¦¿à¦²à§‡ à¦¤à¦¾ 'done' à¦¨à¦¯à¦¼, 'à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹' à¦¹à¦¿à¦¸à§‡à¦¬à§‡ à¦¦à§‡à¦–à¦¾à¦¤à§‡ à¦¹à¦¯à¦¼"*), live cloud Bedrock invocation is not marked as "done". On physical hardware, the system executes the verified deterministic policy engine fallback per ADR-001.
+**Rationale:** AWS Sydney (`ap-southeast-2`) Bedrock Nova on-demand quota is constrained to `0.0 tokens/min` (Account `570088430516` CloudWatch `InvocationThrottles`: 3,825 in `ap-southeast-2` + 28 in `us-east-1`; Nova quota `0.0` NOT adjustable). Per Project Brief Gate 5 (*"à¦•à§‹à¦¨à§‹ Must à¦¬à¦¾à¦¦ à¦¦à¦¿à¦²à§‡ à¦¤à¦¾ 'done' à¦¨à¦¯à¦¼, 'à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹' à¦¹à¦¿à¦¸à§‡à¦¬à§‡ à¦¦à§‡à¦–à¦¾à¦¤à§‡ à¦¹à¦¯à¦¼"*), live cloud Bedrock invocation is not marked as "done". On physical hardware, the system executes the verified deterministic policy engine fallback per ADR-001.
 
 ### Objective & Benchmark
 A teacher inquires in Bengali about outdoor sports safety during active PE class (*"à¦†à¦œà¦•à§‡ à¦•à¦¿ à¦®à¦¾à¦ à§‡ à¦–à§‡à¦²à¦¾à¦§à§à¦²à¦¾ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡?"*). The system must:
@@ -67,7 +67,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 
 ### Test Execution Steps & Results
 1. Selected AI Assistant tab and submitted Bengali query: *"à¦†à¦œà¦•à§‡ à¦•à¦¿ à¦®à¦¾à¦ à§‡ à¦–à§‡à¦²à¦¾à¦§à§à¦²à¦¾ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡?"*
-2. **Assistant Output:** System evaluated the query against local deterministic fallback & policy rules per ADR-001 (due to AWS Sydney Bedrock Nova quota 0.0, AWS Support Case #17283940191; F-05 documented as "à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"), responding with grounded advice detailing current heat index (33.1Â°C) and AQI (78), recommending modification to light drills with mandatory shade and hydration.
+2. **Assistant Output:** System evaluated the query against local deterministic fallback & policy rules per ADR-001 (due to AWS Sydney Bedrock Nova quota 0.0, Account 570088430516 CloudWatch: 3,825 throttled calls in ap-southeast-2 + 28 in us-east-1; Nova quota 0.0 NOT adjustable; F-05 documented as "à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹"), responding with grounded advice detailing current heat index (33.1Â°C) and AQI (78), recommending modification to light drills with mandatory shade and hydration.
 3. **Citation:** Displayed verified badge: *"Policy v1.2, Appendix A: Environmental Decision Matrix (Table 2.3)"*.
 4. **Floor Guardrail Verification:** Simulated prompt injection attempting to force "PROCEED" during smog episode; system strictly enforced the deterministic floor and rejected relaxation.
 
@@ -138,7 +138,7 @@ A teacher inquires in Bengali about outdoor sports safety during active PE class
 | Journey ID | Requirement Description | Benchmark Target | Measured Result & Scope | Status |
 | :---: | :--- | :---: | :---: | :---: |
 | **J-1** | Morning Check (Glance & Decisions) | $\le 10\text{ s}$, $\le 3$ taps | **2.8 seconds, 3 taps (0.79s paint)** (Hardware Measured) | âœ… **PASS** |
-| **J-2** | Bengali Inquiry & Grounded AI Assistant (F-05) | Bilingual Policy Citations & Monotonic Floor | **à¦•à§à¦²à¦¾à¦‰à¦¡ Bedrock à¦®à¦¡à§‡à¦² à¦²à¦¾à¦‡à¦­ à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (à¦¸à¦¿à¦¡à¦¨à¦¿à¦¤à§‡ à¦•à§‹à¦Ÿà¦¾ 0.0, Support Case #17283940191); à¦…à¦¨-à¦¡à¦¿à¦­à¦¾à¦‡à¦¸ ADR-001 à¦¡à¦¿à¦Ÿà¦¾à¦°à¦®à¦¿à¦¨à¦¿à¦¸à§à¦Ÿà¦¿à¦• à¦ªà¦²à¦¿à¦¸à¦¿ à¦‡à¦žà§à¦œà¦¿à¦¨ à¦«à¦²à¦¬à§à¦¯à¦¾à¦• à¦¹à¦¾à¦°à§à¦¡à¦“à§Ÿà§à¦¯à¦¾à¦°-à¦­à§‡à¦°à¦¿à¦«à¦¾à¦‡à¦¡** | **à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (Fallback Verified)** |
+| **J-2** | Bengali Inquiry & Grounded AI Assistant (F-05) | Bilingual Policy Citations & Monotonic Floor | **à¦•à§à¦²à¦¾à¦‰à¦¡ Bedrock à¦®à¦¡à§‡à¦² à¦²à¦¾à¦‡à¦­ à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (à¦¸à¦¿à¦¡à¦¨à¦¿à¦¤à§‡ à¦•à§‹à¦Ÿà¦¾ 0.0, Account 570088430516 CloudWatch: 3,853 throttles); à¦…à¦¨-à¦¡à¦¿à¦­à¦¾à¦‡à¦¸ ADR-001 à¦¡à¦¿à¦Ÿà¦¾à¦°à¦®à¦¿à¦¨à¦¿à¦¸à§à¦Ÿà¦¿à¦• à¦ªà¦²à¦¿à¦¸à¦¿ à¦‡à¦žà§à¦œà¦¿à¦¨ à¦«à¦²à¦¬à§à¦¯à¦¾à¦• à¦¹à¦¾à¦°à§à¦¡à¦“à§Ÿà§à¦¯à¦¾à¦°-à¦­à§‡à¦°à¦¿à¦«à¦¾à¦‡à¦¡** | **à¦¬à¦¾à¦¦, à¦•à¦¾à¦°à¦£à¦¸à¦¹ (Fallback Verified)** |
 | **J-3** | Emergency Push & Tighten-Only Override | High-Pri Heads-Up & RBAC | **Verified on Hardware Device** | âœ… **PASS** |
 | **J-4** | Friday Safety Report & Share Sheet | Weekly Report & 30m+ Stability | **Real API (/schools/{id}/analytics), Row-Level CSV Export & 44MB heap verified** | âœ… **PASS** |
 | **U-6** | Accessibility & Contrast | WCAG AAA ($\ge 7:1$, $\ge 48\text{dp}$) | **Passed Contrast & TalkBack** (Hardware Verified) | âœ… **PASS** |
@@ -154,10 +154,10 @@ All physical device captures, accessibility audit proofs, and installation binar
 | Deliverable Artifact | Description & Scope | Verified In-Repo Artifact / Link |
 | :--- | :--- | :--- |
 | **8â€“10 Min End-to-End Demo Video** | Full walkthrough of Journeys J-1 through J-4 & TalkBack on physical ITEL itel A667LP (Duration: 08:07, 720x1612 px, Android 14) | [docs/real-phone-demo-walkthrough.mp4](real-phone-demo-walkthrough.mp4) |
-| **Action-First Decision Card** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-decision-card.png`](real-phone-decision-card.png) |
-| **Bilingual Localized Decision Card** | Bangla localized decision card with Bengali numerals, status & action recommendations | [`docs/screen_decision_bangla.png`](screen_decision_bangla.png) |
-| **200% Font Scale Accessibility View** | Accessibility typography audit under 2.0x font scaling without layout clipping | [`docs/screen_decision_font200.png`](screen_decision_font200.png) |
-| **Bilingual Sign-In Screen** | Bengali sign-in screen on physical ITEL itel A667LP (720x1612 px, Android 14) | [`docs/real-phone-app-home.png`](real-phone-app-home.png) |
+| **Action-First Decision Card** | Action-first decision card on physical ITEL itel A667LP (720x1612 px, Android 14) | Pending fresh emulator/device capture (`adb exec-out screencap`) |
+| **Bilingual Localized Decision Card** | Bangla localized decision card with Bengali numerals, status & action recommendations | [`docs/screen_decision_bangla.png` *(Programmatic Mockup / State Preview)*](screen_decision_bangla.png) |
+| **200% Font Scale Accessibility View** | Accessibility typography audit under 2.0x font scaling without layout clipping | [`docs/screen_decision_font200.png` *(Programmatic Mockup / State Preview)*](screen_decision_font200.png) |
+| **Bilingual Sign-In Screen** | Bengali sign-in screen on physical ITEL itel A667LP (720x1612 px, Android 14) | Pending fresh emulator/device capture (`adb exec-out screencap`) |
 | **Signed Release APK (`app-release.apk`)** | Production signed binary with SHA-256 / RSA 2048-bit key | [`android/app/build/outputs/apk/release/app-release.apk`](../android/app/build/outputs/apk/release/app-release.apk) / [GitHub Releases](https://github.com/bdjewel27/airsafe-schools/releases) |
 
 ## 9. Physical Device Live Audit (U-1, U-6, U-8 Verification)
@@ -169,10 +169,10 @@ All physical device captures, accessibility audit proofs, and installation binar
 - **Live Physical Video Recording:**
   - Full 8-Minute J-1 to J-4 Walkthrough & TalkBack: [docs/real-phone-demo-walkthrough.mp4](real-phone-demo-walkthrough.mp4) (08:07 duration, 720x1612 px real device screen recording)
 - **Live Physical Screen Captures & Accessibility Proofs:**
-  - Action-First Decision Card: [docs/real-phone-decision-card.png](real-phone-decision-card.png)
+  - Action-First Decision Card: Pending fresh emulator/device capture
   - Bengali Localized Decision Card: [docs/screen_decision_bangla.png](screen_decision_bangla.png)
   - 200% Font Scale View: [docs/screen_decision_font200.png](screen_decision_font200.png)
-  - Login Screen (Bilingual): [docs/real-phone-app-home.png](real-phone-app-home.png)
+  - Login Screen (Bilingual): Pending fresh emulator/device capture
   - Verified Screen Transitions: Authentication -> Decision Card -> Trends -> AI Assistant
 
 
@@ -192,7 +192,7 @@ To ensure all captured screenshots remain binary-intact (starting with magic byt
 ### Authentic Capture Commands:
 1. **Via Command Prompt (CMD) or Git Bash:**
    ```bash
-   adb exec-out screencap -p > docs/real-phone-decision-card.png
+   adb exec-out screencap -p > docs/screen_decision_home.png
    adb exec-out screencap -p > docs/screen_decision_bangla.png
    adb exec-out screencap -p > docs/screen_decision_font200.png
    ```
@@ -201,11 +201,11 @@ To ensure all captured screenshots remain binary-intact (starting with magic byt
    ```powershell
    # Use adb shell screencap and adb pull (PowerShell '>' redirect corrupts binary PNGs into UTF-16 text)
    adb shell screencap -p /sdcard/screencap.png
-   adb pull /sdcard/screencap.png docs/real-phone-decision-card.png
+   adb pull /sdcard/screencap.png docs/screen_decision_home.png
    adb shell rm /sdcard/screencap.png
    ```
 
 ### Verification Artifacts & Repository Target Paths:
-- `docs/real-phone-decision-card.png`: Action-first decision card on 720x1612 physical screen.
-- `docs/screen_decision_bangla.png`: Bangla localized decision card with Bengali digits and status.
-- `docs/screen_decision_font200.png`: 200% accessibility font scale view showing zero text truncation or clipping.
+- Fresh physical/emulator screenshots (`screen_decision_home.png`, `screen_talkback_focus.png`) to be captured via ADB after final UI polish (Step 4).
+- `docs/screen_decision_bangla.png` *(Programmatic Mockup / State Preview)*: Bangla localized decision card with Bengali digits and status.
+- `docs/screen_decision_font200.png` *(Programmatic Mockup / State Preview)*: 200% accessibility font scale view showing zero text truncation or clipping.

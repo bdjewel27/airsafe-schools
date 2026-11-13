@@ -1,4 +1,4 @@
-﻿# AirSafe Schools: Top 5 UX Architecture Decisions & UI Specification (U-10)
+# AirSafe Schools: Top 5 UX Architecture Decisions & UI Specification (U-10)
 
 ## Overview
 AirSafe Schools is designed for busy primary and secondary school teachers and coordinators in Bangladesh who have less than 3 minutes between class transitions to determine if children can safely go outdoors. Every design decision optimizes for cognitive calm, rapid verification, and zero ambiguity under harsh sunlight and low-bandwidth rural cellular conditions.
@@ -114,7 +114,7 @@ Calculated using the official WCAG 2.1 relative luminance formula $\left(L_1 + 0
 
 ### B. Color-Blindness Simulation Matrix (WCAG 2.1 SC 1.4.1 Use of Color)
 
-![Color-Blindness Simulation Audit](colorblind-audit-comparison.png)
+![Color-Blindness Simulation Audit (Programmatic Simulation Mockup)](colorblind-audit-comparison.png)
 
 | Visual Encoding Layer | Safe State (PROCEED) | Caution State (PRECAUTIONS) | Danger State (MOVE INDOORS) | Unknown State (FAIL-CLOSED) |
 | :--- | :---: | :---: | :---: | :---: |
@@ -126,6 +126,8 @@ Calculated using the official WCAG 2.1 relative luminance formula $\left(L_1 + 0
 ---
 
 ## 11. Wireframes, Storyboards & High-Fidelity Design Specifications (U-10)
+
+> **Documentation Timeline Disclosure:** The architectural wireframes and journey storyboards below were documented and committed post-initial build (late October 2026) to formalize and audit existing UI flows—not as pre-build design artifacts.
 
 ### Visual Wireframe Architecture (Core 3 Screens)
 
